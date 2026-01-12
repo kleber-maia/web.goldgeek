@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payments - Gold Geek Admin</title>
+  <link rel="stylesheet" href="../wp-content/themes/hello-elementor/style.min.css%3Fver=3.3.0.css">
+  <link rel="stylesheet" href="../wp-content/themes/hello-elementor/theme.min.css%3Fver=3.3.0.css">
+  <link rel="stylesheet" href="../wp-content/uploads/elementor/css/post-6.css%3Fver=1767980318.css">
+  <link rel="stylesheet" href="../wp-content/uploads/elementor/google-fonts/css/poppins.css%3Fver=1742919930.css">
+  <link rel="stylesheet" href="../wp-content/uploads/admin/css/admin.css">
+  <link rel="icon" href="../wp-content/uploads/2025/03/cropped-GoldGeekFavicon-32x32.png" sizes="32x32">
+</head>
+<body class="admin-body">
+  <div class="admin-container">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+      <div style="padding: 16px 20px; margin-bottom: 20px;">
+        <a href="../index.html"><img src="../wp-content/uploads/2025/03/GoldGeekLogo-horizontal.png" alt="Gold Geek" style="height: 36px; width: auto;"></a>
+      </div>
+      <nav>
+        <ul class="admin-sidebar-nav">
+          <li><a href="index.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>Dashboard</a></li>
+          <li><a href="requests.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>Kit Requests</a></li>
+          <li><a href="offers.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>Offers</a></li>
+          <li><a href="payments.html" class="admin-sidebar-item active"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Payments</a></li>
+          <li><a href="returns.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Returns</a></li>
+          <li><a href="customers.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>Customers</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <!-- Mobile Header -->
+      <header class="admin-header">
+        <a href="index.html" class="admin-back-btn"><svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg></a>
+        <span class="admin-header-title">Payments</span>
+        <div style="width: 40px;"></div>
+      </header>
+
+      <!-- Filter Tabs -->
+      <div class="admin-filter-tabs">
+        <button class="admin-filter-tab active">All</button>
+        <button class="admin-filter-tab">Pending</button>
+        <button class="admin-filter-tab">Completed</button>
+      </div>
+
+      <!-- Payment Cards -->
+      <div class="admin-card-list">
+        <!-- Pending Payment -->
+        <div class="admin-card" data-status="pending">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-id">Payment #P1</div>
+              <div class="admin-card-name">John Doe</div>
+            </div>
+            <span class="admin-badge pending">Pending</span>
+          </div>
+          <div class="admin-card-meta">Offer #O2 &bull; PayPal</div>
+          <div class="admin-card-footer">
+            <span style="font-size: 18px; font-weight: 600; color: var(--e-global-color-primary);">$3,607.60</span>
+            <button class="admin-btn admin-btn-success" style="padding: 8px 16px; font-size: 13px;">
+              <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+              Process
+            </button>
+          </div>
+        </div>
+
+        <!-- Completed Payment -->
+        <div class="admin-card" data-status="completed">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-id">Payment #P2</div>
+              <div class="admin-card-name">Jane Smith</div>
+            </div>
+            <span class="admin-badge success">Completed</span>
+          </div>
+          <div class="admin-card-meta">Offer #O3 &bull; Check</div>
+          <div class="admin-card-footer">
+            <span style="font-size: 18px; font-weight: 600; color: var(--e-global-color-primary);">$1,852.15</span>
+            <span style="font-size: 12px; color: var(--status-success);">Paid Jan 5, 2025</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Table -->
+      <div class="admin-table-wrapper">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Payment ID</th><th>Customer</th><th>Offer</th><th>Amount</th><th>Method</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr data-status="pending">
+              <td>#P1</td><td>John Doe</td><td><a href="offer-detail.html?id=o2" class="admin-table-link">#O2</a></td>
+              <td>$3,607.60</td><td>PayPal</td><td><span class="admin-badge pending">Pending</span></td>
+              <td><button class="admin-btn admin-btn-success" style="padding: 6px 12px; font-size: 12px;">Process</button></td>
+            </tr>
+            <tr data-status="completed">
+              <td>#P2</td><td>Jane Smith</td><td><a href="offer-detail.html?id=o3" class="admin-table-link">#O3</a></td>
+              <td>$1,852.15</td><td>Check</td><td><span class="admin-badge success">Completed</span></td>
+              <td><span style="font-size: 12px; color: var(--status-gray);">Jan 5, 2025</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="admin-bottom-nav">
+      <a href="index.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>Home</a>
+      <a href="requests.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>Requests</a>
+      <a href="offers.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>Offers</a>
+      <a href="payments.html" class="admin-bottom-nav-item active"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Payments</a>
+      <a href="customers.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>Customers</a>
+    </nav>
+  </div>
+  <script src="../wp-content/uploads/admin/js/mock-data.js"></script>
+  <script src="../wp-content/uploads/admin/js/navigation.js"></script>
+</body>
+</html>

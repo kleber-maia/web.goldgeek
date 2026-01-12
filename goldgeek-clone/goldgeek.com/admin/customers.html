@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customers - Gold Geek Admin</title>
+  <link rel="stylesheet" href="../wp-content/themes/hello-elementor/style.min.css%3Fver=3.3.0.css">
+  <link rel="stylesheet" href="../wp-content/themes/hello-elementor/theme.min.css%3Fver=3.3.0.css">
+  <link rel="stylesheet" href="../wp-content/uploads/elementor/css/post-6.css%3Fver=1767980318.css">
+  <link rel="stylesheet" href="../wp-content/uploads/elementor/google-fonts/css/poppins.css%3Fver=1742919930.css">
+  <link rel="stylesheet" href="../wp-content/uploads/admin/css/admin.css">
+  <link rel="icon" href="../wp-content/uploads/2025/03/cropped-GoldGeekFavicon-32x32.png" sizes="32x32">
+</head>
+<body class="admin-body">
+  <div class="admin-container">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+      <div style="padding: 16px 20px; margin-bottom: 20px;">
+        <a href="../index.html"><img src="../wp-content/uploads/2025/03/GoldGeekLogo-horizontal.png" alt="Gold Geek" style="height: 36px; width: auto;"></a>
+      </div>
+      <nav>
+        <ul class="admin-sidebar-nav">
+          <li><a href="index.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>Dashboard</a></li>
+          <li><a href="requests.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>Kit Requests</a></li>
+          <li><a href="offers.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>Offers</a></li>
+          <li><a href="payments.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Payments</a></li>
+          <li><a href="returns.html" class="admin-sidebar-item"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Returns</a></li>
+          <li><a href="customers.html" class="admin-sidebar-item active"><svg class="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>Customers</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <!-- Mobile Header -->
+      <header class="admin-header">
+        <a href="index.html" class="admin-back-btn"><svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg></a>
+        <span class="admin-header-title">Customers</span>
+        <div style="width: 40px;"></div>
+      </header>
+
+      <!-- Search Bar -->
+      <div style="padding: 0 16px 16px;">
+        <div style="position: relative;">
+          <input type="text" placeholder="Search customers..." class="admin-input" style="padding-left: 40px; width: 100%;">
+          <svg width="20" height="20" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--status-gray);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+        </div>
+      </div>
+
+      <!-- Customer Cards (Mobile) -->
+      <div class="admin-card-list">
+        <!-- Customer 1 -->
+        <a href="customer-detail.html?id=c1" class="admin-card" style="text-decoration: none; color: inherit;">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-name">John Doe</div>
+              <div class="admin-card-meta">john.doe@email.com</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--e-global-color-primary);">2 requests</div>
+              <div style="font-size: 12px; color: var(--status-gray);">$3,607.60 total</div>
+            </div>
+          </div>
+          <div class="admin-card-footer">
+            <span class="admin-card-meta">(555) 123-4567</span>
+            <span style="font-size: 12px; color: var(--status-gray);">Since Dec 15, 2024</span>
+          </div>
+        </a>
+
+        <!-- Customer 2 -->
+        <a href="customer-detail.html?id=c2" class="admin-card" style="text-decoration: none; color: inherit;">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-name">Jane Smith</div>
+              <div class="admin-card-meta">jane.smith@email.com</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--e-global-color-primary);">2 requests</div>
+              <div style="font-size: 12px; color: var(--status-gray);">$1,852.15 total</div>
+            </div>
+          </div>
+          <div class="admin-card-footer">
+            <span class="admin-card-meta">(555) 234-5678</span>
+            <span style="font-size: 12px; color: var(--status-gray);">Since Dec 20, 2024</span>
+          </div>
+        </a>
+
+        <!-- Customer 3 -->
+        <a href="customer-detail.html?id=c3" class="admin-card" style="text-decoration: none; color: inherit;">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-name">Bob Wilson</div>
+              <div class="admin-card-meta">bob.wilson@email.com</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--e-global-color-primary);">2 requests</div>
+              <div style="font-size: 12px; color: var(--status-gray);">$85.00 total</div>
+            </div>
+          </div>
+          <div class="admin-card-footer">
+            <span class="admin-card-meta">(555) 345-6789</span>
+            <span style="font-size: 12px; color: var(--status-gray);">Since Jan 2, 2025</span>
+          </div>
+        </a>
+
+        <!-- Customer 4 -->
+        <a href="customer-detail.html?id=c4" class="admin-card" style="text-decoration: none; color: inherit;">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-name">Mary Johnson</div>
+              <div class="admin-card-meta">mary.j@email.com</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--e-global-color-primary);">2 requests</div>
+              <div style="font-size: 12px; color: var(--status-gray);">$245.50 total</div>
+            </div>
+          </div>
+          <div class="admin-card-footer">
+            <span class="admin-card-meta">(555) 456-7890</span>
+            <span style="font-size: 12px; color: var(--status-gray);">Since Jan 5, 2025</span>
+          </div>
+        </a>
+
+        <!-- Customer 5 -->
+        <a href="customer-detail.html?id=c5" class="admin-card" style="text-decoration: none; color: inherit;">
+          <div class="admin-card-header">
+            <div>
+              <div class="admin-card-name">David Brown</div>
+              <div class="admin-card-meta">david.brown@email.com</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 14px; font-weight: 600; color: var(--e-global-color-primary);">2 requests</div>
+              <div style="font-size: 12px; color: var(--status-gray);">$384.98 total</div>
+            </div>
+          </div>
+          <div class="admin-card-footer">
+            <span class="admin-card-meta">(555) 567-8901</span>
+            <span style="font-size: 12px; color: var(--status-gray);">Since Jan 8, 2025</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Desktop Table -->
+      <div class="admin-table-wrapper">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Customer</th><th>Email</th><th>Phone</th><th>Location</th><th>Requests</th><th>Total Value</th><th>Since</th></tr>
+          </thead>
+          <tbody>
+            <tr onclick="window.location='customer-detail.html?id=c1'" style="cursor: pointer;">
+              <td><strong>John Doe</strong></td>
+              <td>john.doe@email.com</td>
+              <td>(555) 123-4567</td>
+              <td>New York, NY</td>
+              <td>2</td>
+              <td>$3,607.60</td>
+              <td>Dec 15, 2024</td>
+            </tr>
+            <tr onclick="window.location='customer-detail.html?id=c2'" style="cursor: pointer;">
+              <td><strong>Jane Smith</strong></td>
+              <td>jane.smith@email.com</td>
+              <td>(555) 234-5678</td>
+              <td>Los Angeles, CA</td>
+              <td>2</td>
+              <td>$1,852.15</td>
+              <td>Dec 20, 2024</td>
+            </tr>
+            <tr onclick="window.location='customer-detail.html?id=c3'" style="cursor: pointer;">
+              <td><strong>Bob Wilson</strong></td>
+              <td>bob.wilson@email.com</td>
+              <td>(555) 345-6789</td>
+              <td>Chicago, IL</td>
+              <td>2</td>
+              <td>$85.00</td>
+              <td>Jan 2, 2025</td>
+            </tr>
+            <tr onclick="window.location='customer-detail.html?id=c4'" style="cursor: pointer;">
+              <td><strong>Mary Johnson</strong></td>
+              <td>mary.j@email.com</td>
+              <td>(555) 456-7890</td>
+              <td>Houston, TX</td>
+              <td>2</td>
+              <td>$245.50</td>
+              <td>Jan 5, 2025</td>
+            </tr>
+            <tr onclick="window.location='customer-detail.html?id=c5'" style="cursor: pointer;">
+              <td><strong>David Brown</strong></td>
+              <td>david.brown@email.com</td>
+              <td>(555) 567-8901</td>
+              <td>Phoenix, AZ</td>
+              <td>2</td>
+              <td>$384.98</td>
+              <td>Jan 8, 2025</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="admin-bottom-nav">
+      <a href="index.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>Home</a>
+      <a href="requests.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>Requests</a>
+      <a href="offers.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>Offers</a>
+      <a href="payments.html" class="admin-bottom-nav-item"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Payments</a>
+      <a href="customers.html" class="admin-bottom-nav-item active"><svg class="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>Customers</a>
+    </nav>
+  </div>
+  <script src="../wp-content/uploads/admin/js/mock-data.js"></script>
+  <script src="../wp-content/uploads/admin/js/navigation.js"></script>
+</body>
+</html>
