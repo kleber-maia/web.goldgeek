@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check Your Email - Gold Geek</title>
+
+  <link rel="stylesheet" href="../wp-content/themes/hello-elementor/style.min.css%3Fver=3.3.0.css">
+  <link rel="stylesheet" href="../wp-content/themes/hello-elementor/theme.min.css%3Fver=3.3.0.css">
+  <link rel="stylesheet" href="../wp-content/uploads/elementor/css/post-6.css%3Fver=1767980318.css">
+  <link rel="stylesheet" href="../wp-content/uploads/elementor/google-fonts/css/poppins.css%3Fver=1742919930.css">
+
+  <link rel="stylesheet" href="../wp-content/uploads/admin/css/admin.css">
+  <link rel="stylesheet" href="../wp-content/uploads/user/css/user.css">
+
+  <link rel="icon" href="../wp-content/uploads/2025/03/cropped-GoldGeekFavicon-32x32.png" sizes="32x32">
+</head>
+<body class="admin-body">
+  <div class="user-login-container">
+    <div class="user-login-card">
+      <a href="../index.html">
+        <img src="../wp-content/uploads/2025/03/GoldGeekLogo-horizontal.png" alt="Gold Geek" class="user-login-logo">
+      </a>
+
+      <svg class="user-check-email-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+      </svg>
+
+      <h1 class="user-login-title">Check Your Email</h1>
+
+      <p class="user-login-subtitle">We sent a login link to:</p>
+      <p class="user-email-display" id="email-display">loading...</p>
+
+      <p class="user-login-subtitle">
+        Click the link in your email to access your dashboard.
+      </p>
+
+      <button onclick="resendEmail()" class="admin-btn admin-btn-secondary admin-btn-full">
+        Didn't receive it? Resend
+      </button>
+
+      <div class="user-demo-link">
+        <div class="user-demo-link-label">Prototype Demo</div>
+        <button onclick="simulateLogin()" class="admin-btn admin-btn-primary admin-btn-full">
+          Click here to simulate login
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const email = sessionStorage.getItem('pendingEmail') || 'john.doe@email.com';
+    document.getElementById('email-display').textContent = email;
+
+    function resendEmail() {
+      alert('Magic link resent to ' + email);
+    }
+
+    function simulateLogin() {
+      const token = 'demo_' + Date.now();
+      window.location.href = 'auth-callback.html?token=' + token + '&email=' + encodeURIComponent(email);
+    }
+  </script>
+</body>
+</html>
