@@ -1,0 +1,262 @@
+/* Gold Geek - Global Styles */
+
+/* Theme CSS */
+@import './elementor/hello-style.css';
+@import './elementor/hello-theme.css';
+@import './elementor/hello-header-footer.css';
+
+/* Elementor Core */
+@import './elementor/frontend.min.css';
+
+/* Elementor Widgets */
+@import './elementor/widget-image.min.css';
+@import './elementor/widget-icon-list.min.css';
+@import './elementor/widget-social-icons.min.css';
+@import './elementor/widget-heading.min.css';
+@import './elementor/widget-nav-menu.min.css';
+@import './elementor/widget-form.min.css';
+@import './elementor/widget-nested-accordion.min.css';
+
+/* Conditionals */
+@import './elementor/apple-webkit.min.css';
+@import './elementor/popup.min.css';
+@import './elementor/motion-fx.min.css';
+@import './elementor/e-swiper.min.css';
+
+/* Carousel */
+@import './elementor/swiper.min.css';
+@import './elementor/widget-testimonial-carousel.min.css';
+@import './elementor/widget-carousel-module-base.min.css';
+
+/* Animations */
+@import './elementor/fadeInUp.min.css';
+@import './elementor/fadeInRight.min.css';
+
+/* Page-specific CSS */
+@import './elementor/post-6.css';
+@import './elementor/post-13.css';
+@import './elementor/post-20.css';
+@import './elementor/post-77.css';
+@import './elementor/post-183.css';
+@import './elementor/post-265.css';
+@import './elementor/post-3.css';
+@import './elementor/post-88.css';
+@import './elementor/post-90.css';
+@import './elementor/post-92.css';
+@import './elementor/post-94.css';
+@import './elementor/post-96.css';
+@import './elementor/post-98.css';
+@import './elementor/post-259.css';
+
+/* Global CSS Variables */
+:root {
+  --wp--preset--aspect-ratio--square: 1;
+  --wp--preset--aspect-ratio--4-3: 4/3;
+  --wp--preset--aspect-ratio--3-4: 3/4;
+  --wp--preset--aspect-ratio--3-2: 3/2;
+  --wp--preset--aspect-ratio--2-3: 2/3;
+  --wp--preset--aspect-ratio--16-9: 16/9;
+  --wp--preset--aspect-ratio--9-16: 9/16;
+  --wp--preset--color--black: #000000;
+  --wp--preset--color--cyan-bluish-gray: #abb8c3;
+  --wp--preset--color--white: #ffffff;
+  --wp--preset--color--pale-pink: #f78da7;
+  --wp--preset--color--vivid-red: #cf2e2e;
+  --wp--preset--color--luminous-vivid-orange: #ff6900;
+  --wp--preset--color--luminous-vivid-amber: #fcb900;
+  --wp--preset--color--light-green-cyan: #7bdcb5;
+  --wp--preset--color--vivid-green-cyan: #00d084;
+  --wp--preset--color--pale-cyan-blue: #8ed1fc;
+  --wp--preset--color--vivid-cyan-blue: #0693e3;
+  --wp--preset--color--vivid-purple: #9b51e0;
+  --wp--preset--font-size--small: 13px;
+  --wp--preset--font-size--medium: 20px;
+  --wp--preset--font-size--large: 36px;
+  --wp--preset--font-size--x-large: 42px;
+  --wp--preset--spacing--20: 0.44rem;
+  --wp--preset--spacing--30: 0.67rem;
+  --wp--preset--spacing--40: 1rem;
+  --wp--preset--spacing--50: 1.5rem;
+  --wp--preset--spacing--60: 2.25rem;
+  --wp--preset--spacing--70: 3.38rem;
+  --wp--preset--spacing--80: 5.06rem;
+  --wp--style--global--content-size: 800px;
+  --wp--style--global--wide-size: 1200px;
+  --wp--style--block-gap: 24px;
+}
+
+/* WordPress / Elementor Core Styles */
+:where(body) {
+  margin: 0;
+}
+
+.wp-site-blocks > .alignleft {
+  float: left;
+  margin-right: 2em;
+}
+
+.wp-site-blocks > .alignright {
+  float: right;
+  margin-left: 2em;
+}
+
+.wp-site-blocks > .aligncenter {
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+a:where(:not(.wp-element-button)) {
+  text-decoration: underline;
+}
+
+/* Lazy loading styles */
+.lazyload,
+.lazyloading {
+  opacity: 0;
+}
+
+.lazyloaded {
+  opacity: 1;
+  transition: opacity 400ms;
+  transition-delay: 0ms;
+}
+
+/* Emoji styles */
+img.wp-smiley,
+img.emoji {
+  display: inline !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: 1em !important;
+  width: 1em !important;
+  margin: 0 0.07em !important;
+  vertical-align: -0.1em !important;
+  background: none !important;
+  padding: 0 !important;
+}
+
+/* Skip link */
+.skip-link.screen-reader-text {
+  border: 0;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  word-wrap: normal !important;
+}
+
+.skip-link.screen-reader-text:focus {
+  background-color: #eee;
+  clip: auto !important;
+  clip-path: none;
+  color: #444;
+  display: block;
+  font-size: 1em;
+  height: auto;
+  left: 5px;
+  line-height: normal;
+  padding: 15px 23px 14px;
+  text-decoration: none;
+  top: 5px;
+  width: auto;
+  z-index: 100000;
+}
+
+/* Screen reader text */
+.elementor-screen-only,
+.screen-reader-text {
+  position: absolute;
+  top: -10000em;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* E-con lazy loading */
+.e-con.e-parent:nth-of-type(n + 4):not(.e-lazyloaded):not(.e-no-lazyload),
+.e-con.e-parent:nth-of-type(n + 4):not(.e-lazyloaded):not(.e-no-lazyload) * {
+  background-image: none !important;
+}
+
+@media screen and (max-height: 1024px) {
+  .e-con.e-parent:nth-of-type(n + 3):not(.e-lazyloaded):not(.e-no-lazyload),
+  .e-con.e-parent:nth-of-type(n + 3):not(.e-lazyloaded):not(.e-no-lazyload) * {
+    background-image: none !important;
+  }
+}
+
+@media screen and (max-height: 640px) {
+  .e-con.e-parent:nth-of-type(n + 2):not(.e-lazyloaded):not(.e-no-lazyload),
+  .e-con.e-parent:nth-of-type(n + 2):not(.e-lazyloaded):not(.e-no-lazyload) * {
+    background-image: none !important;
+  }
+}
+
+/* Fix image paths in CSS - override wp-content paths */
+
+/* Responsive visibility - Elementor breakpoints */
+/* Mobile: up to 767px */
+@media (max-width: 767px) {
+  .elementor-hidden-mobile {
+    display: none !important;
+  }
+}
+
+/* Tablet: 768px to 1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .elementor-hidden-tablet {
+    display: none !important;
+  }
+}
+
+/* Desktop: 1025px and above */
+@media (min-width: 1025px) {
+  .elementor-hidden-desktop {
+    display: none !important;
+  }
+}
+
+/* Mobile hamburger icon - ensure visible on mobile/tablet */
+@media (max-width: 1024px) {
+  .elementor-element-b371262 {
+    display: block !important;
+  }
+
+  .elementor-element-b371262 .elementor-icon {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .elementor-element-b371262 .elementor-icon svg {
+    width: 28px;
+    height: 28px;
+    fill: #AD7B2A;
+  }
+}
+
+/* Hide desktop nav elements on mobile/tablet */
+@media (max-width: 1024px) {
+  .elementor-element-053cbfe,
+  .elementor-element-1e06e2a,
+  .elementor-element-74a8035,
+  .elementor-element-0fbbc2b {
+    display: none !important;
+  }
+}
+
+/* Fix SVG icon visibility */
+.elementor-icon svg {
+  fill: currentColor;
+}
+
