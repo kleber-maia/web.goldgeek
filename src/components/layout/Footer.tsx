@@ -178,39 +178,7 @@ export default function Footer() {
             data-widget_type="text-editor.default"
           >
             <div className="elementor-widget-container">
-              <p>
-                {" "}
-                © Copyright Gold Geek {new Date().getFullYear()} |{" "}
-                <a
-                  href="https://primosstudio.com.br/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Website Design by{" "}
-                </a>
-              </p>
-            </div>
-          </div>
-          <div
-            className="elementor-element elementor-element-46c7e89 elementor-widget elementor-widget-image"
-            data-id="46c7e89"
-            data-element_type="widget"
-            data-widget_type="image.default"
-          >
-            <div className="elementor-widget-container">
-              <a
-                href="https://primosstudio.com.br"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Image
-                  width={100}
-                  height={12}
-                  src="https://primosstudio.com.br/wp-content/uploads/2024/12/Primos-Studio-Brand-Logo-Lettering.svg"
-                  className="attachment-large size-large wp-image-83"
-                  alt="Primos Studio"
-                />
-              </a>
+              <p>© Copyright Gold Geek 2026</p>
             </div>
           </div>
         </div>
