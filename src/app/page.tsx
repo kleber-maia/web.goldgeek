@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import TestimonialsCarousel from "@/components/sections/TestimonialsCarousel";
 import TradingViewWidget from "@/components/widgets/TradingViewWidget";
+import ScrollRotatingImage from "@/components/ui/ScrollRotatingImage";
 
 export default function HomePage() {
   return (
@@ -489,15 +490,14 @@ export default function HomePage() {
             data-element_type="widget"
             data-widget_type="image.default"
           >
-            <div className="elementor-widget-container">
-              <Image
-                width={800}
-                height={793}
-                src="/images/icons/Camada-1.png"
-                className="attachment-large size-large wp-image-129"
-                alt="Gold coins"
-              />
-            </div>
+            <ScrollRotatingImage
+              width={800}
+              height={793}
+              src="/images/icons/Camada-1.png"
+              className="attachment-large size-large wp-image-129"
+              alt="Gold coins"
+              rotationSpeed={0.2}
+            />
           </div>
         </div>
       </div>
