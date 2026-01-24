@@ -260,3 +260,25 @@ img.emoji {
   fill: currentColor;
 }
 
+/* Home page CTA Buttons - match footer style */
+.elementor-20 .elementor-element.elementor-element-1fe231e.elementor-widget-button .elementor-button,
+.elementor-20 .elementor-element.elementor-element-0ec8b97.elementor-widget-button .elementor-button {
+  font-family: "Poppins", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  color: #2E1F0C !important;
+  background: linear-gradient(90deg, #FBEF9C 0%, #AD7B2A 120%) !important;
+  border-radius: 50px !important;
+  transition: 0.5s !important;
+  padding: 12px 24px !important;
+}
+
+.elementor-20 .elementor-element.elementor-element-1fe231e.elementor-widget-button .elementor-button:hover,
+.elementor-20 .elementor-element.elementor-element-1fe231e.elementor-widget-button .elementor-button:focus,
+.elementor-20 .elementor-element.elementor-element-0ec8b97.elementor-widget-button .elementor-button:hover,
+.elementor-20 .elementor-element.elementor-element-0ec8b97.elementor-widget-button .elementor-button:focus {
+  color: #FFFFFF !important;
+  background: linear-gradient(90deg, #AD7B2A 0%, #FBEF9C 100%) !important;
+}
+
