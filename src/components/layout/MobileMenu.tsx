@@ -264,6 +264,26 @@ export default function MobileMenu({
             Request Appraisal
           </Link>
 
+          {/* My Account link */}
+          <Link
+            href="/user/login"
+            onClick={onClose}
+            style={{
+              display: "block",
+              padding: "10px 0",
+              color: "#FFFFFF",
+              textDecoration: "none",
+              fontSize: "16px",
+              fontWeight: 600,
+              fontFamily: "Poppins, sans-serif",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              marginBottom: "20px",
+            }}
+          >
+            My Account
+          </Link>
+
           {/* Social icons */}
           <div style={styles.social}>
             <a
