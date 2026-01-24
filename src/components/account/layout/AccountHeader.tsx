@@ -39,7 +39,7 @@ export default function AccountHeader({
       ) : (
         <Link href="/">
           <Image
-            src="/images/GoldGeekLogo-horizontal.png"
+            src="/images/logos/GoldGeekLogo-horizontal.png"
             alt="Gold Geek"
             width={120}
             height={32}

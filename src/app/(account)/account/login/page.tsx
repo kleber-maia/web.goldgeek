@@ -23,7 +23,7 @@ export default function LoginPage() {
       <div className="account-login-card">
         <Link href="/">
           <Image
-            src="/images/GoldGeekLogo-horizontal.png"
+            src="/images/logos/GoldGeekLogo-horizontal.png"
             alt="Gold Geek"
             width={180}
             height={48}
