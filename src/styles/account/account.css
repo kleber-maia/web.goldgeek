@@ -158,8 +158,10 @@
 }
 
 .account-login-logo {
+  display: block;
   height: 48px;
-  margin-bottom: 24px;
+  width: auto;
+  margin: 0 auto 24px;
 }
 
 .account-login-title {
@@ -229,6 +231,9 @@
   transition: all 0.2s;
   border: none;
   text-decoration: none;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .account-btn-primary {
@@ -265,7 +270,16 @@
 }
 
 .account-btn-full {
+  display: flex;
   width: 100%;
+  max-width: 100%;
+}
+
+/* Ensure Link components (anchor tags) behave correctly */
+a.account-btn-full {
+  display: flex;
+  width: 100%;
+  text-align: center;
 }
 
 .account-btn:disabled {
@@ -737,6 +751,7 @@
 
 /* Check email page */
 .account-check-email-icon {
+  display: block;
   width: 80px;
   height: 80px;
   margin: 0 auto 20px;

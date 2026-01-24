@@ -70,7 +70,7 @@ export default function Header() {
                 <div className="elementor-widget-container">
                   <ul className="elementor-icon-list-items elementor-inline-items">
                     <li className="elementor-icon-list-item elementor-inline-item">
-                      <Link href="/user/login" className="elementor-icon-list-text" style={{ textDecoration: "none", marginRight: "15px" }}>
+                      <Link href="/account/login" className="elementor-icon-list-text" style={{ textDecoration: "none", marginRight: "15px" }}>
                         My Account
                       </Link>
                     </li>

@@ -266,7 +266,7 @@ export default function MobileMenu({
 
           {/* My Account link */}
           <Link
-            href="/user/login"
+            href="/account/login"
             onClick={onClose}
             style={{
               display: "block",
