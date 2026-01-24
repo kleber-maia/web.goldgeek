@@ -24,7 +24,7 @@ export default function AccountContainer({
   return (
     <div className="account-container">
       {showHeader && <AccountHeader {...headerProps} />}
-      <main className="account-main">{children}</main>
+      <main className="account-main" style={{ maxWidth: 960 }}>{children}</main>
       {showNav && <BottomNav />}
     </div>
   );

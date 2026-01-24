@@ -8,6 +8,7 @@ import {
   getSession,
   getActiveKits,
   getCompletedKits,
+  logout,
   Kit,
   TimelineEvent,
   UserSession,
@@ -15,12 +16,69 @@ import {
 
 type KitWithTimeline = Kit & { timeline: TimelineEvent[] };
 
+const shortcuts = [
+  {
+    href: "/account/settings",
+    title: "Edit My Account",
+    description: "Update your personal information and payment preferences.",
+  },
+  {
+    href: "#kits",
+    title: "Manage My Kits",
+    description: "View order history and track kits in transit.",
+  },
+  {
+    href: "#kits",
+    title: "View My Offers",
+    description: "Review and respond to offers.",
+  },
+  {
+    href: "#refer",
+    title: "Refer Friends",
+    description: "Get $25 when friends sell to us.",
+  },
+  {
+    href: "mailto:support@goldgeek.com",
+    title: "Get Help",
+    description: "Contact support or call 877-465-3165.",
+  },
+  {
+    href: "/request-appraisal",
+    title: "Request Another Kit",
+    description: "Have more items? Get another kit!",
+  },
+];
+
+// Icons as simple components
+const icons = [
+  // Edit Account - person icon
+  <svg key="edit" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>,
+  // Manage Kits - envelope
+  <svg key="kits" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>,
+  // View Offers - dollar
+  <svg key="offers" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>,
+  // Refer Friends - people
+  <svg key="refer" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>,
+  // Get Help - question
+  <svg key="help" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>,
+  // Request Kit - plus
+  <svg key="request" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>,
+];
+
 export default function AccountDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
   const [activeKits, setActiveKits] = useState<KitWithTimeline[]>([]);
   const [completedKits, setCompletedKits] = useState<KitWithTimeline[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 500);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     const session = getSession();
@@ -35,6 +93,11 @@ export default function AccountDashboardPage() {
     setIsLoading(false);
   }, [router]);
 
+  const handleLogout = () => {
+    logout();
+    router.replace("/account/login");
+  };
+
   if (isLoading) {
     return (
       <AccountContainer>
@@ -46,6 +109,92 @@ export default function AccountDashboardPage() {
   }
 
   const firstName = user?.name.split(" ")[0] || "there";
+
+  const styles = {
+    banner: {
+      background: "#3D3D3D",
+      color: "#FFFFFF",
+      padding: "20px 24px",
+      borderRadius: "8px",
+      marginBottom: "20px",
+      textAlign: "center" as const,
+    },
+    bannerTitle: {
+      fontSize: "20px",
+      fontWeight: 400,
+      margin: 0,
+      fontStyle: "italic" as const,
+      lineHeight: 1.4,
+    },
+    bannerName: {
+      color: "#AD7B2A",
+      fontWeight: 600,
+    },
+    description: {
+      fontSize: "15px",
+      color: "#6B7280",
+      textAlign: "center" as const,
+      lineHeight: 1.6,
+      margin: "0 0 24px 0",
+    },
+    subtitle: {
+      fontSize: "20px",
+      fontWeight: 400,
+      fontStyle: "italic" as const,
+      color: "#2E1F0C",
+      textAlign: "center" as const,
+      margin: "0 0 16px 0",
+    },
+    grid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+      gap: "12px",
+      marginBottom: "24px",
+    },
+    card: {
+      display: "flex",
+      flexDirection: "column" as const,
+      alignItems: "center",
+      padding: "20px 16px",
+      background: "#FFFFFF",
+      border: "1px solid #E5E5E5",
+      borderRadius: "8px",
+      textDecoration: "none",
+      color: "inherit",
+    },
+    cardIcon: {
+      marginBottom: "12px",
+    },
+    cardTitle: {
+      fontSize: "15px",
+      fontWeight: 600,
+      color: "#2E1F0C",
+      textAlign: "center" as const,
+      margin: "0 0 8px 0",
+    },
+    cardDesc: {
+      fontSize: "13px",
+      color: "#6B7280",
+      textAlign: "center" as const,
+      lineHeight: 1.4,
+      margin: 0,
+      paddingTop: "10px",
+      borderTop: "1px solid #E5E5E5",
+      width: "100%",
+    },
+    logout: {
+      display: "block",
+      width: "100%",
+      padding: "12px",
+      background: "none",
+      border: "none",
+      color: "#2E1F0C",
+      fontSize: "16px",
+      fontWeight: 500,
+      cursor: "pointer",
+      marginBottom: "24px",
+    },
+  };
 
   return (
     <AccountContainer
@@ -76,11 +225,39 @@ export default function AccountDashboardPage() {
         ),
       }}
     >
-      <div className="account-welcome">
-        <h1 className="account-welcome-title">Welcome, {firstName}!</h1>
+      {/* Welcome Banner */}
+      <div style={styles.banner}>
+        <h1 style={styles.bannerTitle}>
+          <span style={styles.bannerName}>Hi, {firstName}.</span>{" "}
+          Welcome to your Gold Geek Dashboard
+        </h1>
       </div>
 
-      <div className="account-section-divider">Active Kits</div>
+      <p style={styles.description}>
+        This Dashboard gives you easy access to all the tools you need to safely
+        and securely sell your gold—and to get the fastest turnaround and the
+        highest payouts.
+      </p>
+
+      {/* Quick Shortcuts */}
+      <h2 style={styles.subtitle}>What would you like to do?</h2>
+      <div style={styles.grid}>
+        {shortcuts.map((shortcut, index) => (
+          <Link key={shortcut.title} href={shortcut.href} style={styles.card}>
+            <div style={styles.cardIcon}>{icons[index]}</div>
+            <h3 style={styles.cardTitle}>{shortcut.title}</h3>
+            <p style={styles.cardDesc}>{shortcut.description}</p>
+          </Link>
+        ))}
+      </div>
+
+      {/* Logout */}
+      <button onClick={handleLogout} style={styles.logout}>
+        Logout
+      </button>
+
+      {/* Kits Section */}
+      <div className="account-section-divider" id="kits">Active Kits</div>
       {activeKits.length === 0 ? (
         <p style={{ color: "var(--status-gray)", fontSize: 14 }}>
           No active kits
