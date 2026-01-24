@@ -1,0 +1,900 @@
+/* Gold Geek Account Dashboard Styles */
+/* Isolated from main site Elementor styles */
+
+:root {
+  --account-bg: #FFFDF7;
+  --account-surface: #FFFFFF;
+  --account-border: #E5E5E5;
+  --account-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --account-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* Brand colors */
+  --brand-primary: #AD7B2A;
+  --brand-secondary: #57370D;
+  --brand-accent: #FBEF9C;
+  --brand-text: #2E1F0C;
+
+  /* Status colors */
+  --status-pending: #F59E0B;
+  --status-pending-bg: #FEF3C7;
+  --status-progress: #3B82F6;
+  --status-progress-bg: #DBEAFE;
+  --status-success: #10B981;
+  --status-success-bg: #D1FAE5;
+  --status-error: #EF4444;
+  --status-error-bg: #FEE2E2;
+  --status-purple: #8B5CF6;
+  --status-purple-bg: #EDE9FE;
+  --status-gray: #6B7280;
+  --status-gray-bg: #F3F4F6;
+}
+
+/* Base container */
+.account-body {
+  font-family: 'Poppins', var(--font-poppins), sans-serif;
+  background-color: var(--account-bg);
+  color: var(--brand-text);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.account-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header */
+.account-header {
+  background: var(--account-surface);
+  border-bottom: 1px solid var(--account-border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.account-header-logo {
+  height: 32px;
+  width: auto;
+}
+
+.account-header-action {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--brand-text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+}
+
+.account-back-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--brand-text);
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.account-header-title {
+  font-weight: 600;
+  color: var(--brand-secondary);
+}
+
+/* Main content */
+.account-main {
+  flex: 1;
+  padding: 16px;
+  padding-bottom: 80px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Bottom navigation */
+.account-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--account-surface);
+  border-top: 1px solid var(--account-border);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  z-index: 100;
+}
+
+.account-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  color: var(--status-gray);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  min-width: 70px;
+}
+
+.account-bottom-nav-item.active {
+  color: var(--brand-primary);
+}
+
+.account-bottom-nav-icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+}
+
+/* Login page */
+.account-login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: var(--account-bg);
+}
+
+.account-login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 32px;
+  background: var(--account-surface);
+  border-radius: 16px;
+  box-shadow: var(--account-shadow-lg);
+  text-align: center;
+}
+
+.account-login-logo {
+  height: 48px;
+  margin-bottom: 24px;
+}
+
+.account-login-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--brand-secondary);
+  margin: 0 0 8px 0;
+}
+
+.account-login-subtitle {
+  font-size: 14px;
+  color: var(--status-gray);
+  margin: 0 0 24px 0;
+}
+
+/* Forms */
+.account-form-group {
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.account-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--brand-secondary);
+  margin-bottom: 6px;
+}
+
+.account-form-input,
+.account-form-select,
+.account-form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--account-border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Poppins', var(--font-poppins), sans-serif;
+  background: var(--account-surface);
+  box-sizing: border-box;
+}
+
+.account-form-input:focus,
+.account-form-select:focus,
+.account-form-textarea:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+}
+
+.account-form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Buttons */
+.account-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Poppins', var(--font-poppins), sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  text-decoration: none;
+}
+
+.account-btn-primary {
+  background: var(--brand-primary);
+  color: #FFFFFF;
+}
+
+.account-btn-primary:hover {
+  background: var(--brand-secondary);
+}
+
+.account-btn-secondary {
+  background: var(--account-surface);
+  border: 1px solid var(--account-border);
+  color: var(--brand-text);
+}
+
+.account-btn-secondary:hover {
+  border-color: var(--brand-primary);
+}
+
+.account-btn-success {
+  background: var(--status-success);
+  color: #FFFFFF;
+}
+
+.account-btn-success:hover {
+  background: #059669;
+}
+
+.account-btn-error {
+  background: var(--status-error);
+  color: #FFFFFF;
+}
+
+.account-btn-full {
+  width: 100%;
+}
+
+.account-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Badges */
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.account-badge.pending {
+  background: var(--status-pending-bg);
+  color: var(--status-pending);
+}
+
+.account-badge.in-progress {
+  background: var(--status-progress-bg);
+  color: var(--status-progress);
+}
+
+.account-badge.success {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+}
+
+.account-badge.error {
+  background: var(--status-error-bg);
+  color: var(--status-error);
+}
+
+.account-badge.purple {
+  background: var(--status-purple-bg);
+  color: var(--status-purple);
+}
+
+.account-badge.gray {
+  background: var(--status-gray-bg);
+  color: var(--status-gray);
+}
+
+/* Sections */
+.account-section {
+  background: var(--account-surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--account-shadow);
+}
+
+.account-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-secondary);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--account-border);
+}
+
+/* Welcome section */
+.account-welcome {
+  margin-bottom: 24px;
+}
+
+.account-welcome-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--brand-secondary);
+  margin: 0;
+}
+
+/* Section dividers */
+.account-section-divider {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--status-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 24px 0 12px 0;
+}
+
+/* Kit cards */
+.account-kit-card {
+  background: var(--account-surface);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--account-shadow);
+  margin-bottom: 12px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: box-shadow 0.2s;
+}
+
+.account-kit-card:hover {
+  box-shadow: var(--account-shadow-lg);
+}
+
+.account-kit-card.highlight {
+  border: 2px solid var(--brand-primary);
+  background: linear-gradient(135deg, #FFFDF7, #FEF9E7);
+}
+
+.account-kit-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.account-kit-id {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-secondary);
+}
+
+.account-kit-type {
+  font-size: 13px;
+  color: var(--status-gray);
+  margin-bottom: 4px;
+}
+
+.account-kit-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--brand-secondary);
+}
+
+.account-kit-cta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  margin-top: 8px;
+}
+
+.account-kit-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.account-kit-date {
+  font-size: 12px;
+  color: var(--status-gray);
+}
+
+.account-kit-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.account-kit-type-badge.physical {
+  background: var(--status-purple-bg);
+  color: var(--status-purple);
+}
+
+.account-kit-type-badge.digital {
+  background: var(--status-progress-bg);
+  color: var(--status-progress);
+}
+
+/* Offer banner */
+.account-offer-banner {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  color: white;
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.account-offer-label {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+
+.account-offer-amount {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.account-offer-expires {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.account-offer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.account-offer-actions .account-btn {
+  flex: 1;
+  padding: 16px;
+  font-size: 15px;
+}
+
+/* Kit summary */
+.account-kit-summary {
+  background: var(--account-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.account-kit-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--account-border);
+}
+
+.account-kit-summary-row:last-child {
+  border-bottom: none;
+}
+
+.account-kit-summary-label {
+  color: var(--status-gray);
+  font-size: 14px;
+}
+
+.account-kit-summary-value {
+  font-weight: 500;
+  color: var(--brand-text);
+}
+
+/* Timeline */
+.account-timeline {
+  position: relative;
+  padding-left: 20px;
+}
+
+.account-timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--account-border);
+}
+
+.account-timeline-item {
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.account-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  border: 2px solid var(--account-surface);
+}
+
+.account-timeline-text {
+  font-size: 13px;
+  color: var(--brand-text);
+}
+
+.account-timeline-date {
+  font-size: 12px;
+  color: var(--status-gray);
+}
+
+/* Success banner */
+.account-success-banner {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.account-success-banner svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Shipping label button */
+.account-shipping-label-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--status-purple);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+
+.account-shipping-label-btn:hover {
+  background: #7C3AED;
+}
+
+.account-shipping-label-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Physical kit info */
+.account-physical-kit-info {
+  background: var(--status-purple-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-physical-kit-info svg {
+  width: 24px;
+  height: 24px;
+  color: var(--status-purple);
+  flex-shrink: 0;
+}
+
+.account-physical-kit-info-text {
+  font-size: 14px;
+  color: var(--status-purple);
+}
+
+/* Payment options */
+.account-payment-option {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: var(--account-surface);
+  border: 2px solid var(--account-border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.account-payment-option:hover {
+  border-color: var(--brand-primary);
+}
+
+.account-payment-option.selected {
+  border-color: var(--brand-primary);
+  background: var(--status-pending-bg);
+}
+
+.account-payment-option input[type="radio"] {
+  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand-primary);
+}
+
+.account-payment-option-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--brand-text);
+}
+
+.account-payment-option-detail {
+  font-size: 13px;
+  color: var(--status-gray);
+  margin-left: auto;
+}
+
+/* Settings */
+.account-settings-section {
+  background: var(--account-surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--account-shadow);
+}
+
+.account-settings-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-secondary);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--account-border);
+}
+
+.account-profile-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--brand-text);
+  margin-bottom: 4px;
+}
+
+.account-profile-email {
+  font-size: 14px;
+  color: var(--status-gray);
+  margin-bottom: 12px;
+}
+
+.account-profile-address {
+  font-size: 14px;
+  color: var(--brand-text);
+  line-height: 1.5;
+}
+
+/* Logout button */
+.account-logout-btn {
+  width: 100%;
+  padding: 14px;
+  background: none;
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Poppins', var(--font-poppins), sans-serif;
+  cursor: pointer;
+  margin-top: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.account-logout-btn:hover {
+  background: var(--status-error-bg);
+}
+
+/* Disclaimer */
+.account-disclaimer {
+  font-size: 12px;
+  color: var(--status-gray);
+  text-align: center;
+  margin-top: 16px;
+}
+
+.account-disclaimer a {
+  color: var(--brand-primary);
+}
+
+/* Check email page */
+.account-check-email-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  color: var(--brand-primary);
+}
+
+.account-email-display {
+  font-weight: 600;
+  color: var(--brand-secondary);
+  margin: 8px 0 20px 0;
+}
+
+.account-demo-link {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--account-border);
+}
+
+.account-demo-link-label {
+  font-size: 11px;
+  color: var(--status-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+/* Shipping label page */
+.account-label-container {
+  background: var(--account-surface);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--account-shadow);
+}
+
+.account-label-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--account-border);
+}
+
+.account-label-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.account-label-address-box {
+  background: var(--account-bg);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.account-label-address-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--status-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.account-label-address-text {
+  font-size: 14px;
+  color: var(--brand-text);
+  line-height: 1.5;
+}
+
+.account-label-barcode {
+  text-align: center;
+  padding: 20px;
+  background: white;
+  border: 2px dashed var(--account-border);
+  border-radius: 8px;
+}
+
+.account-label-tracking {
+  text-align: center;
+  font-family: monospace;
+  font-size: 14px;
+  color: var(--brand-text);
+  margin-top: 8px;
+}
+
+.account-label-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.account-label-actions .account-btn {
+  flex: 1;
+}
+
+.account-label-instructions {
+  background: var(--status-pending-bg);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.account-label-instructions-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--status-pending);
+  margin-bottom: 8px;
+}
+
+.account-label-instructions-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--brand-text);
+  line-height: 1.6;
+}
+
+/* Responsive: Desktop */
+@media (min-width: 768px) {
+  .account-login-container {
+    padding: 40px;
+  }
+
+  .account-main {
+    padding: 24px;
+    padding-bottom: 40px;
+  }
+
+  .account-bottom-nav {
+    display: none;
+  }
+
+  .account-header {
+    border-bottom: none;
+    background: transparent;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 24px;
+  }
+}
+
+/* Print styles for shipping label */
+@media print {
+  .account-header,
+  .account-bottom-nav,
+  .account-label-actions,
+  .account-label-instructions {
+    display: none !important;
+  }
+
+  .account-main {
+    padding: 0;
+    max-width: none;
+  }
+
+  .account-label-container {
+    box-shadow: none;
+    border: 2px solid black;
+  }
+}

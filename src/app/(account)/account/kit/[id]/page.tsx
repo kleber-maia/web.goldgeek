@@ -1,0 +1,240 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import { AccountContainer, Badge, Timeline, OfferBanner } from "@/components/account";
+import {
+  getSession,
+  getKitById,
+  getKitSummary,
+  getOfferByKitId,
+  needsShippingLabel,
+  hasPendingOffer,
+  formatCurrency,
+  generateKitNumber,
+  Kit,
+  KitSummary as KitSummaryType,
+  Offer,
+  TimelineEvent,
+} from "@/lib/account";
+
+type KitWithTimeline = Kit & { timeline: TimelineEvent[] };
+
+export default function KitDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const kitId = params.id as string;
+
+  const [kit, setKit] = useState<KitWithTimeline | null>(null);
+  const [summary, setSummary] = useState<KitSummaryType | null>(null);
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const session = getSession();
+    if (!session) {
+      router.replace("/account/login");
+      return;
+    }
+
+    const kitData = getKitById(kitId);
+    if (!kitData) {
+      router.replace("/account");
+      return;
+    }
+
+    setKit(kitData);
+    setSummary(getKitSummary(kitId));
+    setOffer(getOfferByKitId(kitId) || null);
+    setIsLoading(false);
+  }, [router, kitId]);
+
+  if (isLoading || !kit || !summary) {
+    return (
+      <AccountContainer
+        headerProps={{
+          showBackButton: true,
+          backHref: "/account",
+          title: "Loading...",
+        }}
+      >
+        <div style={{ textAlign: "center", padding: "60px 0" }}>
+          <p style={{ color: "var(--status-gray)" }}>Loading...</p>
+        </div>
+      </AccountContainer>
+    );
+  }
+
+  const showOfferBanner = hasPendingOffer(kit) && offer;
+  const showShippingLabel = needsShippingLabel(kit);
+
+  return (
+    <AccountContainer
+      headerProps={{
+        showBackButton: true,
+        backHref: "/account",
+        title: `Kit #${generateKitNumber(kit.id)}`,
+      }}
+    >
+      {/* Status Badge */}
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <Badge
+          status={kit.status}
+          style={{ fontSize: 14, padding: "8px 16px" }}
+        />
+      </div>
+
+      {/* Offer Banner */}
+      {showOfferBanner && offer && (
+        <>
+          <OfferBanner
+            amount={offer.totalValue}
+            expiresAt={offer.expiresAt}
+          />
+          <div className="account-offer-actions">
+            <Link
+              href={`/account/kit/${kit.id}/accept`}
+              className="account-btn account-btn-success"
+            >
+              Accept Offer
+            </Link>
+            <Link
+              href={`/account/kit/${kit.id}/decline`}
+              className="account-btn account-btn-secondary"
+            >
+              Decline
+            </Link>
+          </div>
+          <div style={{ height: 20 }} />
+        </>
+      )}
+
+      {/* Success banners */}
+      {kit.status === "accepted" && (
+        <div className="account-success-banner">
+          <svg
+            width="24"
+            height="24"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          Offer accepted! Payment processing...
+        </div>
+      )}
+
+      {kit.status === "paid" && offer && (
+        <div className="account-success-banner">
+          <svg
+            width="24"
+            height="24"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          Payment complete: {formatCurrency(offer.totalValue)}
+        </div>
+      )}
+
+      {/* Shipping Label Button */}
+      {showShippingLabel && (
+        <Link
+          href={`/account/kit/${kit.id}/shipping-label`}
+          className="account-shipping-label-btn"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"
+            />
+          </svg>
+          Print Shipping Label
+        </Link>
+      )}
+
+      {/* Physical Kit Info */}
+      {kit.kitType === "physical" &&
+        ["pending", "kit_sent"].includes(kit.status) && (
+          <div className="account-physical-kit-info">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+              />
+            </svg>
+            <div className="account-physical-kit-info-text">
+              Your appraisal kit is on its way! Use the included pre-paid label
+              to ship your items.
+            </div>
+          </div>
+        )}
+
+      {/* Kit Summary */}
+      <div className="account-section">
+        <div className="account-section-title">Kit Summary</div>
+        <div className="account-kit-summary">
+          <div className="account-kit-summary-row">
+            <span className="account-kit-summary-label">Total Items</span>
+            <span className="account-kit-summary-value">
+              {summary.itemCount} items
+            </span>
+          </div>
+          <div className="account-kit-summary-row">
+            <span className="account-kit-summary-label">Kit Type</span>
+            <span className="account-kit-summary-value">
+              {kit.kitType === "physical" ? "Physical Kit" : "Digital"}
+            </span>
+          </div>
+          {kit.trackingNumber && (
+            <div className="account-kit-summary-row">
+              <span className="account-kit-summary-label">Tracking</span>
+              <span
+                className="account-kit-summary-value"
+                style={{ fontFamily: "monospace" }}
+              >
+                {kit.trackingNumber}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="account-section">
+        <div className="account-section-title">Timeline</div>
+        <Timeline events={kit.timeline} />
+      </div>
+    </AccountContainer>
+  );
+}

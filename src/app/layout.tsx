@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { Poppins, Alegreya_Sans } from "next/font/google";
-import "@/styles/globals.css";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -38,17 +35,10 @@ export default function RootLayout({
   return (
     <html lang="en-US">
       <body
-        className={`${poppins.variable} ${alegreyaSans.variable} home wp-singular page-template page-template-elementor_header_footer wp-custom-logo wp-embed-responsive wp-theme-hello-elementor theme-default elementor-default elementor-template-full-width elementor-kit-6`}
-        style={{ fontFamily: "var(--font-poppins), sans-serif" }}
+        className={`${poppins.variable} ${alegreyaSans.variable}`}
+        style={{ fontFamily: "var(--font-poppins), sans-serif", margin: 0 }}
       >
-        <a className="skip-link screen-reader-text" href="#content">
-          Skip to content
-        </a>
-        <Header />
-        <main id="content">
-          {children}
-        </main>
-        <Footer />
+        {children}
       </body>
     </html>
   );
