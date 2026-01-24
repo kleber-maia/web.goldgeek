@@ -1,0 +1,677 @@
+/* Gold Geek User Dashboard Styles */
+/* Extends admin.css - uses same CSS variables */
+
+/* User-specific header */
+.user-header {
+  background: var(--admin-surface);
+  border-bottom: 1px solid var(--admin-border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.user-header-logo {
+  height: 32px;
+  width: auto;
+}
+
+.user-header-action {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--e-global-color-text, #2E1F0C);
+}
+
+/* User main content - centered on desktop */
+.user-main {
+  flex: 1;
+  padding: 16px;
+  padding-bottom: 80px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Login styles */
+.user-login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.user-login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 32px;
+  background: var(--admin-surface);
+  border-radius: 16px;
+  box-shadow: var(--admin-shadow-lg);
+  text-align: center;
+}
+
+.user-login-logo {
+  height: 48px;
+  margin-bottom: 24px;
+}
+
+.user-login-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+  margin: 0 0 8px 0;
+}
+
+.user-login-subtitle {
+  font-size: 14px;
+  color: var(--status-gray);
+  margin: 0 0 24px 0;
+}
+
+.user-login-form {
+  text-align: left;
+}
+
+.user-login-form .admin-form-group {
+  margin-bottom: 20px;
+}
+
+/* Email confirmation page */
+.user-check-email-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  color: var(--e-global-color-primary, #AD7B2A);
+}
+
+.user-email-display {
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+  margin: 8px 0 20px 0;
+}
+
+.user-demo-link {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--admin-border);
+}
+
+.user-demo-link-label {
+  font-size: 11px;
+  color: var(--status-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+/* Welcome section */
+.user-welcome {
+  margin-bottom: 24px;
+}
+
+.user-welcome-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+  margin: 0;
+}
+
+/* Kit cards */
+.user-kit-card {
+  background: var(--admin-surface);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--admin-shadow);
+  margin-bottom: 12px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: box-shadow 0.2s;
+}
+
+.user-kit-card:hover {
+  box-shadow: var(--admin-shadow-lg);
+}
+
+.user-kit-card.highlight {
+  border: 2px solid var(--e-global-color-primary, #AD7B2A);
+  background: linear-gradient(135deg, #FFFDF7, #FEF9E7);
+}
+
+.user-kit-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.user-kit-id {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+}
+
+.user-kit-type {
+  font-size: 13px;
+  color: var(--status-gray);
+  margin-bottom: 4px;
+}
+
+.user-kit-cta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--e-global-color-primary, #AD7B2A);
+  margin-top: 8px;
+}
+
+.user-kit-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.user-kit-date {
+  font-size: 12px;
+  color: var(--status-gray);
+}
+
+.user-kit-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+}
+
+/* Kit type badge */
+.user-kit-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.user-kit-type-badge.physical {
+  background: var(--status-purple-bg);
+  color: var(--status-purple);
+}
+
+.user-kit-type-badge.digital {
+  background: var(--status-progress-bg);
+  color: var(--status-progress);
+}
+
+/* Offer banner */
+.user-offer-banner {
+  background: linear-gradient(135deg, var(--e-global-color-primary, #AD7B2A), var(--e-global-color-secondary, #57370D));
+  color: white;
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.user-offer-label {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+
+.user-offer-amount {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.user-offer-expires {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* Offer action buttons */
+.user-offer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.user-offer-actions .admin-btn {
+  flex: 1;
+  padding: 16px;
+  font-size: 15px;
+}
+
+/* Kit summary card */
+.user-kit-summary {
+  background: var(--admin-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.user-kit-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.user-kit-summary-row:last-child {
+  border-bottom: none;
+}
+
+.user-kit-summary-label {
+  color: var(--status-gray);
+  font-size: 14px;
+}
+
+.user-kit-summary-value {
+  font-weight: 500;
+  color: var(--e-global-color-text, #2E1F0C);
+}
+
+/* Shipping label button */
+.user-shipping-label-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--status-purple);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+
+.user-shipping-label-btn:hover {
+  background: #7C3AED;
+}
+
+.user-shipping-label-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Physical kit info */
+.user-physical-kit-info {
+  background: var(--status-purple-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-physical-kit-info svg {
+  width: 24px;
+  height: 24px;
+  color: var(--status-purple);
+  flex-shrink: 0;
+}
+
+.user-physical-kit-info-text {
+  font-size: 14px;
+  color: var(--status-purple);
+}
+
+/* Shipping label page */
+.user-label-container {
+  background: var(--admin-surface);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--admin-shadow);
+}
+
+.user-label-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.user-label-fedex-logo {
+  height: 28px;
+}
+
+.user-label-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.user-label-address-box {
+  background: var(--admin-bg);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.user-label-address-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--status-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.user-label-address-text {
+  font-size: 14px;
+  color: var(--e-global-color-text, #2E1F0C);
+  line-height: 1.5;
+}
+
+.user-label-barcode {
+  text-align: center;
+  padding: 20px;
+  background: white;
+  border: 2px dashed var(--admin-border);
+  border-radius: 8px;
+}
+
+.user-label-barcode-img {
+  max-width: 100%;
+  height: 60px;
+}
+
+.user-label-tracking {
+  text-align: center;
+  font-family: monospace;
+  font-size: 14px;
+  color: var(--e-global-color-text, #2E1F0C);
+  margin-top: 8px;
+}
+
+.user-label-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.user-label-actions .admin-btn {
+  flex: 1;
+}
+
+.user-label-instructions {
+  background: var(--status-pending-bg);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.user-label-instructions-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--status-pending);
+  margin-bottom: 8px;
+}
+
+.user-label-instructions-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--e-global-color-text, #2E1F0C);
+  line-height: 1.6;
+}
+
+/* Payment method selection */
+.user-payment-option {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: var(--admin-surface);
+  border: 2px solid var(--admin-border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.user-payment-option:hover {
+  border-color: var(--e-global-color-primary, #AD7B2A);
+}
+
+.user-payment-option.selected {
+  border-color: var(--e-global-color-primary, #AD7B2A);
+  background: var(--status-pending-bg);
+}
+
+.user-payment-option input[type="radio"] {
+  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--e-global-color-primary, #AD7B2A);
+}
+
+.user-payment-option-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--e-global-color-text, #2E1F0C);
+}
+
+.user-payment-option-detail {
+  font-size: 13px;
+  color: var(--status-gray);
+  margin-left: auto;
+}
+
+/* Settings page */
+.user-settings-section {
+  background: var(--admin-surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--admin-shadow);
+}
+
+.user-settings-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.user-profile-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--e-global-color-text, #2E1F0C);
+  margin-bottom: 4px;
+}
+
+.user-profile-email {
+  font-size: 14px;
+  color: var(--status-gray);
+  margin-bottom: 12px;
+}
+
+.user-profile-address {
+  font-size: 14px;
+  color: var(--e-global-color-text, #2E1F0C);
+  line-height: 1.5;
+}
+
+/* Success/confirmation states */
+.user-success-banner {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.user-success-banner svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Bottom navigation (3 items for user) */
+.user-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--admin-surface);
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  z-index: 100;
+}
+
+.user-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  color: var(--status-gray);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  min-width: 70px;
+}
+
+.user-bottom-nav-item.active {
+  color: var(--e-global-color-primary, #AD7B2A);
+}
+
+.user-bottom-nav-icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+}
+
+/* Back button header */
+.user-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.user-back-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--e-global-color-text, #2E1F0C);
+  display: flex;
+  align-items: center;
+}
+
+.user-detail-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--e-global-color-secondary, #57370D);
+  margin: 0;
+}
+
+/* Section dividers */
+.user-section-divider {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--status-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 24px 0 12px 0;
+}
+
+/* Logout button */
+.user-logout-btn {
+  width: 100%;
+  padding: 14px;
+  background: none;
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 24px;
+}
+
+.user-logout-btn:hover {
+  background: var(--status-error-bg);
+}
+
+/* Disclaimer text */
+.user-disclaimer {
+  font-size: 12px;
+  color: var(--status-gray);
+  text-align: center;
+  margin-top: 16px;
+}
+
+.user-disclaimer a {
+  color: var(--e-global-color-primary, #AD7B2A);
+}
+
+/* Responsive: Desktop */
+@media (min-width: 768px) {
+  .user-login-container {
+    padding: 40px;
+  }
+
+  .user-main {
+    padding: 24px;
+    padding-bottom: 40px;
+  }
+
+  .user-bottom-nav {
+    display: none;
+  }
+
+  .user-header {
+    border-bottom: none;
+    background: transparent;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 24px;
+  }
+}
+
+/* Print styles for shipping label */
+@media print {
+  .user-header,
+  .user-bottom-nav,
+  .user-label-actions,
+  .user-label-instructions,
+  .user-detail-header {
+    display: none !important;
+  }
+
+  .user-main {
+    padding: 0;
+    max-width: none;
+  }
+
+  .user-label-container {
+    box-shadow: none;
+    border: 2px solid black;
+  }
+}
