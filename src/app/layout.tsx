@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Alegreya_Sans } from "next/font/google";
+import "@/styles/account/account.css";
 
 const poppins = Poppins({
   variable: "--font-poppins",

@@ -29,14 +29,14 @@
   --status-gray-bg: #F3F4F6;
 }
 
-/* Base container */
+/* Base container - use !important to override Elementor styles */
 .account-body {
-  font-family: 'Poppins', var(--font-poppins), sans-serif;
-  background-color: var(--account-bg);
-  color: var(--brand-text);
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
+  font-family: 'Poppins', var(--font-poppins), sans-serif !important;
+  background-color: var(--account-bg) !important;
+  color: var(--brand-text) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 100vh !important;
 }
 
 .account-container {
@@ -137,122 +137,125 @@
   margin-bottom: 4px;
 }
 
-/* Login page */
+/* Login page - use !important to override Elementor styles on navigation */
 .account-login-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background-color: var(--account-bg);
+  min-height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  background-color: var(--account-bg) !important;
+  flex-direction: row !important;
 }
 
 .account-login-card {
-  width: 100%;
-  max-width: 400px;
-  padding: 40px 32px;
-  background: var(--account-surface);
-  border-radius: 16px;
-  box-shadow: var(--account-shadow-lg);
-  text-align: center;
+  width: 100% !important;
+  max-width: 400px !important;
+  padding: 40px 32px !important;
+  background: var(--account-surface) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--account-shadow-lg) !important;
+  text-align: center !important;
 }
 
 .account-login-logo {
-  display: block;
-  height: 48px;
-  width: auto;
-  margin: 0 auto 24px;
+  display: block !important;
+  height: 48px !important;
+  width: auto !important;
+  margin: 0 auto 24px !important;
 }
 
 .account-login-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--brand-secondary);
-  margin: 0 0 8px 0;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: var(--brand-secondary) !important;
+  margin: 0 0 8px 0 !important;
+  text-align: center !important;
 }
 
 .account-login-subtitle {
-  font-size: 14px;
-  color: var(--status-gray);
-  margin: 0 0 24px 0;
+  font-size: 14px !important;
+  color: var(--status-gray) !important;
+  margin: 0 0 24px 0 !important;
+  text-align: center !important;
 }
 
-/* Forms */
+/* Forms - use !important to override Elementor styles */
 .account-form-group {
-  margin-bottom: 16px;
-  text-align: left;
+  margin-bottom: 16px !important;
+  text-align: left !important;
 }
 
 .account-form-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--brand-secondary);
-  margin-bottom: 6px;
+  display: block !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--brand-secondary) !important;
+  margin-bottom: 6px !important;
 }
 
 .account-form-input,
 .account-form-select,
 .account-form-textarea {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--account-border);
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: 'Poppins', var(--font-poppins), sans-serif;
-  background: var(--account-surface);
-  box-sizing: border-box;
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border: 1px solid var(--account-border) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-family: 'Poppins', var(--font-poppins), sans-serif !important;
+  background: var(--account-surface) !important;
+  box-sizing: border-box !important;
 }
 
 .account-form-input:focus,
 .account-form-select:focus,
 .account-form-textarea:focus {
-  outline: none;
-  border-color: var(--brand-primary);
+  outline: none !important;
+  border-color: var(--brand-primary) !important;
 }
 
 .account-form-textarea {
-  resize: vertical;
-  min-height: 80px;
+  resize: vertical !important;
+  min-height: 80px !important;
 }
 
-/* Buttons */
+/* Buttons - use !important to override Elementor styles */
 .account-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'Poppins', var(--font-poppins), sans-serif;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-  text-decoration: none;
-  box-sizing: border-box;
-  text-align: center;
-  line-height: 1.4;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 12px 20px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-family: 'Poppins', var(--font-poppins), sans-serif !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  border: none !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+  line-height: 1.4 !important;
 }
 
 .account-btn-primary {
-  background: var(--brand-primary);
-  color: #FFFFFF;
+  background: var(--brand-primary) !important;
+  color: #FFFFFF !important;
 }
 
 .account-btn-primary:hover {
-  background: var(--brand-secondary);
+  background: var(--brand-secondary) !important;
 }
 
 .account-btn-secondary {
-  background: var(--account-surface);
-  border: 1px solid var(--account-border);
-  color: var(--brand-text);
+  background: var(--account-surface) !important;
+  border: 1px solid var(--account-border) !important;
+  color: var(--brand-text) !important;
 }
 
 .account-btn-secondary:hover {
-  border-color: var(--brand-primary);
+  border-color: var(--brand-primary) !important;
 }
 
 .account-btn-success {
@@ -270,21 +273,21 @@
 }
 
 .account-btn-full {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* Ensure Link components (anchor tags) behave correctly */
 a.account-btn-full {
-  display: flex;
-  width: 100%;
-  text-align: center;
+  display: flex !important;
+  width: 100% !important;
+  text-align: center !important;
 }
 
 .account-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
 }
 
 /* Badges */
@@ -874,14 +877,14 @@ a.account-btn-full {
 
 /* Disclaimer */
 .account-disclaimer {
-  font-size: 12px;
-  color: var(--status-gray);
-  text-align: center;
-  margin-top: 16px;
+  font-size: 12px !important;
+  color: var(--status-gray) !important;
+  text-align: center !important;
+  margin-top: 16px !important;
 }
 
 .account-disclaimer a {
-  color: var(--brand-primary);
+  color: var(--brand-primary) !important;
 }
 
 /* Check email page */

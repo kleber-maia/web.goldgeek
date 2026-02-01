@@ -3,18 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AccountContainer, KitCard } from "@/components/account";
-import {
-  getSession,
-  getActiveKits,
-  getCompletedKits,
-  logout,
-  Kit,
-  TimelineEvent,
-  UserSession,
-} from "@/lib/account";
-
-type KitWithTimeline = Kit & { timeline: TimelineEvent[] };
+import { AccountContainer } from "@/components/account";
+import { getSession, logout, UserSession } from "@/lib/account";
 
 const shortcuts = [
   {
@@ -23,12 +13,12 @@ const shortcuts = [
     description: "Update your personal information and payment preferences.",
   },
   {
-    href: "#kits",
+    href: "/account/kits",
     title: "Manage My Kits",
     description: "View order history and track kits in transit.",
   },
   {
-    href: "#kits",
+    href: "/account/kits",
     title: "View My Offers",
     description: "Review and respond to offers.",
   },
@@ -68,8 +58,6 @@ const icons = [
 export default function AccountDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
-  const [activeKits, setActiveKits] = useState<KitWithTimeline[]>([]);
-  const [completedKits, setCompletedKits] = useState<KitWithTimeline[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -88,8 +76,6 @@ export default function AccountDashboardPage() {
     }
 
     setUser(session);
-    setActiveKits(getActiveKits(session.userId));
-    setCompletedKits(getCompletedKits(session.userId));
     setIsLoading(false);
   }, [router]);
 
@@ -255,25 +241,6 @@ export default function AccountDashboardPage() {
       <button onClick={handleLogout} style={styles.logout}>
         Logout
       </button>
-
-      {/* Kits Section */}
-      <div className="account-section-divider" id="kits">Active Kits</div>
-      {activeKits.length === 0 ? (
-        <p style={{ color: "var(--status-gray)", fontSize: 14 }}>
-          No active kits
-        </p>
-      ) : (
-        activeKits.map((kit) => <KitCard key={kit.id} kit={kit} />)
-      )}
-
-      <div className="account-section-divider">Completed</div>
-      {completedKits.length === 0 ? (
-        <p style={{ color: "var(--status-gray)", fontSize: 14 }}>
-          No completed kits yet
-        </p>
-      ) : (
-        completedKits.map((kit) => <KitCard key={kit.id} kit={kit} />)
-      )}
     </AccountContainer>
   );
 }

@@ -25,7 +25,7 @@ const navItems = [
     ),
   },
   {
-    href: "/account",
+    href: "/account/kits",
     label: "My Kits",
     matchPrefix: "/account/kit",
     icon: (
