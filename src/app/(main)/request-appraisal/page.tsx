@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, FormEvent } from "react";
+import { createAppraisalRequest } from "@/lib/actions/kit.actions";
+import { useRouter } from "next/navigation";
 
 interface FormData {
   items: string[];
   description: string;
+  kitType: "PHYSICAL" | "DIGITAL";
   firstName: string;
   lastName: string;
   email: string;
@@ -30,10 +33,12 @@ const itemOptions = [
 const TOTAL_STEPS = 4;
 
 export default function RequestAppraisalPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     items: [],
     description: "",
+    kitType: "PHYSICAL",
     firstName: "",
     lastName: "",
     email: "",
@@ -93,33 +98,63 @@ export default function RequestAppraisalPage() {
     setSubmitMessage(null);
 
     try {
-      // TODO: Replace with actual API endpoint
-      console.log("Form submitted:", formData);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setSubmitMessage({
-        type: "success",
-        text: "Thank you! Your appraisal request has been submitted. We will contact you shortly.",
+      const result = await createAppraisalRequest({
+        kitType: formData.kitType,
+        estimatedValue: undefined,
+        notes: `Items: ${formData.items.join(", ")}\n\nDescription: ${formData.description}`,
+        customer: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        shippingAddress: {
+          type: "shipping",
+          street1: formData.address,
+          street2: formData.address2 || undefined,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zip,
+          country: "US",
+          isDefault: true,
+        },
       });
 
-      // Reset form
-      setFormData({
-        items: [],
-        description: "",
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        address: "",
-        address2: "",
-        city: "",
-        state: "",
-        zip: "",
-      });
-      setCurrentStep(1);
-    } catch {
+      if (result.success) {
+        setSubmitMessage({
+          type: "success",
+          text: "Thank you! Your appraisal request has been submitted. Check your email for a login link to track your request.",
+        });
+
+        // Reset form
+        setFormData({
+          items: [],
+          description: "",
+          kitType: "PHYSICAL",
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          address: "",
+          address2: "",
+          city: "",
+          state: "",
+          zip: "",
+        });
+        setCurrentStep(1);
+
+        // Redirect to login page after 3 seconds
+        setTimeout(() => {
+          router.push("/account/login");
+        }, 3000);
+      } else {
+        setSubmitMessage({
+          type: "error",
+          text: result.error || "Something went wrong. Please try again or contact us directly.",
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
       setSubmitMessage({
         type: "error",
         text: "Something went wrong. Please try again or contact us directly.",
@@ -240,10 +275,60 @@ export default function RequestAppraisalPage() {
                       </div>
                     </div>
 
-                    {/* Step 2 - Description */}
+                    {/* Step 2 - Kit Type & Description */}
                     <div
                       className={`e-form__step ${currentStep !== 2 ? "elementor-hidden" : ""}`}
                     >
+                      <div className="elementor-field-type-radio elementor-field-group elementor-column elementor-col-100 elementor-field-required elementor-mark-required">
+                        <label className="elementor-field-label">
+                          Kit Type
+                        </label>
+                        <div className="elementor-field-subgroup">
+                          <span className="elementor-field-option">
+                            <input
+                              type="radio"
+                              value="PHYSICAL"
+                              id="form-field-kitType-physical"
+                              name="kitType"
+                              checked={formData.kitType === "PHYSICAL"}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  kitType: e.target.value as "PHYSICAL" | "DIGITAL",
+                                }))
+                              }
+                              required
+                            />
+                            <label
+                              htmlFor="form-field-kitType-physical"
+                              style={{ marginLeft: "8px" }}
+                            >
+                              Physical Kit (receive kit box + prepaid label)
+                            </label>
+                          </span>
+                          <span className="elementor-field-option">
+                            <input
+                              type="radio"
+                              value="DIGITAL"
+                              id="form-field-kitType-digital"
+                              name="kitType"
+                              checked={formData.kitType === "DIGITAL"}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  kitType: e.target.value as "PHYSICAL" | "DIGITAL",
+                                }))
+                              }
+                            />
+                            <label
+                              htmlFor="form-field-kitType-digital"
+                              style={{ marginLeft: "8px" }}
+                            >
+                              Digital Kit (receive only prepaid label)
+                            </label>
+                          </span>
+                        </div>
+                      </div>
                       <div className="elementor-field-type-textarea elementor-field-group elementor-column elementor-field-group-field_3bbaa9a elementor-col-100">
                         <label
                           htmlFor="form-field-description"

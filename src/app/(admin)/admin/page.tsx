@@ -1,50 +1,65 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { formatCurrency } from "@/lib/db/utils";
+import { ActivityService } from "@/lib/services/activity.service";
 
-// Mock data for dashboard
-const stats = {
-  newRequests: 12,
-  inTransit: 5,
-  pendingOffers: 8,
-  monthlyRevenue: "$24.5K",
-};
+function getTimeAgo(date: Date): string {
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-const recentActivity = [
-  {
-    id: 1,
-    content: '<strong>John D.</strong> accepted offer - <strong style="color: #AD7B2A;">$3,607.60</strong>',
-    time: "2 hours ago",
-  },
-  {
-    id: 2,
-    content: 'New kit request from <strong>John Doe</strong> (Digital)',
-    time: "3 hours ago",
-  },
-  {
-    id: 3,
-    content: 'Package received - tracking <strong>#USPS1111222233</strong>',
-    time: "5 hours ago",
-  },
-  {
-    id: 4,
-    content: 'Payment sent to <strong>Jane Smith</strong> - <strong style="color: #AD7B2A;">$1,852.15</strong>',
-    time: "Yesterday",
-  },
-  {
-    id: 5,
-    content: '<strong>Bob Wilson</strong> declined offer - $85.00',
-    time: "2 days ago",
-  },
-  {
-    id: 6,
-    content: 'Items returned to <strong>Mary Johnson</strong>',
-    time: "3 days ago",
-  },
-];
+  if (seconds < 60) return "Just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  if (seconds < 172800) return "Yesterday";
+  return `${Math.floor(seconds / 86400)} days ago`;
+}
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const session = await getSession();
+
+  if (!session || session.role !== "ADMIN") {
+    redirect("/account/login");
+  }
+
+  // Get stats
+  const [newRequests, inTransit, pendingOffers, thisMonthPayments] = await Promise.all([
+    prisma.kit.count({ where: { status: { in: ["PENDING", "KIT_SENT"] } } }),
+    prisma.kit.count({ where: { status: "IN_TRANSIT" } }),
+    prisma.offer.count({ where: { status: "SENT" } }),
+    prisma.payment.aggregate({
+      where: {
+        status: "COMPLETED",
+        completedAt: {
+          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        },
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const monthlyRevenue = thisMonthPayments._sum.amount || 0;
+
+  // Get recent activity
+  const recentEvents = await ActivityService.getRecentEvents(6);
+
+  const stats = {
+    newRequests,
+    inTransit,
+    pendingOffers,
+    monthlyRevenue: formatCurrency(parseFloat(monthlyRevenue.toString())),
+  };
+
+  const recentActivity = recentEvents.map((event) => ({
+    id: event.id,
+    content: event.description || event.title,
+    time: getTimeAgo(event.createdAt),
+  }));
+
   return (
     <div className="admin-container">
       <AdminSidebar />
@@ -100,15 +115,18 @@ export default function AdminDashboard() {
         </div>
 
         <div className="admin-activity-list">
-          {recentActivity.map((activity) => (
-            <div key={activity.id} className="admin-activity-card">
-              <div
-                className="admin-activity-content"
-                dangerouslySetInnerHTML={{ __html: activity.content }}
-              />
-              <div className="admin-activity-time">{activity.time}</div>
+          {recentActivity.length === 0 ? (
+            <div className="admin-activity-card">
+              <div className="admin-activity-content">No recent activity</div>
             </div>
-          ))}
+          ) : (
+            recentActivity.map((activity) => (
+              <div key={activity.id} className="admin-activity-card">
+                <div className="admin-activity-content">{activity.content}</div>
+                <div className="admin-activity-time">{activity.time}</div>
+              </div>
+            ))
+          )}
         </div>
       </main>
 

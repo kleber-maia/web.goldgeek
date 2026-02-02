@@ -1,10 +1,8 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
-import { getSession, logout, UserSession } from "@/lib/account";
+import { getSession } from "@/lib/auth";
+import { LogoutButton } from "@/components/account/LogoutButton";
 
 const shortcuts = [
   {
@@ -55,46 +53,15 @@ const icons = [
   <svg key="request" width="32" height="32" viewBox="0 0 24 24" fill="#2E1F0C"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>,
 ];
 
-export default function AccountDashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<UserSession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+export default async function AccountDashboardPage() {
+  const session = await getSession();
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 500);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.replace("/account/login");
-      return;
-    }
-
-    setUser(session);
-    setIsLoading(false);
-  }, [router]);
-
-  const handleLogout = () => {
-    logout();
-    router.replace("/account/login");
-  };
-
-  if (isLoading) {
-    return (
-      <AccountContainer>
-        <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <p style={{ color: "var(--status-gray)" }}>Loading...</p>
-        </div>
-      </AccountContainer>
-    );
+  if (!session) {
+    redirect("/account/login");
   }
 
-  const firstName = user?.name.split(" ")[0] || "there";
+  // Extract first name from email (or use "there" as fallback)
+  const firstName = session.email.split("@")[0] || "there";
 
   const styles = {
     banner: {
@@ -133,7 +100,7 @@ export default function AccountDashboardPage() {
     },
     grid: {
       display: "grid",
-      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
       gap: "12px",
       marginBottom: "24px",
     },
@@ -167,18 +134,6 @@ export default function AccountDashboardPage() {
       paddingTop: "10px",
       borderTop: "1px solid #E5E5E5",
       width: "100%",
-    },
-    logout: {
-      display: "block",
-      width: "100%",
-      padding: "12px",
-      background: "none",
-      border: "none",
-      color: "#2E1F0C",
-      fontSize: "16px",
-      fontWeight: 500,
-      cursor: "pointer",
-      marginBottom: "24px",
     },
   };
 
@@ -238,9 +193,7 @@ export default function AccountDashboardPage() {
       </div>
 
       {/* Logout */}
-      <button onClick={handleLogout} style={styles.logout}>
-        Logout
-      </button>
+      <LogoutButton />
     </AccountContainer>
   );
 }

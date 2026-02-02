@@ -1,0 +1,362 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum KitType {
+  PHYSICAL // Customer receives kit box + shipping label
+  DIGITAL  // Customer receives only shipping label
+}
+
+enum KitStatus {
+  PENDING      // Initial state
+  KIT_SENT     // Kit/label sent to customer
+  IN_TRANSIT   // Package in transit to Gold Geek
+  RECEIVED     // Package received by Gold Geek
+  EVALUATING   // Items being evaluated
+  OFFER_SENT   // Offer sent to customer
+  ACCEPTED     // Customer accepted offer
+  DECLINED     // Customer declined offer
+  PAID         // Payment sent to customer
+  RETURNED     // Items returned to customer
+  CANCELLED    // Request cancelled
+}
+
+enum ItemType {
+  JEWELRY
+  COINS
+  BULLION
+  SCRAP
+  WATCHES
+  OTHER
+}
+
+enum MetalType {
+  GOLD
+  SILVER
+  PLATINUM
+  PALLADIUM
+}
+
+enum OfferStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  CHECK
+  ACH
+  ZELLE
+  PAYPAL
+  VENMO
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SENT
+  COMPLETED
+  FAILED
+}
+
+enum ReturnStatus {
+  PENDING
+  LABEL_CREATED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+enum ShippingCarrier {
+  FEDEX
+  USPS
+}
+
+enum ShippingLabelType {
+  INBOUND  // Customer to Gold Geek
+  RETURN   // Gold Geek to Customer
+}
+
+enum ShippingLabelStatus {
+  CREATED
+  IN_TRANSIT
+  DELIVERED
+  EXCEPTION
+  VOIDED
+}
+
+enum EventType {
+  KIT_CREATED
+  KIT_SENT
+  PACKAGE_IN_TRANSIT
+  PACKAGE_DELIVERED
+  EVALUATION_STARTED
+  ITEM_ADDED
+  ITEM_UPDATED
+  ITEM_REMOVED
+  OFFER_GENERATED
+  OFFER_SENT
+  OFFER_ACCEPTED
+  OFFER_DECLINED
+  PAYMENT_INITIATED
+  PAYMENT_SENT
+  PAYMENT_COMPLETED
+  RETURN_REQUESTED
+  RETURN_LABEL_CREATED
+  RETURN_SHIPPED
+  RETURN_DELIVERED
+  STATUS_CHANGED
+  NOTE_ADDED
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      UserRole @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer       Customer?
+  magicLinks     MagicLink[]
+  timelineEvents TimelineEvent[]
+
+  @@index([email])
+}
+
+model MagicLink {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  phone       String?
+  companyName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses Address[]
+  kits      Kit[]
+  payments  Payment[]
+
+  @@index([userId])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  customerId String
+  type       String // 'shipping' or 'billing'
+  street1    String
+  street2    String?
+  city       String
+  state      String
+  zipCode    String
+  country    String   @default("US")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([customerId, type])
+}
+
+model Kit {
+  id                String    @id @default(cuid())
+  customerId        String
+  kitNumber         String    @unique // e.g., "GG-2026-001234"
+  type              KitType   @default(PHYSICAL)
+  status            KitStatus @default(PENDING)
+  trackingNumber    String?
+  estimatedValue    Decimal?  @db.Decimal(10, 2)
+  notes             String?   @db.Text
+  shippingAddress   Json? // Snapshot of address at creation
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  kitSentAt         DateTime?
+  receivedAt        DateTime?
+  evaluationStartAt DateTime?
+  completedAt       DateTime?
+
+  customer       Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items          Item[]
+  offers         Offer[]
+  shippingLabels ShippingLabel[]
+  returns        Return[]
+  timeline       TimelineEvent[]
+
+  @@index([customerId])
+  @@index([kitNumber])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Item {
+  id          String     @id @default(cuid())
+  kitId       String
+  type        ItemType
+  description String
+  metalType   MetalType?
+  weight      Decimal?   @db.Decimal(10, 3) // in grams or troy oz
+  purity      String? // e.g., "14K", "925", "999"
+  quantity    Int        @default(1)
+  condition   String?
+  notes       String?    @db.Text
+  imageUrls   Json? // Array of image URLs
+  estimatedValue Decimal? @db.Decimal(10, 2)
+  finalValue  Decimal?   @db.Decimal(10, 2)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  kit Kit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@index([kitId])
+}
+
+model Offer {
+  id             String      @id @default(cuid())
+  kitId          String
+  offerNumber    String      @unique // e.g., "OFF-2026-001234"
+  status         OfferStatus @default(DRAFT)
+  totalValue     Decimal     @db.Decimal(10, 2)
+  itemBreakdown  Json // Array of {itemId, description, value}
+  notes          String?     @db.Text
+  expiresAt      DateTime // 7 days from creation
+  sentAt         DateTime?
+  respondedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  kit     Kit       @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  payment Payment?
+
+  @@index([kitId])
+  @@index([offerNumber])
+  @@index([status])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  offerId         String        @unique
+  customerId      String
+  paymentNumber   String        @unique // e.g., "PAY-2026-001234"
+  amount          Decimal       @db.Decimal(10, 2)
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  accountInfo     Json? // Encrypted payment details
+  checkNumber     String?
+  trackingNumber  String?
+  notes           String?       @db.Text
+  initiatedAt     DateTime?
+  sentAt          DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  offer    Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([customerId])
+  @@index([paymentNumber])
+  @@index([status])
+}
+
+model Return {
+  id             String       @id @default(cuid())
+  kitId          String
+  returnNumber   String       @unique // e.g., "RET-2026-001234"
+  status         ReturnStatus @default(PENDING)
+  reason         String?      @db.Text
+  trackingNumber String?
+  notes          String?      @db.Text
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  kit Kit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@index([kitId])
+  @@index([returnNumber])
+  @@index([status])
+}
+
+model ShippingLabel {
+  id             String              @id @default(cuid())
+  kitId          String
+  type           ShippingLabelType
+  carrier        ShippingCarrier
+  trackingNumber String
+  labelUrl       String? // URL to download PDF
+  labelData      String?             @db.Text // Base64 encoded label (backup)
+  cost           Decimal?            @db.Decimal(10, 2)
+  status         ShippingLabelStatus @default(CREATED)
+  externalId     String? // Carrier's label ID
+  metadata       Json? // Additional carrier-specific data
+  createdAt      DateTime            @default(now())
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  voidedAt       DateTime?
+  updatedAt      DateTime            @updatedAt
+
+  kit Kit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+
+  @@index([kitId])
+  @@index([trackingNumber])
+  @@index([status])
+}
+
+model TimelineEvent {
+  id          String    @id @default(cuid())
+  kitId       String
+  userId      String?
+  type        EventType
+  title       String
+  description String?   @db.Text
+  metadata    Json? // Additional event-specific data
+  createdAt   DateTime  @default(now())
+
+  kit  Kit   @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([kitId])
+  @@index([createdAt])
+}

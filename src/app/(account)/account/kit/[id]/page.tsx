@@ -1,86 +1,45 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, Badge, Timeline, OfferBanner } from "@/components/account";
-import {
-  getSession,
-  getKitById,
-  getKitSummary,
-  getOfferByKitId,
-  needsShippingLabel,
-  hasPendingOffer,
-  formatCurrency,
-  generateKitNumber,
-  Kit,
-  KitSummary as KitSummaryType,
-  Offer,
-  TimelineEvent,
-} from "@/lib/account";
+import { getSession } from "@/lib/auth";
+import { getKitDetails } from "@/lib/actions/customer.actions";
+import { formatCurrency } from "@/lib/db/utils";
 
-type KitWithTimeline = Kit & { timeline: TimelineEvent[] };
+export default async function KitDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const session = await getSession();
 
-export default function KitDetailPage() {
-  const router = useRouter();
-  const params = useParams();
-  const kitId = params.id as string;
-
-  const [kit, setKit] = useState<KitWithTimeline | null>(null);
-  const [summary, setSummary] = useState<KitSummaryType | null>(null);
-  const [offer, setOffer] = useState<Offer | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.replace("/account/login");
-      return;
-    }
-
-    const kitData = getKitById(kitId);
-    if (!kitData) {
-      router.replace("/account");
-      return;
-    }
-
-    setKit(kitData);
-    setSummary(getKitSummary(kitId));
-    setOffer(getOfferByKitId(kitId) || null);
-    setIsLoading(false);
-  }, [router, kitId]);
-
-  if (isLoading || !kit || !summary) {
-    return (
-      <AccountContainer
-        headerProps={{
-          showBackButton: true,
-          backHref: "/account",
-          title: "Loading...",
-        }}
-      >
-        <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <p style={{ color: "var(--status-gray)" }}>Loading...</p>
-        </div>
-      </AccountContainer>
-    );
+  if (!session) {
+    redirect("/account/login");
   }
 
-  const showOfferBanner = hasPendingOffer(kit) && offer;
-  const showShippingLabel = needsShippingLabel(kit);
+  const result = await getKitDetails(params.id);
+
+  if (!result.success || !result.data) {
+    redirect("/account");
+  }
+
+  const kit = result.data;
+  const offer = kit.offers && kit.offers.length > 0 ? kit.offers[0] : null;
+
+  const showOfferBanner = kit.status === "OFFER_SENT" && offer;
+  const showShippingLabel = kit.status === "PENDING";
 
   return (
     <AccountContainer
       headerProps={{
         showBackButton: true,
         backHref: "/account",
-        title: `Kit #${generateKitNumber(kit.id)}`,
+        title: `Kit ${kit.kitNumber}`,
       }}
     >
       {/* Status Badge */}
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <Badge
-          status={kit.status}
+          status={kit.status.toLowerCase()}
           style={{ fontSize: 14, padding: "8px 16px" }}
         />
       </div>
@@ -89,8 +48,8 @@ export default function KitDetailPage() {
       {showOfferBanner && offer && (
         <>
           <OfferBanner
-            amount={offer.totalValue}
-            expiresAt={offer.expiresAt}
+            amount={parseFloat(offer.totalValue.toString())}
+            expiresAt={new Date(offer.expiresAt)}
           />
           <div className="account-offer-actions">
             <Link
@@ -111,7 +70,7 @@ export default function KitDetailPage() {
       )}
 
       {/* Success banners */}
-      {kit.status === "accepted" && (
+      {kit.status === "ACCEPTED" && (
         <div className="account-success-banner">
           <svg
             width="24"
@@ -132,7 +91,7 @@ export default function KitDetailPage() {
         </div>
       )}
 
-      {kit.status === "paid" && offer && (
+      {kit.status === "PAID" && offer && (
         <div className="account-success-banner">
           <svg
             width="24"
@@ -149,7 +108,7 @@ export default function KitDetailPage() {
               d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          Payment complete: {formatCurrency(offer.totalValue)}
+          Payment complete: {formatCurrency(parseFloat(offer.totalValue.toString()))}
         </div>
       )}
 
@@ -177,8 +136,8 @@ export default function KitDetailPage() {
       )}
 
       {/* Physical Kit Info */}
-      {kit.kitType === "physical" &&
-        ["pending", "kit_sent"].includes(kit.status) && (
+      {kit.type === "PHYSICAL" &&
+        ["PENDING", "KIT_SENT"].includes(kit.status) && (
           <div className="account-physical-kit-info">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -207,13 +166,13 @@ export default function KitDetailPage() {
           <div className="account-kit-summary-row">
             <span className="account-kit-summary-label">Total Items</span>
             <span className="account-kit-summary-value">
-              {summary.itemCount} items
+              {kit.items?.length || 0} items
             </span>
           </div>
           <div className="account-kit-summary-row">
             <span className="account-kit-summary-label">Kit Type</span>
             <span className="account-kit-summary-value">
-              {kit.kitType === "physical" ? "Physical Kit" : "Digital"}
+              {kit.type === "PHYSICAL" ? "Physical Kit" : "Digital"}
             </span>
           </div>
           {kit.trackingNumber && (
@@ -233,7 +192,7 @@ export default function KitDetailPage() {
       {/* Timeline */}
       <div className="account-section">
         <div className="account-section-title">Timeline</div>
-        <Timeline events={kit.timeline} />
+        <Timeline events={kit.timeline || []} />
       </div>
     </AccountContainer>
   );
