@@ -6,8 +6,12 @@ import PaymentsClient from "./PaymentsClient";
 export default async function PaymentsPage() {
   const session = await getSession();
 
-  if (!session || session.role !== "ADMIN") {
-    redirect("/account/login");
+  if (!session) {
+    redirect("/admin/login");
+  }
+
+  if (session.type !== "admin") {
+    redirect("/admin/login?error=unauthorized");
   }
 
   const result = await getAllPayments();

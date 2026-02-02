@@ -4,26 +4,24 @@ import type { AddressInput, CustomerProfileInput } from '@/lib/validators/custom
 
 export class CustomerService {
   /**
-   * Get customer by user ID
-   */
-  static async getByUserId(userId: string) {
-    return prisma.customer.findUnique({
-      where: { userId },
-      include: {
-        user: true,
-        addresses: true,
-      },
-    });
-  }
-
-  /**
    * Get customer by ID
    */
   static async getById(customerId: string) {
     return prisma.customer.findUnique({
       where: { id: customerId },
       include: {
-        user: true,
+        addresses: true,
+      },
+    });
+  }
+
+  /**
+   * Get customer by email
+   */
+  static async getByEmail(email: string) {
+    return prisma.customer.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      include: {
         addresses: true,
       },
     });
@@ -33,25 +31,12 @@ export class CustomerService {
    * Create or update customer profile
    */
   static async upsertProfile(
-    userId: string,
+    customerId: string,
     data: CustomerProfileInput
   ): Promise<Customer> {
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { userId },
-    });
-
-    if (existingCustomer) {
-      return prisma.customer.update({
-        where: { id: existingCustomer.id },
-        data,
-      });
-    }
-
-    return prisma.customer.create({
-      data: {
-        ...data,
-        userId,
-      },
+    return prisma.customer.update({
+      where: { id: customerId },
+      data,
     });
   }
 
@@ -155,6 +140,48 @@ export class CustomerService {
             kit: true,
           },
         },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Get all customers (for admin)
+   */
+  static async getAll() {
+    return prisma.customer.findMany({
+      include: {
+        addresses: true,
+        kits: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Search customers by name or email
+   */
+  static async search(query: string) {
+    const searchTerm = query.toLowerCase().trim();
+    return prisma.customer.findMany({
+      where: {
+        OR: [
+          { email: { contains: searchTerm, mode: 'insensitive' } },
+          { firstName: { contains: searchTerm, mode: 'insensitive' } },
+          { lastName: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        addresses: true,
       },
       orderBy: {
         createdAt: 'desc',

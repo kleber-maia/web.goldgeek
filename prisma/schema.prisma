@@ -7,17 +7,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ============================================================================
 // ENUMS
 // ============================================================================
-
-enum UserRole {
-  CUSTOMER
-  ADMIN
-}
 
 enum KitType {
   PHYSICAL // Customer receives kit box + shipping label
@@ -132,14 +126,13 @@ enum EventType {
 // MODELS
 // ============================================================================
 
+// User - Admins ONLY
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  role      UserRole @default(CUSTOMER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer       Customer?
   magicLinks     MagicLink[]
   timelineEvents TimelineEvent[]
 
@@ -160,9 +153,10 @@ model MagicLink {
   @@index([userId])
 }
 
+// Customer - INDEPENDENT (no userId)
 model Customer {
   id          String   @id @default(cuid())
-  userId      String   @unique
+  email       String   @unique
   firstName   String
   lastName    String
   phone       String?
@@ -170,12 +164,27 @@ model Customer {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  addresses Address[]
-  kits      Kit[]
-  payments  Payment[]
+  magicLinks CustomerMagicLink[]
+  addresses  Address[]
+  kits       Kit[]
+  payments   Payment[]
 
-  @@index([userId])
+  @@index([email])
+}
+
+// CustomerMagicLink for customer authentication
+model CustomerMagicLink {
+  id         String    @id @default(cuid())
+  customerId String
+  token      String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([customerId])
 }
 
 model Address {

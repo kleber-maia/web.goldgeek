@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, requireCustomer } from '@/lib/auth';
 import { CustomerService } from '@/lib/services/customer.service';
 import { KitService } from '@/lib/services/kit.service';
 import { OfferService } from '@/lib/services/offer.service';
@@ -14,7 +14,7 @@ import {
   type PaymentPreferencesInput,
 } from '@/lib/validators/customer';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -27,20 +27,21 @@ export async function updateProfile(
   data: CustomerProfileInput
 ): Promise<ActionResult> {
   try {
-    const session = await requireAuth();
+    const session = await requireCustomer();
 
     const validated = customerProfileSchema.parse(data);
-    const customer = await CustomerService.upsertProfile(session.userId, validated);
+    const customer = await CustomerService.upsertProfile(session.id, validated);
 
     return {
       success: true,
       data: customer,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update profile';
     console.error('Error updating profile:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update profile',
+      error: message,
     };
   }
 }
@@ -50,26 +51,21 @@ export async function updateProfile(
  */
 export async function addAddress(data: AddressInput): Promise<ActionResult> {
   try {
-    const session = await requireAuth();
-
-    // Get customer
-    const customer = await CustomerService.getByUserId(session.userId);
-    if (!customer) {
-      return { success: false, error: 'Customer profile not found' };
-    }
+    const session = await requireCustomer();
 
     const validated = addressSchema.parse(data);
-    const address = await CustomerService.addAddress(customer.id, validated);
+    const address = await CustomerService.addAddress(session.id, validated);
 
     return {
       success: true,
       data: address,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to add address';
     console.error('Error adding address:', error);
     return {
       success: false,
-      error: error.message || 'Failed to add address',
+      error: message,
     };
   }
 }
@@ -82,7 +78,7 @@ export async function updateAddress(
   data: Partial<AddressInput>
 ): Promise<ActionResult> {
   try {
-    await requireAuth();
+    await requireCustomer();
 
     const address = await CustomerService.updateAddress(addressId, data);
 
@@ -90,11 +86,12 @@ export async function updateAddress(
       success: true,
       data: address,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update address';
     console.error('Error updating address:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update address',
+      error: message,
     };
   }
 }
@@ -104,18 +101,19 @@ export async function updateAddress(
  */
 export async function deleteAddress(addressId: string): Promise<ActionResult> {
   try {
-    await requireAuth();
+    await requireCustomer();
 
     await CustomerService.deleteAddress(addressId);
 
     return {
       success: true,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete address';
     console.error('Error deleting address:', error);
     return {
       success: false,
-      error: error.message || 'Failed to delete address',
+      error: message,
     };
   }
 }
@@ -125,19 +123,20 @@ export async function deleteAddress(addressId: string): Promise<ActionResult> {
  */
 export async function acceptOffer(offerId: string): Promise<ActionResult> {
   try {
-    const session = await requireAuth();
+    const session = await requireCustomer();
 
-    const offer = await OfferService.accept(offerId, session.userId);
+    const offer = await OfferService.accept(offerId, session.id);
 
     return {
       success: true,
       data: offer,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to accept offer';
     console.error('Error accepting offer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to accept offer',
+      error: message,
     };
   }
 }
@@ -147,9 +146,9 @@ export async function acceptOffer(offerId: string): Promise<ActionResult> {
  */
 export async function declineOffer(offerId: string): Promise<ActionResult> {
   try {
-    const session = await requireAuth();
+    const session = await requireCustomer();
 
-    const offer = await OfferService.decline(offerId, session.userId);
+    const offer = await OfferService.decline(offerId, session.id);
 
     // Create return for declined offer
     const offerWithKit = await OfferService.getById(offerId);
@@ -159,7 +158,7 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
           kitId: offerWithKit.kitId,
           reason: 'Customer declined offer',
         },
-        session.userId
+        session.id
       );
     }
 
@@ -167,11 +166,12 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
       success: true,
       data: offer,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to decline offer';
     console.error('Error declining offer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to decline offer',
+      error: message,
     };
   }
 }
@@ -183,7 +183,7 @@ export async function updatePaymentPreferences(
   data: PaymentPreferencesInput
 ): Promise<ActionResult> {
   try {
-    const session = await requireAuth();
+    await requireCustomer();
 
     const validated = paymentPreferencesSchema.parse(data);
 
@@ -195,11 +195,12 @@ export async function updatePaymentPreferences(
       success: true,
       data: validated,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update payment preferences';
     console.error('Error updating payment preferences:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update payment preferences',
+      error: message,
     };
   }
 }
@@ -209,24 +210,20 @@ export async function updatePaymentPreferences(
  */
 export async function getMyKits(): Promise<ActionResult> {
   try {
-    const session = await requireAuth();
+    const session = await requireCustomer();
 
-    const customer = await CustomerService.getByUserId(session.userId);
-    if (!customer) {
-      return { success: false, error: 'Customer profile not found' };
-    }
-
-    const kits = await CustomerService.getKits(customer.id);
+    const kits = await CustomerService.getKits(session.id);
 
     return {
       success: true,
       data: kits,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get kits';
     console.error('Error getting kits:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get kits',
+      error: message,
     };
   }
 }
@@ -244,8 +241,8 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
       return { success: false, error: 'Kit not found' };
     }
 
-    // Verify ownership
-    if (kit.customer.userId !== session.userId && session.role !== 'ADMIN') {
+    // Verify ownership (admins can view any kit)
+    if (kit.customerId !== session.id && session.type !== 'admin') {
       return { success: false, error: 'Unauthorized' };
     }
 
@@ -253,11 +250,12 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
       success: true,
       data: kit,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get kit details';
     console.error('Error getting kit details:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get kit details',
+      error: message,
     };
   }
 }

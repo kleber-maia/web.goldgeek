@@ -44,7 +44,7 @@ export async function generateOffer(kitId: string): Promise<ActionResult> {
       itemBreakdown,
     };
 
-    const offer = await OfferService.create(kitId, offerData, session.userId);
+    const offer = await OfferService.create(kitId, offerData, session.id);
 
     return {
       success: true,
@@ -70,7 +70,7 @@ export async function createOffer(
     const session = await requireAdmin();
 
     const validated = offerSchema.parse(data);
-    const offer = await OfferService.create(kitId, validated, session.userId);
+    const offer = await OfferService.create(kitId, validated, session.id);
 
     return {
       success: true,
@@ -92,7 +92,7 @@ export async function sendOffer(offerId: string): Promise<ActionResult> {
   try {
     const session = await requireAdmin();
 
-    const offer = await OfferService.send(offerId, session.userId);
+    const offer = await OfferService.send(offerId, session.id);
 
     return {
       success: true,

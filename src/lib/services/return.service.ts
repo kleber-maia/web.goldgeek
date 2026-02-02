@@ -48,11 +48,7 @@ export class ReturnService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
             items: true,
           },
         },
@@ -69,11 +65,7 @@ export class ReturnService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
       },
@@ -175,11 +167,7 @@ export class ReturnService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
       },

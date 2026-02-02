@@ -50,11 +50,7 @@ export class ActivityService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
         user: true,

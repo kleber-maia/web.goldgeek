@@ -27,11 +27,18 @@ export function middleware(request: NextRequest) {
 
   // Protect /admin/* routes
   if (pathname.startsWith('/admin')) {
-    if (!session) {
-      // Redirect to login
-      const url = new URL('/account/login', request.url);
+    const isAdminLoginPage = pathname === '/admin/login';
+
+    if (!session && !isAdminLoginPage) {
+      // Redirect to admin login if not authenticated
+      const url = new URL('/admin/login', request.url);
       url.searchParams.set('redirect', pathname);
       return NextResponse.redirect(url);
+    }
+
+    if (session && isAdminLoginPage) {
+      // Redirect to admin dashboard if already authenticated
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
 
     // Note: Role verification happens server-side in the pages

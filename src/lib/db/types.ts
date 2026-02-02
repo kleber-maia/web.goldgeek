@@ -11,10 +11,10 @@ export type {
   ShippingLabel,
   TimelineEvent,
   MagicLink,
+  CustomerMagicLink,
 } from '@prisma/client';
 
 export {
-  UserRole,
   KitType,
   KitStatus,
   ItemType,
@@ -34,11 +34,7 @@ import type { Prisma } from '@prisma/client';
 
 export type KitWithRelations = Prisma.KitGetPayload<{
   include: {
-    customer: {
-      include: {
-        user: true;
-      };
-    };
+    customer: true;
     items: true;
     offers: true;
     shippingLabels: true;
@@ -52,7 +48,6 @@ export type KitWithRelations = Prisma.KitGetPayload<{
 
 export type CustomerWithRelations = Prisma.CustomerGetPayload<{
   include: {
-    user: true;
     addresses: true;
     kits: true;
   };
@@ -63,11 +58,7 @@ export type OfferWithRelations = Prisma.OfferGetPayload<{
     kit: {
       include: {
         items: true;
-        customer: {
-          include: {
-            user: true;
-          };
-        };
+        customer: true;
       };
     };
     payment: true;
@@ -81,10 +72,6 @@ export type PaymentWithRelations = Prisma.PaymentGetPayload<{
         kit: true;
       };
     };
-    customer: {
-      include: {
-        user: true;
-      };
-    };
+    customer: true;
   };
 }>;

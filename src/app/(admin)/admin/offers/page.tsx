@@ -6,8 +6,12 @@ import OffersClient from "./OffersClient";
 export default async function OffersPage() {
   const session = await getSession();
 
-  if (!session || session.role !== "ADMIN") {
-    redirect("/account/login");
+  if (!session) {
+    redirect("/admin/login");
+  }
+
+  if (session.type !== "admin") {
+    redirect("/admin/login?error=unauthorized");
   }
 
   const result = await getAllOffers();

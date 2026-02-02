@@ -21,7 +21,7 @@ export async function addItemToKit(
     const session = await requireAdmin();
 
     const validated = itemSchema.parse(data);
-    const item = await ItemService.create(kitId, validated, session.userId);
+    const item = await ItemService.create(kitId, validated, session.id);
 
     return {
       success: true,
@@ -47,7 +47,7 @@ export async function updateItem(
     const session = await requireAdmin();
 
     const validated = updateItemSchema.parse(data);
-    const item = await ItemService.update(itemId, validated, session.userId);
+    const item = await ItemService.update(itemId, validated, session.id);
 
     return {
       success: true,
@@ -69,7 +69,7 @@ export async function deleteItem(itemId: string): Promise<ActionResult> {
   try {
     const session = await requireAdmin();
 
-    await ItemService.delete(itemId, session.userId);
+    await ItemService.delete(itemId, session.id);
 
     return {
       success: true,

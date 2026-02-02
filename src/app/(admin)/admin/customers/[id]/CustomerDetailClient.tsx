@@ -7,16 +7,29 @@ import { formatCurrency } from "@/lib/db/utils";
 
 interface Customer {
   id: string;
+  email: string;
   firstName: string;
   lastName: string;
   phone: string | null;
   createdAt: Date | string;
-  user: {
-    email: string;
-  };
-  addresses: any[];
-  kits: any[];
-  payments: any[];
+  addresses: unknown[];
+  kits: Array<{
+    id: string;
+    kitNumber: string;
+    status: string;
+    createdAt: Date | string;
+    items: unknown[];
+  }>;
+  payments: Array<{
+    id: string;
+    paymentNumber: string;
+    amount: { toString(): string };
+    method: string;
+    status: string;
+    createdAt: Date | string;
+    completedAt?: Date | string;
+    offer: { kit: { kitNumber: string } };
+  }>;
 }
 
 function formatDate(date: Date | string): string {
@@ -71,7 +84,7 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
               <div className="admin-info-grid">
                 <div>
                   <div className="admin-info-label">Email</div>
-                  <div className="admin-info-value">{customer.user.email}</div>
+                  <div className="admin-info-value">{customer.email}</div>
                 </div>
                 <div>
                   <div className="admin-info-label">Phone</div>

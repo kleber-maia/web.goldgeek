@@ -10,17 +10,24 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "admin:create": "tsx scripts/manage-admin.ts create",
+    "admin:list": "tsx scripts/manage-admin.ts list",
+    "admin:delete": "tsx scripts/manage-admin.ts delete",
+    "migrate:split": "tsx scripts/migrate-user-customer-split.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
     "nanoid": "^5.1.6",
     "next": "16.1.2",
+    "pg": "^8.18.0",
     "prisma": "^7.3.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -30,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

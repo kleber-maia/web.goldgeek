@@ -3,7 +3,7 @@
 import { requireAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -18,7 +18,6 @@ export async function getAllCustomers(): Promise<ActionResult> {
 
     const customers = await prisma.customer.findMany({
       include: {
-        user: true,
         addresses: true,
         kits: true,
         payments: true,
@@ -32,11 +31,12 @@ export async function getAllCustomers(): Promise<ActionResult> {
       success: true,
       data: customers,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get customers';
     console.error('Error getting customers:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get customers',
+      error: message,
     };
   }
 }
@@ -51,7 +51,6 @@ export async function getCustomerById(customerId: string): Promise<ActionResult>
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       include: {
-        user: true,
         addresses: true,
         kits: {
           include: {
@@ -85,11 +84,12 @@ export async function getCustomerById(customerId: string): Promise<ActionResult>
       success: true,
       data: customer,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get customer';
     console.error('Error getting customer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get customer',
+      error: message,
     };
   }
 }

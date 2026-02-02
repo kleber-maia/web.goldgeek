@@ -20,7 +20,7 @@ export const customerProfileSchema = z.object({
 
 export const paymentPreferencesSchema = z.object({
   method: z.enum(['CHECK', 'ACH', 'ZELLE', 'PAYPAL', 'VENMO']),
-  accountInfo: z.record(z.any()).optional(),
+  accountInfo: z.record(z.string(), z.any()).optional(),
 });
 
 export type AddressInput = z.infer<typeof addressSchema>;

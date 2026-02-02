@@ -22,8 +22,12 @@ function getTimeAgo(date: Date): string {
 export default async function AdminDashboard() {
   const session = await getSession();
 
-  if (!session || session.role !== "ADMIN") {
-    redirect("/account/login");
+  if (!session) {
+    redirect("/admin/login");
+  }
+
+  if (session.type !== "admin") {
+    redirect("/admin/login?error=unauthorized");
   }
 
   // Get stats

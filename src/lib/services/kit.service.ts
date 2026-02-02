@@ -49,7 +49,6 @@ export class KitService {
       include: {
         customer: {
           include: {
-            user: true,
             addresses: true,
           },
         },
@@ -80,11 +79,7 @@ export class KitService {
     return prisma.kit.findUnique({
       where: { kitNumber },
       include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+        customer: true,
         items: true,
         offers: true,
         timeline: {
@@ -205,11 +200,7 @@ export class KitService {
     return prisma.kit.findMany({
       where,
       include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+        customer: true,
         items: true,
         offers: true,
       },

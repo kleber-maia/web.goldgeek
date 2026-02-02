@@ -30,7 +30,7 @@ export async function createShippingLabel(
   try {
     const session = await requireAdmin();
 
-    const label = await ShippingService.createLabel(data, session.userId);
+    const label = await ShippingService.createLabel(data, session.id);
 
     // If this is a return label, create/update return record
     if (data.type === 'RETURN') {
@@ -42,7 +42,7 @@ export async function createShippingLabel(
             kitId: data.kitId,
             notes: 'Return label created',
           },
-          session.userId
+          session.id
         );
       }
 
@@ -52,7 +52,7 @@ export async function createShippingLabel(
         await ReturnService.updateStatus(
           returns[0].id,
           'LABEL_CREATED',
-          session.userId
+          session.id
         );
         await ReturnService.updateTracking(returns[0].id, data.trackingNumber);
       }
@@ -84,7 +84,7 @@ export async function updateLabelStatus(
     const label = await ShippingService.updateStatus(
       labelId,
       status,
-      session.userId
+      session.id
     );
 
     return {
@@ -107,7 +107,7 @@ export async function voidShippingLabel(labelId: string): Promise<ActionResult> 
   try {
     const session = await requireAdmin();
 
-    const label = await ShippingService.voidLabel(labelId, session.userId);
+    const label = await ShippingService.voidLabel(labelId, session.id);
 
     return {
       success: true,
@@ -184,7 +184,7 @@ export async function updateReturnStatus(
     const returnRecord = await ReturnService.updateStatus(
       returnId,
       status,
-      session.userId
+      session.id
     );
 
     return {

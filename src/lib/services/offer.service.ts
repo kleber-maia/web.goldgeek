@@ -51,11 +51,7 @@ export class OfferService {
         kit: {
           include: {
             items: true,
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
         payment: true,
@@ -73,11 +69,7 @@ export class OfferService {
         kit: {
           include: {
             items: true,
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
         payment: true,
@@ -255,11 +247,7 @@ export class OfferService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
         payment: true,

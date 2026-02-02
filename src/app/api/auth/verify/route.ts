@@ -13,19 +13,23 @@ export async function GET(request: Request) {
     }
 
     // Verify the magic link
-    const userId = await verifyMagicLink(token);
+    const result = await verifyMagicLink(token);
 
-    if (!userId) {
+    if (!result) {
       return NextResponse.redirect(
         new URL('/account/login?error=invalid_token', request.url)
       );
     }
 
-    // Create session
-    await createSession(userId);
+    // Create session with type
+    await createSession(result.id, result.type);
 
-    // Redirect to account page
-    return NextResponse.redirect(new URL('/account', request.url));
+    // Redirect based on user type
+    if (result.type === 'admin') {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    } else {
+      return NextResponse.redirect(new URL('/account', request.url));
+    }
   } catch (error) {
     console.error('Error verifying magic link:', error);
     return NextResponse.redirect(

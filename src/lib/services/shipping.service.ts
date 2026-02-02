@@ -59,11 +59,7 @@ export class ShippingService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
       },
@@ -300,11 +296,7 @@ export class ShippingService {
       include: {
         kit: {
           include: {
-            customer: {
-              include: {
-                user: true,
-              },
-            },
+            customer: true,
           },
         },
       },

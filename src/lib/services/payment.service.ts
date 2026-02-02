@@ -66,11 +66,7 @@ export class PaymentService {
             kit: true,
           },
         },
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+        customer: true,
       },
     });
   }
@@ -87,11 +83,7 @@ export class PaymentService {
             kit: true,
           },
         },
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+        customer: true,
       },
     });
   }
@@ -210,11 +202,7 @@ export class PaymentService {
             kit: true,
           },
         },
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+        customer: true,
       },
       orderBy: {
         createdAt: 'desc',

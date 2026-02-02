@@ -10,8 +10,12 @@ export default async function CustomerDetailPage({
 }) {
   const session = await getSession();
 
-  if (!session || session.role !== "ADMIN") {
-    redirect("/account/login");
+  if (!session) {
+    redirect("/admin/login");
+  }
+
+  if (session.type !== "admin") {
+    redirect("/admin/login?error=unauthorized");
   }
 
   const result = await getCustomerById(params.id);
@@ -20,5 +24,6 @@ export default async function CustomerDetailPage({
     redirect("/admin/customers");
   }
 
-  return <CustomerDetailClient customer={result.data} />;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <CustomerDetailClient customer={result.data as any} />;
 }

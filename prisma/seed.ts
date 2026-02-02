@@ -1,64 +1,85 @@
-import { PrismaClient, UserRole, KitType, KitStatus, ItemType, MetalType, OfferStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import 'dotenv/config';
+import { PrismaClient, KitType, KitStatus, ItemType, MetalType, OfferStatus } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 
-const prisma = new PrismaClient();
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+
+const prisma = new PrismaClient({
+  adapter,
+  log: ['error', 'warn'],
+});
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('Seeding database...');
 
-  // Create admin user
-  const adminUser = await prisma.user.create({
-    data: {
+  // Create admin user (User table is for admins only)
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@goldgeek.com' },
+    update: {},
+    create: {
       email: 'admin@goldgeek.com',
-      role: UserRole.ADMIN,
     },
   });
-  console.log('✓ Created admin user:', adminUser.email);
+  console.log('Admin user:', adminUser.email);
 
-  // Create test customer user
-  const customerUser = await prisma.user.create({
-    data: {
-      email: 'test@example.com',
-      role: UserRole.CUSTOMER,
-      customer: {
-        create: {
-          firstName: 'John',
-          lastName: 'Doe',
-          phone: '555-0123',
-          addresses: {
-            create: [
-              {
-                type: 'shipping',
-                street1: '123 Main St',
-                city: 'San Francisco',
-                state: 'CA',
-                zipCode: '94102',
-                country: 'US',
-                isDefault: true,
-              },
-            ],
-          },
-        },
-      },
-    },
-    include: {
-      customer: {
-        include: {
-          addresses: true,
-        },
-      },
-    },
+  // Create test customer (Customer table is independent, has email directly)
+  let customer = await prisma.customer.findUnique({
+    where: { email: 'test@example.com' },
+    include: { addresses: true },
   });
-  console.log('✓ Created test customer:', customerUser.email);
 
-  // Create sample kit with items
-  if (customerUser.customer) {
-    const kit = await prisma.kit.create({
+  if (!customer) {
+    customer = await prisma.customer.create({
       data: {
-        customerId: customerUser.customer.id,
+        email: 'test@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        phone: '555-0123',
+        addresses: {
+          create: [
+            {
+              type: 'shipping',
+              street1: '123 Main St',
+              city: 'San Francisco',
+              state: 'CA',
+              zipCode: '94102',
+              country: 'US',
+              isDefault: true,
+            },
+          ],
+        },
+      },
+      include: {
+        addresses: true,
+      },
+    });
+    console.log('Created test customer:', customer.email);
+  } else {
+    console.log('Test customer exists:', customer.email);
+  }
+
+  // Check if kit already exists
+  let kit = await prisma.kit.findUnique({
+    where: { kitNumber: 'GG-2026-TEST01' },
+    include: { items: true },
+  });
+
+  if (!kit) {
+    kit = await prisma.kit.create({
+      data: {
+        customerId: customer.id,
         kitNumber: 'GG-2026-TEST01',
         type: KitType.PHYSICAL,
         status: KitStatus.EVALUATING,
-        shippingAddress: customerUser.customer.addresses[0],
+        shippingAddress: customer.addresses[0] || {
+          street1: '123 Main St',
+          city: 'San Francisco',
+          state: 'CA',
+          zipCode: '94102',
+          country: 'US',
+        },
         items: {
           create: [
             {
@@ -90,10 +111,18 @@ async function main() {
         items: true,
       },
     });
-    console.log('✓ Created sample kit:', kit.kitNumber);
+    console.log('Created sample kit:', kit.kitNumber);
+  } else {
+    console.log('Sample kit exists:', kit.kitNumber);
+  }
 
-    // Create offer for the kit
-    const offer = await prisma.offer.create({
+  // Check if offer already exists
+  let offer = await prisma.offer.findUnique({
+    where: { offerNumber: 'OFF-2026-TEST01' },
+  });
+
+  if (!offer) {
+    offer = await prisma.offer.create({
       data: {
         kitId: kit.id,
         offerNumber: 'OFF-2026-TEST01',
@@ -105,14 +134,16 @@ async function main() {
           value: item.finalValue?.toString() || '0',
         })),
         notes: 'Test offer for sample kit',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         sentAt: new Date(),
       },
     });
-    console.log('✓ Created sample offer:', offer.offerNumber);
+    console.log('Created sample offer:', offer.offerNumber);
+  } else {
+    console.log('Sample offer exists:', offer.offerNumber);
   }
 
-  console.log('🌱 Seeding completed!');
+  console.log('Seeding completed!');
 }
 
 main()

@@ -7,9 +7,9 @@ import {
   appraisalRequestSchema,
   type AppraisalRequestInput,
 } from '@/lib/validators/appraisal-request';
-import { createMagicLink, createSession } from '@/lib/auth';
+import { createMagicLink } from '@/lib/auth';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -17,7 +17,7 @@ export interface ActionResult<T = any> {
 
 /**
  * Create an appraisal request (public - no auth required)
- * This also creates/finds the user and customer
+ * This also creates/finds the customer
  */
 export async function createAppraisalRequest(
   data: AppraisalRequestInput
@@ -25,40 +25,43 @@ export async function createAppraisalRequest(
   try {
     // Validate input
     const validated = appraisalRequestSchema.parse(data);
+    const normalizedEmail = validated.customer.email.toLowerCase().trim();
 
-    // Find or create user
-    let user = await prisma.user.findUnique({
-      where: { email: validated.customer.email },
+    // Find or create customer
+    let customer = await prisma.customer.findUnique({
+      where: { email: normalizedEmail },
+      include: { addresses: true },
     });
 
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: validated.customer.email,
-          role: 'CUSTOMER',
-        },
-      });
-    }
-
-    // Find or create customer profile
-    let customer = await CustomerService.getByUserId(user.id);
-
     if (!customer) {
-      customer = await CustomerService.upsertProfile(user.id, {
-        firstName: validated.customer.firstName,
-        lastName: validated.customer.lastName,
-        phone: validated.customer.phone,
-        companyName: validated.customer.companyName,
+      customer = await prisma.customer.create({
+        data: {
+          email: normalizedEmail,
+          firstName: validated.customer.firstName,
+          lastName: validated.customer.lastName,
+          phone: validated.customer.phone,
+          companyName: validated.customer.companyName,
+        },
+        include: { addresses: true },
+      });
+    } else {
+      // Update customer profile if needed
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          firstName: validated.customer.firstName || customer.firstName,
+          lastName: validated.customer.lastName || customer.lastName,
+          phone: validated.customer.phone || customer.phone,
+          companyName: validated.customer.companyName || customer.companyName,
+        },
+        include: { addresses: true },
       });
     }
 
     // Add shipping address if not exists
-    const existingAddresses = await prisma.address.findMany({
-      where: {
-        customerId: customer.id,
-        type: 'shipping',
-      },
-    });
+    const existingAddresses = customer.addresses.filter(
+      (addr) => addr.type === 'shipping'
+    );
 
     let shippingAddress;
     if (existingAddresses.length === 0) {
@@ -87,8 +90,8 @@ export async function createAppraisalRequest(
     });
 
     // Create magic link for authentication
-    const token = await createMagicLink(validated.customer.email);
-    const magicLinkUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify?token=${token}`;
+    const result = await createMagicLink(normalizedEmail);
+    const magicLinkUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify?token=${result.token}`;
 
     // TODO: Send email with magic link and kit details
 
@@ -99,11 +102,12 @@ export async function createAppraisalRequest(
         magicLinkUrl: process.env.NODE_ENV === 'development' ? magicLinkUrl : undefined,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create appraisal request';
     console.error('Error creating appraisal request:', error);
     return {
       success: false,
-      error: error.message || 'Failed to create appraisal request',
+      error: message,
     };
   }
 }

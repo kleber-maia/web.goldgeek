@@ -28,7 +28,7 @@ export async function processPayment(
   try {
     const session = await requireAdmin();
 
-    const payment = await PaymentService.create(data, session.userId);
+    const payment = await PaymentService.create(data, session.id);
 
     return {
       success: true,
@@ -56,7 +56,7 @@ export async function updatePaymentStatus(
     const payment = await PaymentService.updateStatus(
       paymentId,
       status,
-      session.userId
+      session.id
     );
 
     return {

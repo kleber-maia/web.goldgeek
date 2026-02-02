@@ -1,87 +1,126 @@
 import { prisma } from '@/lib/db';
 import { generateToken, calculateMagicLinkExpiration } from '@/lib/db/utils';
-import { UserRole } from '@prisma/client';
+
+export type AuthType = 'admin' | 'customer';
+
+export interface MagicLinkResult {
+  token: string;
+  type: AuthType;
+}
+
+export interface VerifyResult {
+  id: string;
+  type: AuthType;
+}
 
 /**
- * Creates a magic link token for a user (creates user if doesn't exist)
+ * Creates a magic link token for authentication.
+ * - If email belongs to an admin (User table), creates admin magic link
+ * - Otherwise, creates customer magic link (creates customer if doesn't exist)
  */
-export async function createMagicLink(email: string): Promise<string> {
-  // Find or create user
-  let user = await prisma.user.findUnique({
-    where: { email },
+export async function createMagicLink(email: string): Promise<MagicLinkResult> {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Check if admin exists
+  const admin = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
   });
 
-  if (!user) {
-    // Create new user
-    user = await prisma.user.create({
+  if (admin) {
+    const token = generateToken();
+    const expiresAt = calculateMagicLinkExpiration();
+
+    await prisma.magicLink.create({
       data: {
-        email,
-        role: UserRole.CUSTOMER,
+        userId: admin.id,
+        token,
+        expiresAt,
+      },
+    });
+
+    return { token, type: 'admin' };
+  }
+
+  // Check/create customer
+  let customer = await prisma.customer.findUnique({
+    where: { email: normalizedEmail },
+  });
+
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: {
+        email: normalizedEmail,
+        firstName: '',
+        lastName: '',
       },
     });
   }
 
-  // Generate token
   const token = generateToken();
   const expiresAt = calculateMagicLinkExpiration();
 
-  // Create magic link
-  await prisma.magicLink.create({
+  await prisma.customerMagicLink.create({
     data: {
-      userId: user.id,
+      customerId: customer.id,
       token,
       expiresAt,
     },
   });
 
-  return token;
+  return { token, type: 'customer' };
 }
 
 /**
- * Verifies a magic link token and returns the user ID
+ * Verifies a magic link token and returns the user/customer ID and type
  */
-export async function verifyMagicLink(token: string): Promise<string | null> {
-  const magicLink = await prisma.magicLink.findUnique({
+export async function verifyMagicLink(token: string): Promise<VerifyResult | null> {
+  // Check admin magic link first
+  const adminLink = await prisma.magicLink.findUnique({
     where: { token },
-    include: {
-      user: true,
-    },
+    include: { user: true },
   });
 
-  if (!magicLink) {
-    return null;
+  if (adminLink && !adminLink.usedAt && new Date() < adminLink.expiresAt) {
+    await prisma.magicLink.update({
+      where: { id: adminLink.id },
+      data: { usedAt: new Date() },
+    });
+    return { id: adminLink.userId, type: 'admin' };
   }
 
-  // Check if already used
-  if (magicLink.usedAt) {
-    return null;
-  }
-
-  // Check if expired
-  if (new Date() > magicLink.expiresAt) {
-    return null;
-  }
-
-  // Mark as used
-  await prisma.magicLink.update({
-    where: { id: magicLink.id },
-    data: { usedAt: new Date() },
+  // Check customer magic link
+  const customerLink = await prisma.customerMagicLink.findUnique({
+    where: { token },
+    include: { customer: true },
   });
 
-  return magicLink.userId;
+  if (customerLink && !customerLink.usedAt && new Date() < customerLink.expiresAt) {
+    await prisma.customerMagicLink.update({
+      where: { id: customerLink.id },
+      data: { usedAt: new Date() },
+    });
+    return { id: customerLink.customerId, type: 'customer' };
+  }
+
+  return null;
 }
 
 /**
  * Cleans up expired magic links (should be run periodically)
  */
-export async function cleanupExpiredMagicLinks(): Promise<number> {
-  const result = await prisma.magicLink.deleteMany({
-    where: {
-      expiresAt: {
-        lt: new Date(),
-      },
-    },
+export async function cleanupExpiredMagicLinks(): Promise<{ admin: number; customer: number }> {
+  const now = new Date();
+
+  const adminResult = await prisma.magicLink.deleteMany({
+    where: { expiresAt: { lt: now } },
   });
 
-  return result.count;
+  const customerResult = await prisma.customerMagicLink.deleteMany({
+    where: { expiresAt: { lt: now } },
+  });
+
+  return {
+    admin: adminResult.count,
+    customer: customerResult.count,
+  };
 }

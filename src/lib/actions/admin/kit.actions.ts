@@ -71,7 +71,7 @@ export async function updateKitStatus(
   try {
     const session = await requireAdmin();
 
-    const kit = await KitService.updateStatus(kitId, status, session.userId);
+    const kit = await KitService.updateStatus(kitId, status, session.id);
 
     return {
       success: true,
@@ -96,7 +96,7 @@ export async function updateKitNotes(
   try {
     const session = await requireAdmin();
 
-    const kit = await KitService.updateNotes(kitId, notes, session.userId);
+    const kit = await KitService.updateNotes(kitId, notes, session.id);
 
     return {
       success: true,

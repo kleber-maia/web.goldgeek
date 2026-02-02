@@ -9,16 +9,14 @@ import { formatCurrency } from "@/lib/db/utils";
 
 interface Customer {
   id: string;
+  email: string;
   firstName: string;
   lastName: string;
   phone: string | null;
   createdAt: Date | string;
-  user: {
-    email: string;
-  };
-  addresses: any[];
-  kits: any[];
-  payments: any[];
+  addresses: unknown[];
+  kits: unknown[];
+  payments: Array<{ amount?: { toString(): string } }>;
 }
 
 function formatDate(date: Date | string): string {
@@ -33,7 +31,7 @@ export default function CustomersClient({ customers }: { customers: Customer[] }
     const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
     const matchesSearch =
       fullName.includes(searchQuery.toLowerCase()) ||
-      customer.user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      customer.email.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesSearch;
   });
@@ -93,7 +91,7 @@ export default function CustomersClient({ customers }: { customers: Customer[] }
                       {customer.firstName} {customer.lastName}
                     </div>
                     <div className="admin-card-meta" style={{ marginTop: "4px" }}>
-                      {customer.user.email}
+                      {customer.email}
                     </div>
                   </div>
                 </div>
@@ -138,7 +136,7 @@ export default function CustomersClient({ customers }: { customers: Customer[] }
                 customersWithStats.map((customer) => (
                   <tr key={customer.id}>
                     <td>{customer.firstName} {customer.lastName}</td>
-                    <td>{customer.user.email}</td>
+                    <td>{customer.email}</td>
                     <td>{customer.phone || "-"}</td>
                     <td>{customer.requestCount}</td>
                     <td>
