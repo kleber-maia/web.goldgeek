@@ -78,7 +78,7 @@ export default function AdminSidebar() {
       <div style={{ padding: "16px 20px", marginBottom: "20px" }}>
         <Link href="/">
           <Image
-            src="/images/GoldGeekLogo-horizontal.png"
+            src="/images/logos/GoldGeekLogo-horizontal.png"
             alt="Gold Geek"
             width={120}
             height={36}

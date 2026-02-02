@@ -50,7 +50,7 @@ export default function AdminDashboard() {
       <AdminSidebar />
 
       <main className="admin-main">
-        <AdminHeader title="Admin" showMenu />
+        <AdminHeader title="Admin" />
 
         {/* Stats Grid */}
         <div className="admin-stats-grid">
