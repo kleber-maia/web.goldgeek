@@ -279,64 +279,6 @@ export default function UsersClient({
         </div>
       )}
 
-      <style jsx>{`
-        .admin-modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 100;
-          padding: 16px;
-        }
-        .admin-modal {
-          background: white;
-          border-radius: 12px;
-          padding: 24px;
-          max-width: 400px;
-          width: 100%;
-        }
-        .admin-modal-title {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 8px;
-        }
-        .admin-input {
-          width: 100%;
-          padding: 12px 16px;
-          border: 1px solid #E5E7EB;
-          border-radius: 8px;
-          font-size: 14px;
-        }
-        .admin-input:focus {
-          outline: none;
-          border-color: #AD7B2A;
-        }
-        .admin-btn {
-          padding: 10px 16px;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          border: 1px solid #E5E7EB;
-          background: white;
-          cursor: pointer;
-        }
-        .admin-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .admin-btn-primary {
-          background: #AD7B2A;
-          color: white;
-          border-color: #AD7B2A;
-        }
-        .admin-btn-danger {
-          background: #DC2626;
-          color: white;
-          border-color: #DC2626;
-        }
-      `}</style>
     </div>
   );
 }

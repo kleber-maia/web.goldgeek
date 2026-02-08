@@ -5,28 +5,60 @@ import { getSession } from "@/lib/auth";
 import { getKitDetails } from "@/lib/actions/customer.actions";
 import { formatCurrency } from "@/lib/db/utils";
 
+type OfferLike = {
+  id: string;
+  status: string;
+  totalValue: { toString(): string };
+  expiresAt?: Date | null;
+  createdAt: Date;
+};
+
+type TimelineLike = {
+  title: string;
+  createdAt: Date;
+  description?: string | null;
+};
+
 export default async function KitDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await getSession();
 
   if (!session) {
     redirect("/account/login");
   }
 
-  const result = await getKitDetails(params.id);
+  const result = await getKitDetails(id);
 
   if (!result.success || !result.data) {
     redirect("/account");
   }
 
   const kit = result.data;
-  const offer = kit.offers && kit.offers.length > 0 ? kit.offers[0] : null;
 
-  const showOfferBanner = kit.status === "OFFER_SENT" && offer;
+  const offers = (kit.offers || []) as OfferLike[];
+  const sortedOffers = [...offers].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const activeOffer =
+    sortedOffers.find((offer) => offer.status === "SENT") ||
+    sortedOffers[0] ||
+    null;
+
+  const showOfferBanner =
+    kit.status === "OFFER_SENT" && activeOffer?.status === "SENT";
   const showShippingLabel = kit.status === "PENDING";
+
+  const timelineEvents =
+    (kit.timeline as TimelineLike[] | undefined)?.map((event) => ({
+      event: event.title,
+      date: event.createdAt,
+      description: event.description || undefined,
+    })) || [];
 
   return (
     <AccountContainer
@@ -45,11 +77,11 @@ export default async function KitDetailPage({
       </div>
 
       {/* Offer Banner */}
-      {showOfferBanner && offer && (
+      {showOfferBanner && activeOffer && (
         <>
           <OfferBanner
-            amount={parseFloat(offer.totalValue.toString())}
-            expiresAt={new Date(offer.expiresAt)}
+            amount={parseFloat(activeOffer.totalValue.toString())}
+            expiresAt={activeOffer.expiresAt}
           />
           <div className="account-offer-actions">
             <Link
@@ -91,7 +123,7 @@ export default async function KitDetailPage({
         </div>
       )}
 
-      {kit.status === "PAID" && offer && (
+      {kit.status === "PAID" && activeOffer && (
         <div className="account-success-banner">
           <svg
             width="24"
@@ -108,7 +140,8 @@ export default async function KitDetailPage({
               d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          Payment complete: {formatCurrency(parseFloat(offer.totalValue.toString()))}
+          Payment complete:{" "}
+          {formatCurrency(parseFloat(activeOffer.totalValue.toString()))}
         </div>
       )}
 
@@ -192,7 +225,7 @@ export default async function KitDetailPage({
       {/* Timeline */}
       <div className="account-section">
         <div className="account-section-title">Timeline</div>
-        <Timeline events={kit.timeline || []} />
+        <Timeline events={timelineEvents} />
       </div>
     </AccountContainer>
   );

@@ -5,46 +5,66 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
 import {
-  getSession,
-  getKitSummary,
-  simulateDeclineOffer,
   formatCurrency,
-  generateKitNumber,
-  KitSummary,
 } from "@/lib/account";
+import { declineOffer, getKitOfferSummary } from "@/lib/actions/customer.actions";
+
+interface OfferSummary {
+  kitId: string;
+  kitNumber: string;
+  offerId: string;
+  offerValue: number;
+}
 
 export default function DeclineOfferPage() {
   const router = useRouter();
   const params = useParams();
   const kitId = params.id as string;
 
-  const [summary, setSummary] = useState<KitSummary | null>(null);
+  const [summary, setSummary] = useState<OfferSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.replace("/account/login");
-      return;
-    }
+    let isMounted = true;
 
-    const summaryData = getKitSummary(kitId);
-    if (!summaryData || !summaryData.offer) {
-      router.replace("/account");
-      return;
-    }
+    const loadSummary = async () => {
+      const result = await getKitOfferSummary(kitId);
+      if (!result.success || !result.data) {
+        router.replace("/account");
+        return;
+      }
+      if (!isMounted) return;
+      setSummary({
+        kitId: result.data.kitId,
+        kitNumber: result.data.kitNumber,
+        offerId: result.data.offerId,
+        offerValue: result.data.offerValue,
+      });
+      setIsLoading(false);
+    };
 
-    setSummary(summaryData);
-    setIsLoading(false);
+    loadSummary();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router, kitId]);
 
-  const handleDecline = () => {
+  const handleDecline = async () => {
     setIsSubmitting(true);
-    const success = simulateDeclineOffer(kitId);
-    if (success) {
-      router.push(`/account/kit/${kitId}?declined=true`);
-    } else {
+    try {
+      if (!summary) {
+        throw new Error("Offer summary not available");
+      }
+      const result = await declineOffer(summary.offerId);
+      if (result.success) {
+        router.push(`/account/kit/${kitId}?declined=true`);
+      } else {
+        throw new Error(result.error || "Failed to decline offer");
+      }
+    } catch (error) {
+      console.error("Error declining offer:", error);
       alert("Something went wrong. Please try again.");
       setIsSubmitting(false);
     }
@@ -65,8 +85,6 @@ export default function DeclineOfferPage() {
       </AccountContainer>
     );
   }
-
-  const offerValue = summary.offer?.totalValue || 0;
 
   return (
     <AccountContainer
@@ -125,7 +143,7 @@ export default function DeclineOfferPage() {
           <div className="account-kit-summary-row">
             <span className="account-kit-summary-label">Kit</span>
             <span className="account-kit-summary-value">
-              #{generateKitNumber(kitId)}
+              #{summary.kitNumber}
             </span>
           </div>
           <div className="account-kit-summary-row">
@@ -134,7 +152,7 @@ export default function DeclineOfferPage() {
               className="account-kit-summary-value"
               style={{ fontSize: 18, color: "var(--status-gray)", textDecoration: "line-through" }}
             >
-              {formatCurrency(offerValue)}
+              {formatCurrency(summary.offerValue)}
             </span>
           </div>
         </div>

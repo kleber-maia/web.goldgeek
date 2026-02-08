@@ -17,9 +17,7 @@ interface Kit {
   customer: {
     firstName: string;
     lastName: string;
-    user: {
-      email: string;
-    };
+    email: string;
   };
   items: any[];
 }
@@ -72,7 +70,7 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
     const matchesSearch =
       customerName.includes(searchQuery.toLowerCase()) ||
       kit.kitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      kit.customer.user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      kit.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesFilter && matchesSearch;
   });

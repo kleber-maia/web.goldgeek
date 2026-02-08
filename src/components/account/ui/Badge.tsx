@@ -1,7 +1,7 @@
-import { KitStatus, getStatusBadgeClass, formatStatusForUser } from "@/lib/account";
+import { getStatusBadgeClass, formatStatusForUser } from "@/lib/account";
 
 interface BadgeProps {
-  status: KitStatus;
+  status: string;
   className?: string;
   style?: React.CSSProperties;
 }

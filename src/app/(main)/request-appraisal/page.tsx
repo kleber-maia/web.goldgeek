@@ -3,6 +3,7 @@
 import React, { useState, FormEvent } from "react";
 import { createAppraisalRequest } from "@/lib/actions/kit.actions";
 import { useRouter } from "next/navigation";
+import { setPendingEmail, setPendingMagicLink } from "@/lib/account";
 
 interface FormData {
   items: string[];
@@ -54,6 +55,7 @@ export default function RequestAppraisalPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [magicLinkUrl, setMagicLinkUrl] = useState<string | null>(null);
 
   const handleCheckboxChange = (value: string) => {
     setFormData((prev) => ({
@@ -96,6 +98,7 @@ export default function RequestAppraisalPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitMessage(null);
+    const customerEmail = formData.email;
 
     try {
       const result = await createAppraisalRequest({
@@ -125,6 +128,11 @@ export default function RequestAppraisalPage() {
           type: "success",
           text: "Thank you! Your appraisal request has been submitted. Check your email for a login link to track your request.",
         });
+        setMagicLinkUrl(result.data?.magicLinkUrl || null);
+        setPendingEmail(customerEmail);
+        if (result.data?.magicLinkUrl) {
+          setPendingMagicLink(result.data.magicLinkUrl);
+        }
 
         // Reset form
         setFormData({
@@ -143,15 +151,16 @@ export default function RequestAppraisalPage() {
         });
         setCurrentStep(1);
 
-        // Redirect to login page after 3 seconds
+        // Redirect to check-email page after 3 seconds
         setTimeout(() => {
-          router.push("/account/login");
+          router.push("/account/check-email");
         }, 3000);
       } else {
         setSubmitMessage({
           type: "error",
           text: result.error || "Something went wrong. Please try again or contact us directly.",
         });
+        setMagicLinkUrl(null);
       }
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -159,6 +168,7 @@ export default function RequestAppraisalPage() {
         type: "error",
         text: "Something went wrong. Please try again or contact us directly.",
       });
+      setMagicLinkUrl(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -618,6 +628,27 @@ export default function RequestAppraisalPage() {
                         }}
                       >
                         {submitMessage.text}
+                      </div>
+                    )}
+                    {submitMessage?.type === "success" && magicLinkUrl && (
+                      <div
+                        className="elementor-field-group elementor-column elementor-col-100"
+                        style={{
+                          marginTop: "10px",
+                          padding: "12px 16px",
+                          backgroundColor: "#e0f2fe",
+                          borderRadius: "4px",
+                          border: "1px solid #bae6fd",
+                          color: "#0c4a6e",
+                        }}
+                      >
+                        <strong>Dev Only:</strong>{" "}
+                        <a
+                          href={magicLinkUrl}
+                          style={{ color: "#0c4a6e", textDecoration: "underline" }}
+                        >
+                          Click here to sign in
+                        </a>
                       </div>
                     )}
                   </div>

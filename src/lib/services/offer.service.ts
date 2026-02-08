@@ -52,6 +52,9 @@ export class OfferService {
           include: {
             items: true,
             customer: true,
+            timeline: {
+              orderBy: { createdAt: 'desc' },
+            },
           },
         },
         payment: true,

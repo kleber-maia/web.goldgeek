@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   USER_NAME: 'gg_userName',
   USER_EMAIL: 'gg_userEmail',
   PENDING_EMAIL: 'gg_pendingEmail',
+  PENDING_MAGIC_LINK: 'gg_pendingMagicLink',
 } as const;
 
 export function getSession(): UserSession | null {
@@ -43,6 +44,21 @@ export function clearPendingEmail(): void {
   sessionStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
 }
 
+export function setPendingMagicLink(url: string): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(STORAGE_KEYS.PENDING_MAGIC_LINK, url);
+}
+
+export function getPendingMagicLink(): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(STORAGE_KEYS.PENDING_MAGIC_LINK);
+}
+
+export function clearPendingMagicLink(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(STORAGE_KEYS.PENDING_MAGIC_LINK);
+}
+
 export function handleAuthCallback(token: string, email: string): boolean {
   if (typeof window === 'undefined') return false;
 
@@ -74,6 +90,7 @@ export function logout(): void {
   sessionStorage.removeItem(STORAGE_KEYS.USER_NAME);
   sessionStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
   sessionStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
+  sessionStorage.removeItem(STORAGE_KEYS.PENDING_MAGIC_LINK);
 }
 
 // Demo helper: Generate a mock magic link URL

@@ -3,55 +3,59 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { AccountContainer } from "@/components/account";
-import {
-  getSession,
-  getKitById,
-  getCustomerById,
-  GOLDGEEK_ADDRESS,
-  generateKitNumber,
-  Customer,
-} from "@/lib/account";
+import { getShippingLabelData } from "@/lib/actions/customer.actions";
+
+interface AddressView {
+  name?: string;
+  street1: string;
+  street2?: string | null;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+interface ShippingLabelData {
+  kitId: string;
+  kitNumber: string;
+  trackingNumber: string;
+  from: AddressView;
+  to: AddressView;
+}
 
 export default function ShippingLabelPage() {
   const router = useRouter();
   const params = useParams();
   const kitId = params.id as string;
 
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [trackingNumber, setTrackingNumber] = useState<string>("");
+  const [labelData, setLabelData] = useState<ShippingLabelData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.replace("/account/login");
-      return;
-    }
+    let isMounted = true;
 
-    const kit = getKitById(kitId);
-    if (!kit) {
-      router.replace("/account");
-      return;
-    }
+    const loadLabelData = async () => {
+      const result = await getShippingLabelData(kitId);
+      if (!result.success || !result.data) {
+        router.replace("/account");
+        return;
+      }
+      if (!isMounted) return;
+      setLabelData(result.data);
+      setIsLoading(false);
+    };
 
-    const customerData = getCustomerById(session.userId);
-    setCustomer(customerData || null);
+    loadLabelData();
 
-    // Generate a mock tracking number
-    const prefix = "7489";
-    const random = Math.floor(Math.random() * 10000000000)
-      .toString()
-      .padStart(10, "0");
-    setTrackingNumber(prefix + random);
-
-    setIsLoading(false);
+    return () => {
+      isMounted = false;
+    };
   }, [router, kitId]);
 
   const handlePrint = () => {
     window.print();
   };
 
-  if (isLoading) {
+  if (isLoading || !labelData) {
     return (
       <AccountContainer
         headerProps={{
@@ -113,18 +117,18 @@ export default function ShippingLabelPage() {
           <div className="account-label-address-box">
             <div className="account-label-address-label">From:</div>
             <div className="account-label-address-text">
-              {customer?.name || "Customer"}
+              {labelData.from.name || "Customer"}
               <br />
-              {customer?.address ? (
+              {labelData.from.street1}
+              {labelData.from.street2 && (
                 <>
-                  {customer.address.street}
                   <br />
-                  {customer.address.city}, {customer.address.state}{" "}
-                  {customer.address.zip}
+                  {labelData.from.street2}
                 </>
-              ) : (
-                "Address on file"
               )}
+              <br />
+              {labelData.from.city}, {labelData.from.state}{" "}
+              {labelData.from.zip}
             </div>
           </div>
 
@@ -132,12 +136,17 @@ export default function ShippingLabelPage() {
           <div className="account-label-address-box">
             <div className="account-label-address-label">To:</div>
             <div className="account-label-address-text">
-              <strong>{GOLDGEEK_ADDRESS.name}</strong>
+              <strong>{labelData.to.name}</strong>
               <br />
-              {GOLDGEEK_ADDRESS.street}
+              {labelData.to.street1}
+              {labelData.to.street2 && (
+                <>
+                  <br />
+                  {labelData.to.street2}
+                </>
+              )}
               <br />
-              {GOLDGEEK_ADDRESS.city}, {GOLDGEEK_ADDRESS.state}{" "}
-              {GOLDGEEK_ADDRESS.zip}
+              {labelData.to.city}, {labelData.to.state} {labelData.to.zip}
             </div>
           </div>
 
@@ -151,7 +160,7 @@ export default function ShippingLabelPage() {
                 marginBottom: 8,
               }}
             />
-            <div className="account-label-tracking">{trackingNumber}</div>
+            <div className="account-label-tracking">{labelData.trackingNumber}</div>
           </div>
 
           {/* Reference */}
@@ -162,7 +171,7 @@ export default function ShippingLabelPage() {
               color: "var(--status-gray)",
             }}
           >
-            Reference: Kit #{generateKitNumber(kitId)}
+            Reference: Kit #{labelData.kitNumber}
           </div>
         </div>
       </div>

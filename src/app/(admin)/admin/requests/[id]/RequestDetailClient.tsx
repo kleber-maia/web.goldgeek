@@ -3,30 +3,75 @@
 import { useState } from "react";
 import Link from "next/link";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { formatCurrency } from "@/lib/db/utils";
-import { addItemToKit, updateItem, deleteItem } from "@/lib/actions/admin/item.actions";
+import { addItemToKit, deleteItem } from "@/lib/actions/admin/item.actions";
 import { generateOffer, sendOffer } from "@/lib/actions/admin/offer.actions";
 import { updateKitStatus } from "@/lib/actions/admin/kit.actions";
+import { createShippingLabel } from "@/lib/actions/admin/shipping.actions";
+import type { KitStatus, ItemType, MetalType, ShippingLabelType, ShippingCarrier } from "@prisma/client";
 
 interface Kit {
   id: string;
   kitNumber: string;
   type: string;
   status: string;
+  trackingNumber: string | null;
+  notes: string | null;
   createdAt: Date | string;
   customer: {
+    id: string;
     firstName: string;
     lastName: string;
     phone?: string;
-    user: {
-      email: string;
-    };
-    addresses: any[];
+    email: string;
+    addresses: Array<{
+      street1: string;
+      street2?: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    }>;
   };
-  items: any[];
-  offers: any[];
-  timeline: any[];
-  shippingAddress: any;
+  items: Array<{
+    id: string;
+    description: string;
+    type: string;
+    metalType: string | null;
+    weight: { toString(): string } | null;
+    purity: string | null;
+    condition: string | null;
+    finalValue: { toString(): string } | null;
+    estimatedValue: { toString(): string } | null;
+  }>;
+  offers: Array<{
+    id: string;
+    offerNumber: string;
+    status: string;
+    totalValue: { toString(): string };
+  }>;
+  shippingLabels: Array<{
+    id: string;
+    type: string;
+    carrier: string;
+    trackingNumber: string;
+    status: string;
+    labelUrl: string | null;
+    createdAt: Date | string;
+  }>;
+  timeline: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    createdAt: Date | string;
+  }>;
+  shippingAddress: {
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  } | null;
 }
 
 const pricePerGram: Record<string, number> = {
@@ -39,6 +84,45 @@ const pricePerGram: Record<string, number> = {
   "platinum": 32.00,
 };
 
+// Status workflow: what comes next
+const STATUS_FLOW: Record<string, { next: string; label: string; description: string } | null> = {
+  PENDING: { next: "KIT_SENT", label: "Mark Kit Sent", description: "Kit/label has been mailed to customer" },
+  KIT_SENT: { next: "IN_TRANSIT", label: "Mark In Transit", description: "Customer shipped their package" },
+  IN_TRANSIT: { next: "RECEIVED", label: "Mark Received", description: "Package arrived at Gold Geek" },
+  RECEIVED: { next: "EVALUATING", label: "Start Evaluation", description: "Begin evaluating items" },
+  EVALUATING: null, // Next step is handled by offer flow
+  OFFER_SENT: null, // Waiting for customer
+  ACCEPTED: null, // Payment flow
+  DECLINED: null, // Return flow
+  PAID: null,
+  RETURNED: null,
+  CANCELLED: null,
+};
+
+function getStatusBadgeClass(status: string): string {
+  switch (status) {
+    case "PENDING":
+    case "OFFER_SENT":
+      return "pending";
+    case "KIT_SENT":
+      return "purple";
+    case "IN_TRANSIT":
+    case "RECEIVED":
+    case "EVALUATING":
+      return "in-progress";
+    case "ACCEPTED":
+    case "PAID":
+      return "success";
+    case "DECLINED":
+    case "CANCELLED":
+      return "danger";
+    case "RETURNED":
+      return "gray";
+    default:
+      return "gray";
+  }
+}
+
 function formatStatus(status: string): string {
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -48,9 +132,13 @@ function formatDate(date: Date | string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+// Statuses where items can be added/deleted
+const ITEM_EDITABLE_STATUSES = ["RECEIVED", "EVALUATING"];
+
 export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
-  const [kit, setKit] = useState(initialKit);
+  const [kit] = useState(initialKit);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [itemType, setItemType] = useState("JEWELRY");
   const [itemDescription, setItemDescription] = useState("");
   const [metalType, setMetalType] = useState("GOLD");
@@ -59,9 +147,43 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
   const [itemCondition, setItemCondition] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Shipping label form state
+  const [labelCarrier, setLabelCarrier] = useState("FEDEX");
+  const [labelType, setLabelType] = useState("INBOUND");
+  const [labelTracking, setLabelTracking] = useState("");
+  const [labelUrl, setLabelUrl] = useState("");
+  const [labelCost, setLabelCost] = useState("");
+
   const estimatedValue = itemWeight && itemPurity
     ? (parseFloat(itemWeight) * (pricePerGram[itemPurity] || 0)).toFixed(2)
     : "0.00";
+
+  const canEditItems = ITEM_EDITABLE_STATUSES.includes(kit.status);
+  const nextStatus = STATUS_FLOW[kit.status];
+  const latestOffer = kit.offers && kit.offers.length > 0 ? kit.offers[0] : null;
+  const shippingAddress = kit.shippingAddress || kit.customer.addresses[0];
+
+  // --- Handlers ---
+
+  const handleStatusChange = async () => {
+    if (!nextStatus) return;
+    if (!confirm(`${nextStatus.label}?\n\n${nextStatus.description}`)) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await updateKitStatus(kit.id, nextStatus.next as KitStatus);
+      if (result.success) {
+        window.location.reload();
+      } else {
+        alert(result.error || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("Failed to update status");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,9 +191,9 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
 
     try {
       const result = await addItemToKit(kit.id, {
-        type: itemType as any,
+        type: itemType as ItemType,
         description: itemDescription,
-        metalType: metalType as any,
+        metalType: metalType as MetalType,
         weight: parseFloat(itemWeight),
         purity: itemPurity,
         quantity: 1,
@@ -80,7 +202,6 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
       });
 
       if (result.success) {
-        // Refresh the page to show new item
         window.location.reload();
       } else {
         alert(result.error || "Failed to add item");
@@ -88,6 +209,25 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
     } catch (error) {
       console.error("Error adding item:", error);
       alert("Failed to add item");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!confirm("Delete this item?")) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await deleteItem(itemId);
+      if (result.success) {
+        window.location.reload();
+      } else {
+        alert(result.error || "Failed to delete item");
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      alert("Failed to delete item");
     } finally {
       setIsSubmitting(false);
     }
@@ -133,27 +273,36 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("Delete this item?")) return;
+  const handleCreateLabel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!labelTracking.trim()) {
+      alert("Tracking number is required");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await deleteItem(itemId);
+      const result = await createShippingLabel({
+        kitId: kit.id,
+        type: labelType as ShippingLabelType,
+        carrier: labelCarrier as ShippingCarrier,
+        trackingNumber: labelTracking.trim(),
+        labelUrl: labelUrl.trim() || undefined,
+        cost: labelCost ? parseFloat(labelCost) : undefined,
+      });
+
       if (result.success) {
         window.location.reload();
       } else {
-        alert(result.error || "Failed to delete item");
+        alert(result.error || "Failed to create shipping label");
       }
     } catch (error) {
-      console.error("Error deleting item:", error);
-      alert("Failed to delete item");
+      console.error("Error creating label:", error);
+      alert("Failed to create shipping label");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const shippingAddress = kit.shippingAddress || kit.customer.addresses[0];
-  const latestOffer = kit.offers && kit.offers.length > 0 ? kit.offers[0] : null;
 
   return (
     <div className="admin-container">
@@ -169,23 +318,241 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
           </Link>
           <div>
             <h1 className="admin-detail-title">{kit.kitNumber}</h1>
-            <span className="admin-badge in-progress" style={{ marginTop: "4px" }}>
+            <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`} style={{ marginTop: "4px" }}>
               {formatStatus(kit.status)}
             </span>
           </div>
         </div>
 
-        {/* Customer Info */}
+        {/* ============================================================ */}
+        {/* STATUS & ACTIONS                                             */}
+        {/* ============================================================ */}
+        <div className="admin-section">
+          <div className="admin-section-title">Status & Actions</div>
+
+          {/* Status progression bar */}
+          <div style={{ display: "flex", gap: "4px", margin: "12px 0 16px", flexWrap: "wrap" }}>
+            {["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING", "OFFER_SENT"].map((s) => {
+              const allStatuses = ["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING", "OFFER_SENT", "ACCEPTED", "DECLINED", "PAID", "RETURNED", "CANCELLED"];
+              const currentIdx = allStatuses.indexOf(kit.status);
+              const thisIdx = allStatuses.indexOf(s);
+              const isPast = thisIdx < currentIdx;
+              const isCurrent = s === kit.status;
+
+              return (
+                <div
+                  key={s}
+                  style={{
+                    flex: 1,
+                    minWidth: "40px",
+                    height: "6px",
+                    borderRadius: "3px",
+                    background: isCurrent
+                      ? "#AD7B2A"
+                      : isPast
+                      ? "#10B981"
+                      : "#E5E7EB",
+                  }}
+                  title={formatStatus(s)}
+                />
+              );
+            })}
+          </div>
+
+          <div style={{ fontSize: "14px", color: "#6B7280", marginBottom: "12px" }}>
+            Current: <strong style={{ color: "#2E1F0C" }}>{formatStatus(kit.status)}</strong>
+            {kit.type && <> &bull; {kit.type.charAt(0) + kit.type.slice(1).toLowerCase()} Kit</>}
+            {kit.trackingNumber && <> &bull; Tracking: <code style={{ fontSize: "12px" }}>{kit.trackingNumber}</code></>}
+          </div>
+
+          {/* Next status button */}
+          {nextStatus && (
+            <button
+              onClick={handleStatusChange}
+              className="admin-btn admin-btn-primary"
+              disabled={isSubmitting}
+              style={{ width: "100%" }}
+            >
+              <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+              {isSubmitting ? "Updating..." : nextStatus.label}
+            </button>
+          )}
+
+          {/* Info when waiting for external action */}
+          {kit.status === "OFFER_SENT" && (
+            <div style={{ padding: "12px", background: "#FEF3C7", borderRadius: "8px", fontSize: "14px", color: "#92400E" }}>
+              Waiting for customer to respond to the offer.
+            </div>
+          )}
+          {kit.status === "ACCEPTED" && (
+            <div style={{ padding: "12px", background: "#D1FAE5", borderRadius: "8px", fontSize: "14px", color: "#065F46" }}>
+              Customer accepted. Process payment from the <Link href="/admin/payments" style={{ color: "#065F46", fontWeight: 600 }}>Payments</Link> page.
+            </div>
+          )}
+          {kit.status === "DECLINED" && (
+            <div style={{ padding: "12px", background: "#FEE2E2", borderRadius: "8px", fontSize: "14px", color: "#991B1B" }}>
+              Customer declined. Process return from the <Link href="/admin/returns" style={{ color: "#991B1B", fontWeight: 600 }}>Returns</Link> page.
+            </div>
+          )}
+        </div>
+
+        {/* ============================================================ */}
+        {/* SHIPPING LABELS                                              */}
+        {/* ============================================================ */}
+        <div className="admin-section">
+          <div className="admin-section-header">
+            <h2 className="admin-section-title">
+              Shipping Labels ({kit.shippingLabels?.length || 0})
+            </h2>
+            <button
+              onClick={() => setIsCreatingLabel(!isCreatingLabel)}
+              className="admin-btn admin-btn-secondary"
+              style={{ fontSize: "13px", padding: "6px 12px" }}
+            >
+              {isCreatingLabel ? "Cancel" : "+ Create Label"}
+            </button>
+          </div>
+
+          {/* Create Label Form */}
+          {isCreatingLabel && (
+            <form onSubmit={handleCreateLabel} style={{ marginTop: "12px", marginBottom: "16px" }}>
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Type</label>
+                  <select
+                    className="admin-form-input"
+                    value={labelType}
+                    onChange={(e) => setLabelType(e.target.value)}
+                  >
+                    <option value="INBOUND">Inbound (Customer → Gold Geek)</option>
+                    <option value="RETURN">Return (Gold Geek → Customer)</option>
+                  </select>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Carrier</label>
+                  <select
+                    className="admin-form-input"
+                    value={labelCarrier}
+                    onChange={(e) => setLabelCarrier(e.target.value)}
+                  >
+                    <option value="FEDEX">FedEx</option>
+                    <option value="USPS">USPS</option>
+                  </select>
+                </div>
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Tracking Number *</label>
+                <input
+                  type="text"
+                  className="admin-form-input"
+                  value={labelTracking}
+                  onChange={(e) => setLabelTracking(e.target.value)}
+                  placeholder="e.g., 794644790132"
+                  required
+                />
+              </div>
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Label URL (optional)</label>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    value={labelUrl}
+                    onChange={(e) => setLabelUrl(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Cost (optional)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="admin-form-input"
+                    value={labelCost}
+                    onChange={(e) => setLabelCost(e.target.value)}
+                    placeholder="12.50"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="admin-btn admin-btn-primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Creating..." : "Create Label"}
+              </button>
+            </form>
+          )}
+
+          {/* Existing Labels */}
+          {kit.shippingLabels && kit.shippingLabels.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
+              {kit.shippingLabels.map((label) => (
+                <div
+                  key={label.id}
+                  style={{
+                    padding: "12px",
+                    background: "#FFFDF7",
+                    borderRadius: "8px",
+                    border: "1px solid #E5E7EB",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#2E1F0C" }}>
+                        {label.carrier} &bull; {label.type === "INBOUND" ? "Inbound" : "Return"}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#6B7280", fontFamily: "monospace", marginTop: "2px" }}>
+                        {label.trackingNumber}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <span className={`admin-badge ${
+                        label.status === "DELIVERED" ? "success" :
+                        label.status === "IN_TRANSIT" ? "in-progress" :
+                        label.status === "VOIDED" ? "danger" : "gray"
+                      }`} style={{ fontSize: "11px" }}>
+                        {formatStatus(label.status)}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
+                    Created {formatDate(label.createdAt)}
+                    {label.labelUrl && (
+                      <> &bull; <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#AD7B2A" }}>View Label</a></>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            !isCreatingLabel && (
+              <div style={{ padding: "16px", textAlign: "center", color: "#6B7280", fontSize: "14px", marginTop: "8px" }}>
+                No shipping labels created yet
+              </div>
+            )
+          )}
+        </div>
+
+        {/* ============================================================ */}
+        {/* CUSTOMER INFO                                                */}
+        {/* ============================================================ */}
         <div className="admin-section">
           <div className="admin-section-title">Customer Information</div>
           <div className="admin-info-grid">
             <div>
               <div className="admin-info-label">Name</div>
-              <div className="admin-info-value">{kit.customer.firstName} {kit.customer.lastName}</div>
+              <div className="admin-info-value">
+                <Link href={`/admin/customers/${kit.customer.id}`} style={{ color: "#AD7B2A", textDecoration: "none" }}>
+                  {kit.customer.firstName} {kit.customer.lastName}
+                </Link>
+              </div>
             </div>
             <div>
               <div className="admin-info-label">Email</div>
-              <div className="admin-info-value">{kit.customer.user.email}</div>
+              <div className="admin-info-value">{kit.customer.email}</div>
             </div>
             <div>
               <div className="admin-info-label">Phone</div>
@@ -206,15 +573,17 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
           </div>
         </div>
 
-        {/* Items Section */}
+        {/* ============================================================ */}
+        {/* ITEMS                                                        */}
+        {/* ============================================================ */}
         <div className="admin-section">
           <div className="admin-section-header">
             <h2 className="admin-section-title">Items ({kit.items.length})</h2>
-            {kit.status === "EVALUATING" && (
+            {canEditItems && (
               <button
                 onClick={() => setIsAddingItem(!isAddingItem)}
-                className="admin-btn-secondary"
-                style={{ fontSize: "14px", padding: "6px 12px" }}
+                className="admin-btn admin-btn-secondary"
+                style={{ fontSize: "13px", padding: "6px 12px" }}
               >
                 {isAddingItem ? "Cancel" : "+ Add Item"}
               </button>
@@ -223,7 +592,7 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
 
           {/* Add Item Form */}
           {isAddingItem && (
-            <form onSubmit={handleAddItem} className="admin-form" style={{ marginBottom: "20px" }}>
+            <form onSubmit={handleAddItem} className="admin-form" style={{ marginTop: "12px", marginBottom: "16px" }}>
               <div className="admin-form-row">
                 <div className="admin-form-group">
                   <label className="admin-form-label">Item Type</label>
@@ -327,7 +696,7 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
 
               <button
                 type="submit"
-                className="admin-btn-primary"
+                className="admin-btn admin-btn-primary"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Adding..." : "Add Item"}
@@ -340,6 +709,11 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
             {kit.items.length === 0 ? (
               <div style={{ padding: "20px", textAlign: "center", color: "#6B7280" }}>
                 No items added yet
+                {canEditItems && (
+                  <div style={{ marginTop: "8px", fontSize: "13px" }}>
+                    Click &quot;+ Add Item&quot; above to start adding items.
+                  </div>
+                )}
               </div>
             ) : (
               kit.items.map((item) => (
@@ -348,14 +722,15 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
                     <div>
                       <div className="admin-item-name">{item.description}</div>
                       <div className="admin-item-meta">
-                        {item.metalType} • {item.weight}g • {item.purity}
+                        {item.metalType} {item.weight && `\u2022 ${parseFloat(item.weight.toString())}g`} {item.purity && `\u2022 ${item.purity}`}
+                        {item.condition && ` \u2022 ${item.condition}`}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div className="admin-item-value">
                         {formatCurrency(parseFloat(item.finalValue?.toString() || item.estimatedValue?.toString() || "0"))}
                       </div>
-                      {kit.status === "EVALUATING" && (
+                      {canEditItems && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
                           style={{
@@ -381,8 +756,8 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
           {kit.items.length > 0 && kit.status === "EVALUATING" && !latestOffer && (
             <button
               onClick={handleGenerateOffer}
-              className="admin-btn-primary"
-              style={{ marginTop: "16px" }}
+              className="admin-btn admin-btn-primary"
+              style={{ marginTop: "16px", width: "100%" }}
               disabled={isSubmitting}
             >
               {isSubmitting ? "Generating..." : "Generate Offer"}
@@ -390,15 +765,28 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
           )}
         </div>
 
-        {/* Offer Section */}
+        {/* ============================================================ */}
+        {/* OFFER                                                        */}
+        {/* ============================================================ */}
         {latestOffer && (
           <div className="admin-section">
             <div className="admin-section-title">Current Offer</div>
             <div className="admin-offer-card">
               <div className="admin-offer-header">
                 <div>
-                  <div className="admin-offer-number">{latestOffer.offerNumber}</div>
-                  <div className="admin-offer-status">{formatStatus(latestOffer.status)}</div>
+                  <Link href={`/admin/offers/${latestOffer.id}`} style={{ textDecoration: "none" }}>
+                    <div className="admin-offer-number">{latestOffer.offerNumber}</div>
+                  </Link>
+                  <div className="admin-offer-status">
+                    <span className={`admin-badge ${
+                      latestOffer.status === "SENT" ? "pending" :
+                      latestOffer.status === "ACCEPTED" ? "success" :
+                      latestOffer.status === "DECLINED" ? "danger" :
+                      latestOffer.status === "DRAFT" ? "gray" : "gray"
+                    }`}>
+                      {formatStatus(latestOffer.status)}
+                    </span>
+                  </div>
                 </div>
                 <div className="admin-offer-amount">
                   {formatCurrency(parseFloat(latestOffer.totalValue.toString()))}
@@ -407,8 +795,8 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
               {latestOffer.status === "DRAFT" && (
                 <button
                   onClick={() => handleSendOffer(latestOffer.id)}
-                  className="admin-btn-primary"
-                  style={{ marginTop: "12px" }}
+                  className="admin-btn admin-btn-primary"
+                  style={{ marginTop: "12px", width: "100%" }}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Sending..." : "Send Offer to Customer"}
@@ -418,7 +806,9 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
           </div>
         )}
 
-        {/* Timeline */}
+        {/* ============================================================ */}
+        {/* TIMELINE                                                     */}
+        {/* ============================================================ */}
         <div className="admin-section">
           <div className="admin-section-title">Timeline</div>
           <div className="admin-timeline">
@@ -427,7 +817,7 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
                 No timeline events
               </div>
             ) : (
-              kit.timeline.map((event: any) => (
+              kit.timeline.map((event) => (
                 <div key={event.id} className="admin-timeline-item">
                   <div className="admin-timeline-dot"></div>
                   <div className="admin-timeline-content">
@@ -443,6 +833,8 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
           </div>
         </div>
       </main>
+
+      <AdminBottomNav />
     </div>
   );
 }

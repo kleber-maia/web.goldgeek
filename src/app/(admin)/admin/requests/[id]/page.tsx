@@ -6,8 +6,9 @@ import RequestDetailClient from "./RequestDetailClient";
 export default async function RequestDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await getSession();
 
   if (!session) {
@@ -18,7 +19,7 @@ export default async function RequestDetailPage({
     redirect("/admin/login?error=unauthorized");
   }
 
-  const result = await getKitDetails(params.id);
+  const result = await getKitDetails(id);
 
   if (!result.success || !result.data) {
     redirect("/admin/requests");

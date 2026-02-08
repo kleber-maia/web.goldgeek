@@ -1,4 +1,4 @@
-import { KitStatus, STATUSES } from './types';
+import { KitStatus, KitStatusKey, KitType, KitTypeKey, STATUSES } from './types';
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -8,8 +8,8 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
+export function formatDate(dateInput: string | Date): string {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -17,8 +17,8 @@ export function formatDate(dateString: string): string {
   }).format(date);
 }
 
-export function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
+export function formatDateTime(dateInput: string | Date): string {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -28,16 +28,30 @@ export function formatDateTime(dateString: string): string {
   }).format(date);
 }
 
-export function formatStatusForUser(status: KitStatus): string {
-  return STATUSES[status]?.userLabel || status;
+export function normalizeKitStatus(status: KitStatus | string): KitStatusKey {
+  const normalized = status.toLowerCase();
+  if (normalized === 'cancelled' || normalized === 'canceled') {
+    return 'cancelled';
+  }
+  return normalized as KitStatusKey;
 }
 
-export function getStatusBadgeClass(status: KitStatus): string {
-  return STATUSES[status]?.badgeClass || 'gray';
+export function normalizeKitType(type: KitType | string): KitTypeKey {
+  return type.toLowerCase() as KitTypeKey;
 }
 
-export function getRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
+export function formatStatusForUser(status: KitStatus | string): string {
+  const key = normalizeKitStatus(status);
+  return STATUSES[key]?.userLabel || status;
+}
+
+export function getStatusBadgeClass(status: KitStatus | string): string {
+  const key = normalizeKitStatus(status);
+  return STATUSES[key]?.badgeClass || 'gray';
+}
+
+export function getRelativeTime(dateInput: string | Date): string {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -49,9 +63,13 @@ export function getRelativeTime(dateString: string): string {
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  return formatDate(dateString);
+  return formatDate(dateInput);
 }
 
-export function generateKitNumber(id: string): string {
-  return id.replace('r', '');
+export function generateKitNumber(idOrNumber: string): string {
+  if (!idOrNumber) return '';
+  if (idOrNumber.startsWith('GG-')) {
+    return idOrNumber;
+  }
+  return idOrNumber.replace('r', '');
 }

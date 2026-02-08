@@ -3,24 +3,30 @@
 import Link from "next/link";
 import Badge from "./Badge";
 import {
-  Kit,
-  KitSummary,
   formatCurrency,
   formatDate,
-  generateKitNumber,
-  hasPendingOffer,
-  needsShippingLabel,
-  getKitSummary,
+  normalizeKitStatus,
+  normalizeKitType,
 } from "@/lib/account";
 
 interface KitCardProps {
-  kit: Kit & { timeline: { event: string; date: string }[] };
+  kit: {
+    id: string;
+    kitNumber: string;
+    type: string;
+    status: string;
+    createdAt: string | Date;
+    itemCount: number;
+    offerValue?: number;
+    hasOffer?: boolean;
+    needsShippingLabel?: boolean;
+  };
 }
 
 export default function KitCard({ kit }: KitCardProps) {
-  const summary = getKitSummary(kit.id);
-  const hasOffer = hasPendingOffer(kit);
-  const needsLabel = needsShippingLabel(kit);
+  const hasOffer = Boolean(kit.hasOffer);
+  const needsLabel = Boolean(kit.needsShippingLabel);
+  const normalizedStatus = normalizeKitStatus(kit.status);
 
   let ctaText = "";
   if (hasOffer) {
@@ -29,20 +35,21 @@ export default function KitCard({ kit }: KitCardProps) {
     ctaText = "Print Shipping Label";
   }
 
-  const kitTypeLabel = kit.kitType === "physical" ? "Physical Kit" : "Digital";
+  const kitTypeLabel =
+    normalizeKitType(kit.type) === "physical" ? "Physical Kit" : "Digital";
 
   let valueDisplay = null;
-  if (summary?.offer?.totalValue) {
-    if (kit.status === "paid") {
+  if (typeof kit.offerValue === "number") {
+    if (normalizedStatus === "paid") {
       valueDisplay = (
         <span className="account-kit-value">
-          Received: {formatCurrency(summary.offer.totalValue)}
+          Received: {formatCurrency(kit.offerValue)}
         </span>
       );
     } else if (hasOffer) {
       valueDisplay = (
         <span className="account-kit-value">
-          Offer: {formatCurrency(summary.offer.totalValue)}
+          Offer: {formatCurrency(kit.offerValue)}
         </span>
       );
     }
@@ -55,9 +62,9 @@ export default function KitCard({ kit }: KitCardProps) {
     >
       <div className="account-kit-card-header">
         <div>
-          <div className="account-kit-id">Kit #{generateKitNumber(kit.id)}</div>
+          <div className="account-kit-id">Kit #{kit.kitNumber}</div>
           <div className="account-kit-type">
-            {kitTypeLabel} &bull; {summary?.itemCount || "?"} items
+            {kitTypeLabel} &bull; {kit.itemCount ?? "?"} items
           </div>
         </div>
         <Badge status={kit.status} />
@@ -69,8 +76,10 @@ export default function KitCard({ kit }: KitCardProps) {
 
       <div className="account-kit-card-footer">
         <span className="account-kit-date">{formatDate(kit.createdAt)}</span>
-        <span className={`account-kit-type-badge ${kit.kitType}`}>
-          {kit.kitType}
+        <span
+          className={`account-kit-type-badge ${normalizeKitType(kit.type)}`}
+        >
+          {normalizeKitType(kit.type)}
         </span>
       </div>
     </Link>

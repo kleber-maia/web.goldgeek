@@ -1,7 +1,7 @@
-import { TimelineEvent, formatDate } from "@/lib/account";
+import { formatDate } from "@/lib/account";
 
 interface TimelineProps {
-  events: TimelineEvent[];
+  events: { event: string; date: string | Date; description?: string }[];
 }
 
 export default function Timeline({ events }: TimelineProps) {

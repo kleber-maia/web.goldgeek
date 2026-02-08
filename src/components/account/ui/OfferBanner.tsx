@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from "@/lib/account";
 
 interface OfferBannerProps {
   amount: number;
-  expiresAt?: string;
+  expiresAt?: string | Date;
 }
 
 export default function OfferBanner({ amount, expiresAt }: OfferBannerProps) {

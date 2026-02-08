@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { KitService } from '@/lib/services/kit.service';
 import { CustomerService } from '@/lib/services/customer.service';
+import { headers } from 'next/headers';
 import {
   appraisalRequestSchema,
   type AppraisalRequestInput,
@@ -91,7 +92,13 @@ export async function createAppraisalRequest(
 
     // Create magic link for authentication
     const result = await createMagicLink(normalizedEmail);
-    const magicLinkUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify?token=${result.token}`;
+    const headerList = await headers();
+    const host =
+      headerList.get('x-forwarded-host') || headerList.get('host') || '';
+    const proto = headerList.get('x-forwarded-proto') || 'http';
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
+    const magicLinkUrl = `${baseUrl}/api/auth/verify?token=${result.token}`;
 
     // TODO: Send email with magic link and kit details
 

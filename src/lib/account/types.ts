@@ -1,4 +1,4 @@
-export type KitStatus =
+export type KitStatusKey =
   | 'pending'
   | 'kit_sent'
   | 'in_transit'
@@ -8,11 +8,16 @@ export type KitStatus =
   | 'accepted'
   | 'declined'
   | 'paid'
-  | 'returned';
+  | 'returned'
+  | 'cancelled';
 
-export type KitType = 'physical' | 'digital';
+export type KitStatus = KitStatusKey | Uppercase<KitStatusKey>;
 
-export type PaymentMethod = 'check' | 'paypal' | 'zelle' | 'bank_transfer';
+export type KitTypeKey = 'physical' | 'digital';
+
+export type KitType = KitTypeKey | Uppercase<KitTypeKey>;
+
+export type PaymentMethod = 'CHECK' | 'PAYPAL' | 'ZELLE' | 'ACH' | 'VENMO';
 
 export interface Address {
   street: string;
@@ -74,7 +79,8 @@ export interface Payment {
 
 export interface TimelineEvent {
   event: string;
-  date: string;
+  date: string | Date;
+  description?: string;
 }
 
 export interface KitSummary {
@@ -110,7 +116,7 @@ export interface StatusConfig {
   badgeClass: string;
 }
 
-export const STATUSES: Record<KitStatus, StatusConfig> = {
+export const STATUSES: Record<KitStatusKey, StatusConfig> = {
   pending: { label: 'Pending', userLabel: 'Requested', badgeClass: 'pending' },
   kit_sent: { label: 'Kit Sent', userLabel: 'Kit On The Way', badgeClass: 'purple' },
   in_transit: { label: 'In Transit', userLabel: 'Shipping to Us', badgeClass: 'in-progress' },
@@ -121,4 +127,5 @@ export const STATUSES: Record<KitStatus, StatusConfig> = {
   declined: { label: 'Declined', userLabel: 'Declined', badgeClass: 'gray' },
   paid: { label: 'Paid', userLabel: 'Payment Complete', badgeClass: 'success' },
   returned: { label: 'Returned', userLabel: 'Items Returned', badgeClass: 'gray' },
+  cancelled: { label: 'Cancelled', userLabel: 'Cancelled', badgeClass: 'gray' },
 };

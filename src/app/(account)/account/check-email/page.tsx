@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getPendingEmail, generateMockMagicLink } from "@/lib/account";
+import { getPendingEmail, getPendingMagicLink } from "@/lib/account";
 
 export default function CheckEmailPage() {
-  const [email, setEmail] = useState<string | null>(null);
-  const [demoLink, setDemoLink] = useState<string>("");
-
-  useEffect(() => {
-    const pendingEmail = getPendingEmail();
-    setEmail(pendingEmail);
-    if (pendingEmail) {
-      setDemoLink(generateMockMagicLink(pendingEmail));
-    }
-  }, []);
+  const [email] = useState<string | null>(() => getPendingEmail());
+  const [magicLink] = useState<string>(() => getPendingMagicLink() || "");
 
   return (
     <div className="account-login-container">
@@ -62,16 +54,17 @@ export default function CheckEmailPage() {
           Use a different email
         </Link>
 
-        {/* Demo link for testing */}
-        <div className="account-demo-link">
-          <div className="account-demo-link-label">Demo Only</div>
-          <Link
-            href={demoLink}
-            className="account-btn account-btn-primary account-btn-full"
-          >
-            Click here to simulate magic link
-          </Link>
-        </div>
+        {magicLink && (
+          <div className="account-demo-link">
+            <div className="account-demo-link-label">Dev Only</div>
+            <Link
+              href={magicLink}
+              className="account-btn account-btn-primary account-btn-full"
+            >
+              Click here to sign in
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

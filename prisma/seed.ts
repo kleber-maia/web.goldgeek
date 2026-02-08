@@ -72,7 +72,7 @@ async function main() {
         customerId: customer.id,
         kitNumber: 'GG-2026-TEST01',
         type: KitType.PHYSICAL,
-        status: KitStatus.EVALUATING,
+        status: KitStatus.OFFER_SENT,
         shippingAddress: customer.addresses[0] || {
           street1: '123 Main St',
           city: 'San Francisco',
@@ -113,6 +113,12 @@ async function main() {
     });
     console.log('Created sample kit:', kit.kitNumber);
   } else {
+    if (kit.status !== KitStatus.OFFER_SENT) {
+      kit = await prisma.kit.update({
+        where: { id: kit.id },
+        data: { status: KitStatus.OFFER_SENT },
+      });
+    }
     console.log('Sample kit exists:', kit.kitNumber);
   }
 
@@ -140,6 +146,12 @@ async function main() {
     });
     console.log('Created sample offer:', offer.offerNumber);
   } else {
+    if (offer.status !== OfferStatus.SENT) {
+      offer = await prisma.offer.update({
+        where: { id: offer.id },
+        data: { status: OfferStatus.SENT, sentAt: new Date() },
+      });
+    }
     console.log('Sample offer exists:', offer.offerNumber);
   }
 

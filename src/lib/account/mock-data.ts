@@ -271,7 +271,7 @@ export const offers: Offer[] = [
     createdAt: '2025-01-06',
     status: 'accepted',
     acceptedAt: '2025-01-07',
-    paymentMethod: 'paypal',
+    paymentMethod: 'PAYPAL',
   },
   {
     id: 'o3',
@@ -281,7 +281,7 @@ export const offers: Offer[] = [
     createdAt: '2025-01-03',
     status: 'accepted',
     acceptedAt: '2025-01-04',
-    paymentMethod: 'check',
+    paymentMethod: 'CHECK',
   },
   {
     id: 'o4',
@@ -309,7 +309,7 @@ export const payments: Payment[] = [
     id: 'p1',
     offerId: 'o2',
     amount: 3607.60,
-    method: 'paypal',
+    method: 'PAYPAL',
     status: 'pending',
     createdAt: '2025-01-07',
   },
@@ -317,7 +317,7 @@ export const payments: Payment[] = [
     id: 'p2',
     offerId: 'o3',
     amount: 1852.15,
-    method: 'check',
+    method: 'CHECK',
     status: 'completed',
     createdAt: '2025-01-04',
     completedAt: '2025-01-05',
@@ -326,11 +326,11 @@ export const payments: Payment[] = [
 
 // User payment preferences
 export const userPaymentPreferences: Record<string, PaymentPreferences> = {
-  c1: { defaultMethod: 'paypal', paypalEmail: 'john.doe@email.com' },
-  c2: { defaultMethod: 'check' },
-  c3: { defaultMethod: 'zelle', zellePhone: '(555) 345-6789' },
-  c4: { defaultMethod: 'bank_transfer', bankAccount: '****1234' },
-  c5: { defaultMethod: 'check' },
+  c1: { defaultMethod: 'PAYPAL', paypalEmail: 'john.doe@email.com' },
+  c2: { defaultMethod: 'CHECK' },
+  c3: { defaultMethod: 'ZELLE', zellePhone: '(555) 345-6789' },
+  c4: { defaultMethod: 'ACH', bankAccount: '****1234' },
+  c5: { defaultMethod: 'CHECK' },
 };
 
 // Gold Geek shipping address
@@ -369,7 +369,7 @@ export function getItemsByKitId(kitId: string): OfferItem[] {
 }
 
 export function getPaymentPreferences(customerId: string): PaymentPreferences {
-  return userPaymentPreferences[customerId] || { defaultMethod: 'check' };
+  return userPaymentPreferences[customerId] || { defaultMethod: 'CHECK' };
 }
 
 export function getKitSummary(kitId: string): KitSummary | null {

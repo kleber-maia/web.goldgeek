@@ -5,6 +5,9 @@ import { CustomerService } from '@/lib/services/customer.service';
 import { KitService } from '@/lib/services/kit.service';
 import { OfferService } from '@/lib/services/offer.service';
 import { ReturnService } from '@/lib/services/return.service';
+import { PaymentService } from '@/lib/services/payment.service';
+import { prisma } from '@/lib/db';
+import { PaymentMethod } from '@prisma/client';
 import {
   customerProfileSchema,
   addressSchema,
@@ -121,11 +124,35 @@ export async function deleteAddress(addressId: string): Promise<ActionResult> {
 /**
  * Accept offer
  */
-export async function acceptOffer(offerId: string): Promise<ActionResult> {
+export async function acceptOffer(
+  offerId: string,
+  paymentMethod?: PaymentMethod
+): Promise<ActionResult> {
   try {
     const session = await requireCustomer();
 
+    const method = paymentMethod && Object.values(PaymentMethod).includes(paymentMethod)
+      ? paymentMethod
+      : 'CHECK';
+
     const offer = await OfferService.accept(offerId, session.id);
+
+    const existingPayment = await prisma.payment.findUnique({
+      where: { offerId },
+      select: { id: true },
+    });
+
+    if (!existingPayment) {
+      await PaymentService.create(
+        {
+          offerId,
+          customerId: session.id,
+          amount: parseFloat(offer.totalValue.toString()),
+          method,
+        },
+        session.id
+      );
+    }
 
     return {
       success: true,
@@ -253,6 +280,181 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get kit details';
     console.error('Error getting kit details:', error);
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+export interface KitOfferSummary {
+  kitId: string;
+  kitNumber: string;
+  offerId: string;
+  offerValue: number;
+  offerExpiresAt?: string;
+  defaultPaymentMethod?: PaymentMethod;
+}
+
+type OfferLike = {
+  id: string;
+  status: string;
+  totalValue: { toString(): string };
+  expiresAt?: Date | null;
+  createdAt: Date;
+};
+
+export async function getKitOfferSummary(
+  kitId: string
+): Promise<ActionResult<KitOfferSummary>> {
+  try {
+    const session = await requireCustomer();
+
+    const kit = await KitService.getById(kitId);
+    if (!kit) {
+      return { success: false, error: 'Kit not found' };
+    }
+
+    if (kit.customerId !== session.id) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const offers = (kit.offers || []) as OfferLike[];
+    const sortedOffers = [...offers].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const activeOffer = sortedOffers.find((offer) => offer.status === 'SENT');
+
+    if (!activeOffer) {
+      return { success: false, error: 'No pending offer available' };
+    }
+
+    const lastPayment = await prisma.payment.findFirst({
+      where: { customerId: session.id },
+      orderBy: { createdAt: 'desc' },
+      select: { method: true },
+    });
+    const allowedMethods = new Set<PaymentMethod>(['CHECK', 'PAYPAL', 'ZELLE', 'ACH']);
+    const defaultMethod =
+      lastPayment?.method && allowedMethods.has(lastPayment.method)
+        ? lastPayment.method
+        : 'CHECK';
+
+    return {
+      success: true,
+      data: {
+        kitId: kit.id,
+        kitNumber: kit.kitNumber,
+        offerId: activeOffer.id,
+        offerValue: parseFloat(activeOffer.totalValue.toString()),
+        offerExpiresAt: activeOffer.expiresAt?.toISOString(),
+        defaultPaymentMethod: defaultMethod,
+      },
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get offer summary';
+    console.error('Error getting offer summary:', error);
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+export interface ShippingLabelData {
+  kitId: string;
+  kitNumber: string;
+  trackingNumber: string;
+  from: {
+    name?: string;
+    street1: string;
+    street2?: string | null;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  to: {
+    name: string;
+    street1: string;
+    street2?: string | null;
+    city: string;
+    state: string;
+    zip: string;
+  };
+}
+
+export async function getShippingLabelData(
+  kitId: string
+): Promise<ActionResult<ShippingLabelData>> {
+  try {
+    const session = await requireCustomer();
+
+    const kit = await KitService.getById(kitId);
+    if (!kit) {
+      return { success: false, error: 'Kit not found' };
+    }
+
+    if (kit.customerId !== session.id) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.trim();
+
+    const shippingSnapshot = kit.shippingAddress as
+      | {
+          street1: string;
+          street2?: string | null;
+          city: string;
+          state: string;
+          zipCode: string;
+        }
+      | null;
+
+    const defaultAddress =
+      kit.customer.addresses.find((address) => address.type === 'shipping' && address.isDefault) ||
+      kit.customer.addresses.find((address) => address.type === 'shipping') ||
+      kit.customer.addresses[0];
+
+    const fromAddress = shippingSnapshot || defaultAddress;
+    if (!fromAddress) {
+      return { success: false, error: 'Shipping address not found' };
+    }
+
+    const inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
+    const trackingNumber =
+      inboundLabel?.trackingNumber ||
+      kit.trackingNumber ||
+      `7489${Math.floor(Math.random() * 10000000000)
+        .toString()
+        .padStart(10, '0')}`;
+
+    return {
+      success: true,
+      data: {
+        kitId: kit.id,
+        kitNumber: kit.kitNumber,
+        trackingNumber,
+        from: {
+          name: customerName || undefined,
+          street1: fromAddress.street1,
+          street2: fromAddress.street2 ?? null,
+          city: fromAddress.city,
+          state: fromAddress.state,
+          zip: fromAddress.zipCode,
+        },
+        to: {
+          name: 'Gold Geek',
+          street1: '1234 Gold Avenue',
+          street2: null,
+          city: 'Dallas',
+          state: 'TX',
+          zip: '75201',
+        },
+      },
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get shipping label data';
+    console.error('Error getting shipping label data:', error);
     return {
       success: false,
       error: message,

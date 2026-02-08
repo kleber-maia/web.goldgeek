@@ -2,6 +2,23 @@ import { redirect } from "next/navigation";
 import { AccountContainer, KitCard } from "@/components/account";
 import { getSession } from "@/lib/auth";
 import { getMyKits } from "@/lib/actions/customer.actions";
+import { normalizeKitType } from "@/lib/account";
+
+type OfferLike = {
+  status: string;
+  totalValue: { toString(): string };
+  createdAt: Date;
+};
+
+type KitLike = {
+  id: string;
+  kitNumber: string;
+  type: string;
+  status: string;
+  createdAt: Date;
+  items?: { id: string }[];
+  offers?: OfferLike[];
+};
 
 export default async function ManageKitsPage() {
   const session = await getSession();
@@ -17,7 +34,7 @@ export default async function ManageKitsPage() {
       <AccountContainer
         headerProps={{
           title: "Manage My Kits",
-          showBack: true,
+          showBackButton: true,
         }}
       >
         <div style={{ textAlign: "center", padding: "60px 0" }}>
@@ -27,20 +44,20 @@ export default async function ManageKitsPage() {
     );
   }
 
-  const allKits = result.data || [];
+  const allKits = (result.data || []) as KitLike[];
 
   // Split into active and completed
   const activeStatuses = ["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING", "OFFER_SENT", "ACCEPTED", "DECLINED"];
   const completedStatuses = ["PAID", "RETURNED", "CANCELLED"];
 
-  const activeKits = allKits.filter((kit: any) => activeStatuses.includes(kit.status));
-  const completedKits = allKits.filter((kit: any) => completedStatuses.includes(kit.status));
+  const activeKits = allKits.filter((kit) => activeStatuses.includes(kit.status));
+  const completedKits = allKits.filter((kit) => completedStatuses.includes(kit.status));
 
   return (
     <AccountContainer
       headerProps={{
         title: "Manage My Kits",
-        showBack: true,
+        showBackButton: true,
       }}
     >
       {/* Active Kits Section */}
@@ -50,7 +67,37 @@ export default async function ManageKitsPage() {
           No active kits
         </p>
       ) : (
-        activeKits.map((kit) => <KitCard key={kit.id} kit={kit} />)
+        activeKits.map((kit) => {
+          const sortedOffers = [...(kit.offers || [])].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          const activeOffer = sortedOffers.find((offer) => offer.status === "SENT");
+          const offerForValue = activeOffer || sortedOffers[0];
+          const hasOffer = kit.status === "OFFER_SENT" && Boolean(activeOffer);
+          const needsShippingLabel =
+            normalizeKitType(kit.type) === "digital" &&
+            ["PENDING", "KIT_SENT"].includes(kit.status);
+
+          return (
+            <KitCard
+              key={kit.id}
+              kit={{
+                id: kit.id,
+                kitNumber: kit.kitNumber,
+                type: kit.type,
+                status: kit.status,
+                createdAt: kit.createdAt?.toISOString?.() ?? kit.createdAt,
+                itemCount: kit.items?.length ?? 0,
+                offerValue: offerForValue
+                  ? parseFloat(offerForValue.totalValue.toString())
+                  : undefined,
+                hasOffer,
+                needsShippingLabel,
+              }}
+            />
+          );
+        })
       )}
 
       {/* Completed Kits Section */}
@@ -60,7 +107,31 @@ export default async function ManageKitsPage() {
           No completed kits yet
         </p>
       ) : (
-        completedKits.map((kit) => <KitCard key={kit.id} kit={kit} />)
+        completedKits.map((kit) => {
+          const sortedOffers = [...(kit.offers || [])].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          const offerForValue = sortedOffers[0];
+          return (
+            <KitCard
+              key={kit.id}
+              kit={{
+                id: kit.id,
+                kitNumber: kit.kitNumber,
+                type: kit.type,
+                status: kit.status,
+                createdAt: kit.createdAt?.toISOString?.() ?? kit.createdAt,
+                itemCount: kit.items?.length ?? 0,
+                offerValue: offerForValue
+                  ? parseFloat(offerForValue.totalValue.toString())
+                  : undefined,
+                hasOffer: false,
+                needsShippingLabel: false,
+              }}
+            />
+          );
+        })
       )}
     </AccountContainer>
   );

@@ -190,7 +190,7 @@ export class KitService {
             OR: [
               { firstName: { contains: filters.search, mode: 'insensitive' } },
               { lastName: { contains: filters.search, mode: 'insensitive' } },
-              { user: { email: { contains: filters.search, mode: 'insensitive' } } },
+              { email: { contains: filters.search, mode: 'insensitive' } },
             ],
           },
         },

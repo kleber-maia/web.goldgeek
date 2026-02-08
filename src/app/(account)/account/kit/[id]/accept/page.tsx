@@ -5,72 +5,84 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, PaymentOption } from "@/components/account";
 import {
-  getSession,
-  getKitSummary,
-  getPaymentPreferences,
-  simulateAcceptOffer,
   formatCurrency,
-  generateKitNumber,
   PaymentMethod,
-  KitSummary,
 } from "@/lib/account";
+import {
+  acceptOffer,
+  getKitOfferSummary,
+} from "@/lib/actions/customer.actions";
 
 const PAYMENT_OPTIONS: { method: PaymentMethod; label: string }[] = [
-  { method: "check", label: "Check" },
-  { method: "paypal", label: "PayPal" },
-  { method: "zelle", label: "Zelle" },
-  { method: "bank_transfer", label: "Bank Transfer" },
+  { method: "CHECK", label: "Check" },
+  { method: "PAYPAL", label: "PayPal" },
+  { method: "ZELLE", label: "Zelle" },
+  { method: "ACH", label: "Bank Transfer" },
 ];
+
+const PAYMENT_DETAILS: Record<PaymentMethod, string> = {
+  CHECK: "Mailed to your address",
+  PAYPAL: "PayPal email on file",
+  ZELLE: "Zelle phone/email on file",
+  ACH: "Bank account on file",
+  VENMO: "Venmo handle on file",
+};
+
+interface OfferSummary {
+  kitId: string;
+  kitNumber: string;
+  offerId: string;
+  offerValue: number;
+  offerExpiresAt?: string;
+  defaultPaymentMethod?: PaymentMethod;
+}
 
 export default function AcceptOfferPage() {
   const router = useRouter();
   const params = useParams();
   const kitId = params.id as string;
 
-  const [summary, setSummary] = useState<KitSummary | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
-  const [paymentDetails, setPaymentDetails] = useState<Record<string, string>>({});
+  const [summary, setSummary] = useState<OfferSummary | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("CHECK");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.replace("/account/login");
-      return;
-    }
+    let isMounted = true;
 
-    const summaryData = getKitSummary(kitId);
-    if (!summaryData || !summaryData.offer) {
-      router.replace("/account");
-      return;
-    }
+    const loadSummary = async () => {
+      const result = await getKitOfferSummary(kitId);
+      if (!result.success || !result.data) {
+        router.replace("/account");
+        return;
+      }
+      if (!isMounted) return;
+      setSummary(result.data);
+      setSelectedPayment(result.data.defaultPaymentMethod || "CHECK");
+      setIsLoading(false);
+    };
 
-    setSummary(summaryData);
+    loadSummary();
 
-    // Load payment preferences
-    const prefs = getPaymentPreferences(session.userId);
-    if (prefs.defaultMethod) {
-      setSelectedPayment(prefs.defaultMethod);
-    }
-    setPaymentDetails({
-      paypal: prefs.paypalEmail || "-",
-      zelle: prefs.zellePhone || "-",
-      bank_transfer: prefs.bankAccount || "-",
-      check: "Mailed to your address",
-    });
-
-    setIsLoading(false);
+    return () => {
+      isMounted = false;
+    };
   }, [router, kitId]);
 
-  const handleConfirm = () => {
-    if (!selectedPayment) return;
-
+  const handleConfirm = async () => {
     setIsSubmitting(true);
-    const success = simulateAcceptOffer(kitId, selectedPayment);
-    if (success) {
-      router.push(`/account/kit/${kitId}?accepted=true`);
-    } else {
+    try {
+      if (!summary) {
+        throw new Error("Offer summary not available");
+      }
+      const result = await acceptOffer(summary.offerId, selectedPayment);
+      if (result.success) {
+        router.push(`/account/kit/${kitId}?accepted=true`);
+      } else {
+        throw new Error(result.error || "Failed to accept offer");
+      }
+    } catch (error) {
+      console.error("Error accepting offer:", error);
       alert("Something went wrong. Please try again.");
       setIsSubmitting(false);
     }
@@ -92,8 +104,6 @@ export default function AcceptOfferPage() {
     );
   }
 
-  const offerValue = summary.offer?.totalValue || 0;
-
   return (
     <AccountContainer
       headerProps={{
@@ -109,7 +119,7 @@ export default function AcceptOfferPage() {
           <div className="account-kit-summary-row">
             <span className="account-kit-summary-label">Kit</span>
             <span className="account-kit-summary-value">
-              #{generateKitNumber(kitId)}
+              #{summary.kitNumber}
             </span>
           </div>
           <div className="account-kit-summary-row">
@@ -118,7 +128,7 @@ export default function AcceptOfferPage() {
               className="account-kit-summary-value"
               style={{ fontSize: 18, color: "var(--brand-primary)" }}
             >
-              {formatCurrency(offerValue)}
+              {formatCurrency(summary.offerValue)}
             </span>
           </div>
         </div>
@@ -133,7 +143,7 @@ export default function AcceptOfferPage() {
             key={option.method}
             method={option.method}
             label={option.label}
-            detail={paymentDetails[option.method]}
+            detail={PAYMENT_DETAILS[option.method]}
             selected={selectedPayment === option.method}
             onChange={setSelectedPayment}
           />
@@ -161,7 +171,7 @@ export default function AcceptOfferPage() {
       <button
         onClick={handleConfirm}
         className="account-btn account-btn-success account-btn-full"
-        disabled={!selectedPayment || isSubmitting}
+        disabled={isSubmitting}
       >
         <svg
           width="18"
@@ -178,9 +188,7 @@ export default function AcceptOfferPage() {
             d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        {selectedPayment
-          ? `Confirm & Accept - ${formatCurrency(offerValue)}`
-          : "Select a payment method"}
+        {`Confirm & Accept - ${formatCurrency(summary.offerValue)}`}
       </button>
     </AccountContainer>
   );

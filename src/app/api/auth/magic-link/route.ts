@@ -15,7 +15,9 @@ export async function POST(request: Request) {
     const result = await createMagicLink(email);
 
     // Build magic link URL
-    const magicLinkUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify?token=${result.token}`;
+    const origin = request.headers.get('origin') || new URL(request.url).origin;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin || 'http://localhost:3000';
+    const magicLinkUrl = `${baseUrl}/api/auth/verify?token=${result.token}`;
 
     // TODO: Send email with magic link
     console.log('Magic link URL:', magicLinkUrl);
