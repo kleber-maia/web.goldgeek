@@ -19,6 +19,14 @@ npm run prisma:generate    # Generate Prisma client after schema changes
 npm run prisma:migrate     # Create and apply database migrations
 npm run prisma:seed        # Seed database with test data
 npm run prisma:studio      # Open Prisma Studio (database GUI)
+
+# Admin user management (uses scripts/manage-admin.ts)
+npm run admin:create       # Interactive: create new admin user
+npm run admin:list         # List all admin users
+npm run admin:delete       # Interactive: delete admin user
+
+# One-time migration (already run in production)
+npm run migrate:split      # Migrates User/Customer table separation
 ```
 
 ## Environment Setup
@@ -44,6 +52,21 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 - Resend for transactional emails
 - Zod for validation
 - Swiper for carousels
+
+### Authentication Architecture
+
+**Critical Distinction:**
+- **User** = Admin staff only (managed via `npm run admin:create`)
+- **Customer** = Buyers/sellers (self-register via magic link)
+
+These are SEPARATE entities with SEPARATE magic link tables:
+- `MagicLink` - for User (admins)
+- `CustomerMagicLink` - for Customer (buyers)
+
+**Why it matters:**
+- Never join User ↔ Customer (they're independent)
+- Two separate auth flows: `/admin/login` vs `/account/login`
+- Role checks happen server-side (middleware only checks session existence)
 
 ### Path Alias
 `@/*` maps to `./src/*`
@@ -88,12 +111,16 @@ Interactive components use `"use client"`:
 Page layouts are server components.
 
 ### Motion System
-Custom scroll-based animations in `src/components/ui/`:
-- **MotionFxContainer**: Parallax translateY on scroll
-- **MotionFxImage**: Combined translateY + rotateZ animations
-- **ScrollRotatingImage**: Rotation tied to scroll position
 
-All motion components support `disableOnMobile` (768px breakpoint).
+Custom scroll-based animations in `src/components/ui/`:
+
+| Component | Effect | Props |
+|-----------|--------|-------|
+| MotionFxContainer | Parallax translateY | speed, disableOnMobile |
+| MotionFxImage | translateY + rotateZ | parallaxSpeed, rotationSpeed |
+| ScrollRotatingImage | Rotation on scroll | speed, direction |
+
+All support `disableOnMobile` (768px breakpoint).
 
 ### Styling
 - Elementor CSS framework imported globally
@@ -142,8 +169,18 @@ Services handle database operations and return type-safe results. Always use ser
 
 All mutations use Server Actions in `src/lib/actions/`:
 
-- **Customer actions** - Appraisal requests, offer acceptance/decline
-- **Admin actions** - Item management, offer generation, payment processing, shipping
+**Customer actions:** (`src/lib/actions/`)
+- `customer.actions.ts` - Appraisal requests, profile updates
+- `kit.actions.ts` - Kit creation, offer responses
+
+**Admin actions:** (`src/lib/actions/admin/`)
+- `customer.actions.ts` - Admin customer management
+- `item.actions.ts` - Item evaluation and pricing
+- `kit.actions.ts` - Kit status updates
+- `offer.actions.ts` - Offer generation and sending
+- `payment.actions.ts` - Payment processing
+- `shipping.actions.ts` - Shipping label generation
+- `user.actions.ts` - Admin user management
 
 Server Actions validate input with Zod, call services, and return `ActionResult<T>`:
 
