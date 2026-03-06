@@ -37,7 +37,7 @@ export default async function KitDetailPage({
     redirect("/account");
   }
 
-  const kit = result.data;
+  const kit = result.data as any;
 
   const offers = (kit.offers || []) as OfferLike[];
   const sortedOffers = [...offers].sort(
@@ -81,7 +81,7 @@ export default async function KitDetailPage({
         <>
           <OfferBanner
             amount={parseFloat(activeOffer.totalValue.toString())}
-            expiresAt={activeOffer.expiresAt}
+            expiresAt={activeOffer.expiresAt ?? undefined}
           />
           <div className="account-offer-actions">
             <Link

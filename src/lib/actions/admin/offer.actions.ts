@@ -3,6 +3,7 @@
 import { requireAdmin } from '@/lib/auth';
 import { OfferService } from '@/lib/services/offer.service';
 import { ItemService } from '@/lib/services/item.service';
+import { serializePrismaData } from '@/lib/db/utils';
 import { offerSchema, type OfferInput } from '@/lib/validators/offer';
 import type { OfferStatus } from '@prisma/client';
 
@@ -48,7 +49,7 @@ export async function generateOffer(kitId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: any) {
     console.error('Error generating offer:', error);
@@ -74,7 +75,7 @@ export async function createOffer(
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: any) {
     console.error('Error creating offer:', error);
@@ -96,7 +97,7 @@ export async function sendOffer(offerId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: any) {
     console.error('Error sending offer:', error);
@@ -121,7 +122,7 @@ export async function updateOfferStatus(
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: any) {
     console.error('Error updating offer status:', error);
@@ -146,7 +147,7 @@ export async function getAllOffers(filters?: {
 
     return {
       success: true,
-      data: offers,
+      data: serializePrismaData(offers),
     };
   } catch (error: any) {
     console.error('Error getting offers:', error);
@@ -172,7 +173,7 @@ export async function getOfferDetails(offerId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: any) {
     console.error('Error getting offer details:', error);

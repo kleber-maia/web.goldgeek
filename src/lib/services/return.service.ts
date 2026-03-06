@@ -168,6 +168,7 @@ export class ReturnService {
         kit: {
           include: {
             customer: true,
+            items: true,
           },
         },
       },

@@ -2,6 +2,7 @@
 
 import { requireAdmin } from '@/lib/auth';
 import { ItemService } from '@/lib/services/item.service';
+import { serializePrismaData } from '@/lib/db/utils';
 import { itemSchema, updateItemSchema, type ItemInput, type UpdateItemInput } from '@/lib/validators/item';
 
 export interface ActionResult<T = any> {
@@ -25,7 +26,7 @@ export async function addItemToKit(
 
     return {
       success: true,
-      data: item,
+      data: serializePrismaData(item),
     };
   } catch (error: any) {
     console.error('Error adding item:', error);
@@ -51,7 +52,7 @@ export async function updateItem(
 
     return {
       success: true,
-      data: item,
+      data: serializePrismaData(item),
     };
   } catch (error: any) {
     console.error('Error updating item:', error);
@@ -94,7 +95,7 @@ export async function getKitItems(kitId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: items,
+      data: serializePrismaData(items),
     };
   } catch (error: any) {
     console.error('Error getting items:', error);

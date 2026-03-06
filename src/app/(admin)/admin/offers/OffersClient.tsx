@@ -6,6 +6,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { formatCurrency } from "@/lib/db/utils";
+import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 
 interface Offer {
   id: string;
@@ -27,35 +28,7 @@ interface Offer {
   } | null;
 }
 
-const filterTabs = ["all", "sent", "accepted", "declined", "expired"];
-
-function getStatusBadgeClass(status: string): string {
-  const statusLower = status.toLowerCase();
-  switch (statusLower) {
-    case "draft":
-      return "gray";
-    case "sent":
-      return "pending";
-    case "accepted":
-      return "success";
-    case "declined":
-      return "danger";
-    case "expired":
-      return "gray";
-    default:
-      return "gray";
-  }
-}
-
-function formatStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-}
-
-function formatDate(date: Date | string | null): string {
-  if (!date) return "N/A";
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
+const filterTabs = ["all", "draft", "sent", "accepted", "declined", "expired"];
 
 export default function OffersClient({ offers }: { offers: Offer[] }) {
   const [activeFilter, setActiveFilter] = useState("all");
@@ -135,7 +108,8 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
                   </span>
                 </div>
                 <div className="admin-card-meta">
-                  Kit {offer.kit.kitNumber} &bull; Sent {formatDate(offer.sentAt)}
+                  Kit {offer.kit.kitNumber} &bull;{" "}
+                  {offer.sentAt ? `Sent ${formatDate(offer.sentAt)}` : "Not yet sent"}
                 </div>
                 <div className="admin-card-footer">
                   <span style={{ fontSize: "14px", color: "#AD7B2A", fontWeight: 500 }}>
@@ -188,8 +162,8 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
                         {formatStatus(offer.status)}
                       </span>
                     </td>
-                    <td>{formatDate(offer.sentAt)}</td>
-                    <td>{formatDate(offer.expiresAt)}</td>
+                    <td>{offer.sentAt ? formatDate(offer.sentAt) : "—"}</td>
+                    <td>{offer.status === "DRAFT" ? "—" : formatDate(offer.expiresAt)}</td>
                     <td>
                       <Link href={`/admin/offers/${offer.id}`} className="admin-table-link">
                         View

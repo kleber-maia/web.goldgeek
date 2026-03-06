@@ -73,31 +73,31 @@ export default async function AdminDashboard() {
 
         {/* Stats Grid */}
         <div className="admin-stats-grid">
-          <div className="admin-stat-card">
+          <Link href="/admin/requests?status=pending" className="admin-stat-card" style={{ textDecoration: "none", display: "block" }}>
             <div className="admin-stat-label">New Requests</div>
             <div className="admin-stat-value">{stats.newRequests}</div>
-          </div>
-          <div className="admin-stat-card">
+          </Link>
+          <Link href="/admin/requests?status=in_transit" className="admin-stat-card" style={{ textDecoration: "none", display: "block" }}>
             <div className="admin-stat-label">In Transit</div>
             <div className="admin-stat-value">{stats.inTransit}</div>
-          </div>
-          <div className="admin-stat-card">
+          </Link>
+          <Link href="/admin/offers?status=sent" className="admin-stat-card" style={{ textDecoration: "none", display: "block" }}>
             <div className="admin-stat-label">Pending Offers</div>
             <div className="admin-stat-value">{stats.pendingOffers}</div>
-          </div>
-          <div className="admin-stat-card primary">
+          </Link>
+          <Link href="/admin/payments?status=completed" className="admin-stat-card primary" style={{ textDecoration: "none", display: "block" }}>
             <div className="admin-stat-label">This Month</div>
             <div className="admin-stat-value">{stats.monthlyRevenue}</div>
-          </div>
+          </Link>
         </div>
 
         {/* Quick Actions */}
         <div className="admin-quick-actions">
           <Link href="/admin/requests" className="admin-quick-action">
             <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
             </svg>
-            New Request
+            All Requests
           </Link>
           <Link href="/admin/requests?status=received" className="admin-quick-action">
             <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">

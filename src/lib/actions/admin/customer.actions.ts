@@ -2,6 +2,7 @@
 
 import { requireAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { serializePrismaData } from '@/lib/db/utils';
 
 export interface ActionResult<T = unknown> {
   success: boolean;
@@ -29,7 +30,7 @@ export async function getAllCustomers(): Promise<ActionResult> {
 
     return {
       success: true,
-      data: customers,
+      data: serializePrismaData(customers),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get customers';
@@ -82,7 +83,7 @@ export async function getCustomerById(customerId: string): Promise<ActionResult>
 
     return {
       success: true,
-      data: customer,
+      data: serializePrismaData(customer),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get customer';

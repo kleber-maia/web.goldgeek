@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { formatCurrency } from "@/lib/db/utils";
+import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 import { updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
 
 interface Payment {
@@ -20,6 +22,7 @@ interface Payment {
   offer: {
     offerNumber: string;
     kit: {
+      id: string;
       kitNumber: string;
     };
   };
@@ -31,38 +34,40 @@ interface Payment {
 
 const filterTabs = ["all", "pending", "processing", "sent", "completed"];
 
-function getStatusBadgeClass(status: string): string {
-  const statusLower = status.toLowerCase();
-  switch (statusLower) {
-    case "pending":
-      return "pending";
-    case "processing":
-      return "in-progress";
-    case "sent":
-      return "purple";
-    case "completed":
-      return "success";
-    case "failed":
-      return "danger";
-    default:
-      return "gray";
-  }
-}
-
-function formatStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-}
-
-function formatDate(date: Date | string | null): string {
-  if (!date) return "N/A";
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function ActionButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        fontSize: "12px",
+        padding: "4px 8px",
+        background: "#AD7B2A",
+        color: "white",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
 }
 
 export default function PaymentsClient({ payments }: { payments: Payment[] }) {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const filteredPayments = payments.filter((payment) => {
     const statusLower = payment.status.toLowerCase();
@@ -77,19 +82,17 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
   });
 
   const handleUpdateStatus = async (paymentId: string, newStatus: string) => {
-    if (!confirm(`Update payment status to ${newStatus}?`)) return;
-
     setIsUpdating(true);
+    setErrorMsg("");
     try {
       const result = await updatePaymentStatus(paymentId, newStatus as any);
       if (result.success) {
-        window.location.reload();
+        router.refresh();
       } else {
-        alert(result.error || "Failed to update status");
+        setErrorMsg(result.error || "Failed to update status");
       }
-    } catch (error) {
-      console.error("Error updating payment:", error);
-      alert("Failed to update payment status");
+    } catch {
+      setErrorMsg("Failed to update payment status");
     } finally {
       setIsUpdating(false);
     }
@@ -129,6 +132,12 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
           />
         </div>
 
+        {errorMsg && (
+          <div style={{ padding: "12px 16px", background: "#FEE2E2", color: "#DC2626", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
+            {errorMsg}
+          </div>
+        )}
+
         {/* Mobile Card List */}
         <div className="admin-card-list">
           {filteredPayments.length === 0 ? (
@@ -152,45 +161,23 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                   </span>
                 </div>
                 <div className="admin-card-meta">
-                  {payment.method} &bull; {formatDate(payment.createdAt)}
+                  {payment.method} &bull; {formatDate(payment.createdAt)} &bull;{" "}
+                  <Link href={`/admin/requests/${payment.offer.kit.id}`} style={{ color: "#AD7B2A" }}>
+                    {payment.offer.kit.kitNumber}
+                  </Link>
                 </div>
                 <div className="admin-card-footer">
                   <span style={{ fontSize: "14px", color: "#AD7B2A", fontWeight: 500 }}>
                     {formatCurrency(parseFloat(payment.amount.toString()))}
                   </span>
                   {payment.status === "PENDING" && (
-                    <button
-                      onClick={() => handleUpdateStatus(payment.id, "PROCESSING")}
-                      disabled={isUpdating}
-                      style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        background: "#AD7B2A",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Process
-                    </button>
+                    <ActionButton label="Process" onClick={() => handleUpdateStatus(payment.id, "PROCESSING")} disabled={isUpdating} />
                   )}
                   {payment.status === "PROCESSING" && (
-                    <button
-                      onClick={() => handleUpdateStatus(payment.id, "SENT")}
-                      disabled={isUpdating}
-                      style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        background: "#AD7B2A",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Mark Sent
-                    </button>
+                    <ActionButton label="Mark Sent" onClick={() => handleUpdateStatus(payment.id, "SENT")} disabled={isUpdating} />
+                  )}
+                  {payment.status === "SENT" && (
+                    <ActionButton label="Complete" onClick={() => handleUpdateStatus(payment.id, "COMPLETED")} disabled={isUpdating} />
                   )}
                 </div>
               </div>
@@ -205,6 +192,7 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
               <tr>
                 <th>Payment ID</th>
                 <th>Customer</th>
+                <th>Kit</th>
                 <th>Amount</th>
                 <th>Method</th>
                 <th>Status</th>
@@ -215,7 +203,7 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
             <tbody>
               {filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "20px" }}>
+                  <td colSpan={8} style={{ textAlign: "center", padding: "20px" }}>
                     No payments found
                   </td>
                 </tr>
@@ -224,6 +212,11 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                   <tr key={payment.id}>
                     <td>{payment.paymentNumber}</td>
                     <td>{payment.customer.firstName} {payment.customer.lastName}</td>
+                    <td>
+                      <Link href={`/admin/requests/${payment.offer.kit.id}`} className="admin-table-link">
+                        {payment.offer.kit.kitNumber}
+                      </Link>
+                    </td>
                     <td>{formatCurrency(parseFloat(payment.amount.toString()))}</td>
                     <td>{payment.method}</td>
                     <td>
@@ -234,32 +227,17 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                     <td>{formatDate(payment.completedAt || payment.sentAt || payment.createdAt)}</td>
                     <td>
                       {payment.status === "PENDING" && (
-                        <button
-                          onClick={() => handleUpdateStatus(payment.id, "PROCESSING")}
-                          disabled={isUpdating}
-                          className="admin-table-link"
-                          style={{ cursor: "pointer" }}
-                        >
+                        <button onClick={() => handleUpdateStatus(payment.id, "PROCESSING")} disabled={isUpdating} className="admin-table-link" style={{ cursor: "pointer" }}>
                           Process
                         </button>
                       )}
                       {payment.status === "PROCESSING" && (
-                        <button
-                          onClick={() => handleUpdateStatus(payment.id, "SENT")}
-                          disabled={isUpdating}
-                          className="admin-table-link"
-                          style={{ cursor: "pointer" }}
-                        >
+                        <button onClick={() => handleUpdateStatus(payment.id, "SENT")} disabled={isUpdating} className="admin-table-link" style={{ cursor: "pointer" }}>
                           Mark Sent
                         </button>
                       )}
                       {payment.status === "SENT" && (
-                        <button
-                          onClick={() => handleUpdateStatus(payment.id, "COMPLETED")}
-                          disabled={isUpdating}
-                          className="admin-table-link"
-                          style={{ cursor: "pointer" }}
-                        >
+                        <button onClick={() => handleUpdateStatus(payment.id, "COMPLETED")} disabled={isUpdating} className="admin-table-link" style={{ cursor: "pointer" }}>
                           Complete
                         </button>
                       )}

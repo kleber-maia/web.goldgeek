@@ -3,6 +3,7 @@
 import { requireAdmin } from '@/lib/auth';
 import { ShippingService } from '@/lib/services/shipping.service';
 import { ReturnService } from '@/lib/services/return.service';
+import { serializePrismaData } from '@/lib/db/utils';
 import type { ShippingCarrier, ShippingLabelType, ShippingLabelStatus } from '@prisma/client';
 
 export interface ActionResult<T = any> {
@@ -60,7 +61,7 @@ export async function createShippingLabel(
 
     return {
       success: true,
-      data: label,
+      data: serializePrismaData(label),
     };
   } catch (error: any) {
     console.error('Error creating shipping label:', error);
@@ -89,7 +90,7 @@ export async function updateLabelStatus(
 
     return {
       success: true,
-      data: label,
+      data: serializePrismaData(label),
     };
   } catch (error: any) {
     console.error('Error updating label status:', error);
@@ -111,7 +112,7 @@ export async function voidShippingLabel(labelId: string): Promise<ActionResult> 
 
     return {
       success: true,
-      data: label,
+      data: serializePrismaData(label),
     };
   } catch (error: any) {
     console.error('Error voiding shipping label:', error);
@@ -138,7 +139,7 @@ export async function getAllShippingLabels(filters?: {
 
     return {
       success: true,
-      data: labels,
+      data: serializePrismaData(labels),
     };
   } catch (error: any) {
     console.error('Error getting shipping labels:', error);
@@ -160,7 +161,7 @@ export async function getAllReturns(): Promise<ActionResult> {
 
     return {
       success: true,
-      data: returns,
+      data: serializePrismaData(returns),
     };
   } catch (error: any) {
     console.error('Error getting returns:', error);
@@ -189,7 +190,7 @@ export async function updateReturnStatus(
 
     return {
       success: true,
-      data: returnRecord,
+      data: serializePrismaData(returnRecord),
     };
   } catch (error: any) {
     console.error('Error updating return status:', error);

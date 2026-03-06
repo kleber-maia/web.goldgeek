@@ -4,6 +4,7 @@ import Link from "next/link";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { formatCurrency } from "@/lib/db/utils";
+import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 
 interface Customer {
   id: string;
@@ -12,7 +13,14 @@ interface Customer {
   lastName: string;
   phone: string | null;
   createdAt: Date | string;
-  addresses: unknown[];
+  addresses: Array<{
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    isDefault?: boolean;
+  }>;
   kits: Array<{
     id: string;
     kitNumber: string;
@@ -27,18 +35,9 @@ interface Customer {
     method: string;
     status: string;
     createdAt: Date | string;
-    completedAt?: Date | string;
+    completedAt?: Date | string | null;
     offer: { kit: { kitNumber: string } };
   }>;
-}
-
-function formatDate(date: Date | string): string {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function formatStatus(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function CustomerDetailClient({ customer }: { customer: Customer }) {
@@ -47,9 +46,8 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
     .reduce((sum, p) => sum + parseFloat(p.amount?.toString() || "0"), 0);
 
   const offersAccepted = customer.kits.filter((k) => k.status === "ACCEPTED" || k.status === "PAID").length;
-
   const initials = `${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`;
-  const defaultAddress = customer.addresses.find((a: any) => a.isDefault) || customer.addresses[0];
+  const defaultAddress = customer.addresses.find((a) => a.isDefault) || customer.addresses[0];
 
   return (
     <div className="admin-container">
@@ -129,13 +127,15 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
         {/* Kits */}
         <div className="admin-section">
           <div className="admin-section-title">Kits ({customer.kits.length})</div>
+
+          {/* Mobile Card List */}
           <div className="admin-card-list">
             {customer.kits.length === 0 ? (
               <div style={{ padding: "20px", textAlign: "center", color: "#6B7280" }}>
                 No kits yet
               </div>
             ) : (
-              customer.kits.map((kit: any) => (
+              customer.kits.map((kit) => (
                 <Link
                   key={kit.id}
                   href={`/admin/requests/${kit.id}`}
@@ -146,7 +146,7 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
                       <div className="admin-card-id">{kit.kitNumber}</div>
                       <div className="admin-card-meta">{formatDate(kit.createdAt)}</div>
                     </div>
-                    <span className={`admin-badge ${kit.status.toLowerCase()}`}>
+                    <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`}>
                       {formatStatus(kit.status)}
                     </span>
                   </div>
@@ -161,6 +161,52 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
                 </Link>
               ))
             )}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Kit ID</th>
+                  <th>Status</th>
+                  <th>Items</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {customer.kits.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
+                      No kits yet
+                    </td>
+                  </tr>
+                ) : (
+                  customer.kits.map((kit) => (
+                    <tr key={kit.id}>
+                      <td>
+                        <Link href={`/admin/requests/${kit.id}`} className="admin-table-link">
+                          {kit.kitNumber}
+                        </Link>
+                      </td>
+                      <td>
+                        <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`}>
+                          {formatStatus(kit.status)}
+                        </span>
+                      </td>
+                      <td>{kit.items.length} items</td>
+                      <td>{formatDate(kit.createdAt)}</td>
+                      <td>
+                        <Link href={`/admin/requests/${kit.id}`} className="admin-table-link">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -187,14 +233,14 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
                     </td>
                   </tr>
                 ) : (
-                  customer.payments.map((payment: any) => (
+                  customer.payments.map((payment) => (
                     <tr key={payment.id}>
                       <td>{payment.paymentNumber}</td>
                       <td>{payment.offer.kit.kitNumber}</td>
                       <td>{formatCurrency(parseFloat(payment.amount.toString()))}</td>
                       <td>{payment.method}</td>
                       <td>
-                        <span className={`admin-badge ${payment.status.toLowerCase()}`}>
+                        <span className={`admin-badge ${getStatusBadgeClass(payment.status)}`}>
                           {formatStatus(payment.status)}
                         </span>
                       </td>

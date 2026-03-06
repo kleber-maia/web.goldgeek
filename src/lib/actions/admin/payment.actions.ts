@@ -2,6 +2,7 @@
 
 import { requireAdmin } from '@/lib/auth';
 import { PaymentService } from '@/lib/services/payment.service';
+import { serializePrismaData } from '@/lib/db/utils';
 import type { PaymentMethod, PaymentStatus } from '@prisma/client';
 
 export interface ActionResult<T = any> {
@@ -32,7 +33,7 @@ export async function processPayment(
 
     return {
       success: true,
-      data: payment,
+      data: serializePrismaData(payment),
     };
   } catch (error: any) {
     console.error('Error processing payment:', error);
@@ -61,7 +62,7 @@ export async function updatePaymentStatus(
 
     return {
       success: true,
-      data: payment,
+      data: serializePrismaData(payment),
     };
   } catch (error: any) {
     console.error('Error updating payment status:', error);
@@ -91,7 +92,7 @@ export async function updatePaymentTracking(
 
     return {
       success: true,
-      data: payment,
+      data: serializePrismaData(payment),
     };
   } catch (error: any) {
     console.error('Error updating payment tracking:', error);
@@ -117,7 +118,7 @@ export async function getAllPayments(filters?: {
 
     return {
       success: true,
-      data: payments,
+      data: serializePrismaData(payments),
     };
   } catch (error: any) {
     console.error('Error getting payments:', error);
@@ -145,7 +146,7 @@ export async function getPaymentDetails(
 
     return {
       success: true,
-      data: payment,
+      data: serializePrismaData(payment),
     };
   } catch (error: any) {
     console.error('Error getting payment details:', error);

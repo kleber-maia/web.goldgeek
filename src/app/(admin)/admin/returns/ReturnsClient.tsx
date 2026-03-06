@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 import { updateReturnStatus } from "@/lib/actions/admin/shipping.actions";
 
 interface Return {
@@ -15,6 +18,7 @@ interface Return {
   shippedAt: Date | string | null;
   deliveredAt: Date | string | null;
   kit: {
+    id: string;
     kitNumber: string;
     customer: {
       firstName: string;
@@ -26,38 +30,40 @@ interface Return {
 
 const filterTabs = ["all", "pending", "label_created", "in_transit", "delivered"];
 
-function getStatusBadgeClass(status: string): string {
-  const statusLower = status.toLowerCase();
-  switch (statusLower) {
-    case "pending":
-      return "pending";
-    case "label_created":
-      return "purple";
-    case "in_transit":
-      return "in-progress";
-    case "delivered":
-      return "success";
-    case "failed":
-      return "danger";
-    default:
-      return "gray";
-  }
-}
-
-function formatStatus(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDate(date: Date | string | null): string {
-  if (!date) return "N/A";
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function MobileActionButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        fontSize: "12px",
+        padding: "4px 8px",
+        background: "#AD7B2A",
+        color: "white",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
 }
 
 export default function ReturnsClient({ returns }: { returns: Return[] }) {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const filteredReturns = returns.filter((returnItem) => {
     const statusLower = returnItem.status.toLowerCase();
@@ -73,19 +79,17 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
   });
 
   const handleUpdateStatus = async (returnId: string, newStatus: string) => {
-    if (!confirm(`Update return status to ${formatStatus(newStatus)}?`)) return;
-
     setIsUpdating(true);
+    setErrorMsg("");
     try {
       const result = await updateReturnStatus(returnId, newStatus);
       if (result.success) {
-        window.location.reload();
+        router.refresh();
       } else {
-        alert(result.error || "Failed to update status");
+        setErrorMsg(result.error || "Failed to update status");
       }
-    } catch (error) {
-      console.error("Error updating return:", error);
-      alert("Failed to update return status");
+    } catch {
+      setErrorMsg("Failed to update return status");
     } finally {
       setIsUpdating(false);
     }
@@ -125,6 +129,12 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
           />
         </div>
 
+        {errorMsg && (
+          <div style={{ padding: "12px 16px", background: "#FEE2E2", color: "#DC2626", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
+            {errorMsg}
+          </div>
+        )}
+
         {/* Mobile Card List */}
         <div className="admin-card-list">
           {filteredReturns.length === 0 ? (
@@ -148,46 +158,24 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                   </span>
                 </div>
                 <div className="admin-card-meta">
-                  Kit {returnItem.kit.kitNumber} &bull; {returnItem.kit.items.length} items
-                  {returnItem.trackingNumber && ` &bull; ${returnItem.trackingNumber}`}
+                  <Link href={`/admin/requests/${returnItem.kit.id}`} style={{ color: "#AD7B2A" }}>
+                    {returnItem.kit.kitNumber}
+                  </Link>{" "}
+                  &bull; {returnItem.kit.items.length} items
+                  {returnItem.trackingNumber && ` • ${returnItem.trackingNumber}`}
                 </div>
                 <div className="admin-card-footer">
                   <span style={{ fontSize: "12px", color: "#6B7280" }}>
                     {formatDate(returnItem.deliveredAt || returnItem.shippedAt || returnItem.createdAt)}
                   </span>
                   {returnItem.status === "PENDING" && (
-                    <button
-                      onClick={() => handleUpdateStatus(returnItem.id, "LABEL_CREATED")}
-                      disabled={isUpdating}
-                      style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        background: "#AD7B2A",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Create Label
-                    </button>
+                    <MobileActionButton label="Label Created" onClick={() => handleUpdateStatus(returnItem.id, "LABEL_CREATED")} disabled={isUpdating} />
                   )}
                   {returnItem.status === "LABEL_CREATED" && (
-                    <button
-                      onClick={() => handleUpdateStatus(returnItem.id, "IN_TRANSIT")}
-                      disabled={isUpdating}
-                      style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        background: "#AD7B2A",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Mark Shipped
-                    </button>
+                    <MobileActionButton label="Mark Shipped" onClick={() => handleUpdateStatus(returnItem.id, "IN_TRANSIT")} disabled={isUpdating} />
+                  )}
+                  {returnItem.status === "IN_TRANSIT" && (
+                    <MobileActionButton label="Mark Delivered" onClick={() => handleUpdateStatus(returnItem.id, "DELIVERED")} disabled={isUpdating} />
                   )}
                 </div>
               </div>
@@ -221,7 +209,11 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                   <tr key={returnItem.id}>
                     <td>{returnItem.returnNumber}</td>
                     <td>{returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}</td>
-                    <td>{returnItem.kit.kitNumber}</td>
+                    <td>
+                      <Link href={`/admin/requests/${returnItem.kit.id}`} className="admin-table-link">
+                        {returnItem.kit.kitNumber}
+                      </Link>
+                    </td>
                     <td>{returnItem.kit.items.length} items</td>
                     <td>
                       <span className={`admin-badge ${getStatusBadgeClass(returnItem.status)}`}>
@@ -233,32 +225,17 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                     </td>
                     <td>
                       {returnItem.status === "PENDING" && (
-                        <button
-                          onClick={() => handleUpdateStatus(returnItem.id, "LABEL_CREATED")}
-                          disabled={isUpdating}
-                          className="admin-table-link"
-                          style={{ cursor: "pointer" }}
-                        >
-                          Create Label
+                        <button onClick={() => handleUpdateStatus(returnItem.id, "LABEL_CREATED")} disabled={isUpdating} className="admin-table-link" style={{ cursor: "pointer" }}>
+                          Label Created
                         </button>
                       )}
                       {returnItem.status === "LABEL_CREATED" && (
-                        <button
-                          onClick={() => handleUpdateStatus(returnItem.id, "IN_TRANSIT")}
-                          disabled={isUpdating}
-                          className="admin-table-link"
-                          style={{ cursor: "pointer" }}
-                        >
+                        <button onClick={() => handleUpdateStatus(returnItem.id, "IN_TRANSIT")} disabled={isUpdating} className="admin-table-link" style={{ cursor: "pointer" }}>
                           Mark Shipped
                         </button>
                       )}
                       {returnItem.status === "IN_TRANSIT" && (
-                        <button
-                          onClick={() => handleUpdateStatus(returnItem.id, "DELIVERED")}
-                          disabled={isUpdating}
-                          className="admin-table-link"
-                          style={{ cursor: "pointer" }}
-                        >
+                        <button onClick={() => handleUpdateStatus(returnItem.id, "DELIVERED")} disabled={isUpdating} className="admin-table-link" style={{ cursor: "pointer" }}>
                           Mark Delivered
                         </button>
                       )}

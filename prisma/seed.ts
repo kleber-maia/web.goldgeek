@@ -117,6 +117,7 @@ async function main() {
       kit = await prisma.kit.update({
         where: { id: kit.id },
         data: { status: KitStatus.OFFER_SENT },
+        include: { items: true },
       });
     }
     console.log('Sample kit exists:', kit.kitNumber);

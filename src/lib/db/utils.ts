@@ -83,3 +83,11 @@ export function formatWeight(grams: number | string, unit: 'g' | 'oz' = 'g'): st
   }
   return `${num.toFixed(3)} g`;
 }
+
+/**
+ * Serialize Prisma data for passing to Client Components.
+ * Converts Decimal objects to strings and Date objects to ISO strings.
+ */
+export function serializePrismaData<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}

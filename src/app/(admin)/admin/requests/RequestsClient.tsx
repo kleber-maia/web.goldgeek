@@ -19,7 +19,20 @@ interface Kit {
     lastName: string;
     email: string;
   };
-  items: any[];
+  items: Array<{
+    finalValue?: string | null;
+    estimatedValue?: string | null;
+  }>;
+}
+
+function getKitValue(kit: Kit): number | null {
+  if (kit.estimatedValue) return parseFloat(kit.estimatedValue.toString());
+  if (kit.items.length === 0) return null;
+  const total = kit.items.reduce((sum, item) => {
+    const val = item.finalValue || item.estimatedValue;
+    return sum + (val ? parseFloat(val.toString()) : 0);
+  }, 0);
+  return total > 0 ? total : null;
 }
 
 const filterTabs = ["all", "digital", "physical", "pending", "received"];
@@ -149,8 +162,11 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                   {kit.type.charAt(0).toUpperCase() + kit.type.slice(1)} Kit &bull; {formatDate(kit.createdAt)}
                 </div>
                 <div className="admin-card-footer">
-                  <span style={{ fontSize: "12px", color: kit.estimatedValue ? "#AD7B2A" : "#6B7280", fontWeight: kit.estimatedValue ? 500 : 400 }}>
-                    {kit.estimatedValue ? formatCurrency(parseFloat(kit.estimatedValue.toString())) : `${kit.items.length} items`}
+                  <span style={{ fontSize: "12px", color: getKitValue(kit) ? "#AD7B2A" : "#6B7280", fontWeight: getKitValue(kit) ? 500 : 400 }}>
+                    {(() => {
+                      const value = getKitValue(kit);
+                      return value ? formatCurrency(value) : `${kit.items.length} items`;
+                    })()}
                   </span>
                   <svg className="admin-card-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -199,9 +215,10 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                     </td>
                     <td>{formatDate(kit.createdAt)}</td>
                     <td>
-                      {kit.estimatedValue
-                        ? formatCurrency(parseFloat(kit.estimatedValue.toString()))
-                        : "-"}
+                      {(() => {
+                        const value = getKitValue(kit);
+                        return value ? formatCurrency(value) : "-";
+                      })()}
                     </td>
                     <td>
                       <Link href={`/admin/requests/${kit.id}`} className="admin-table-link">

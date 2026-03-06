@@ -2,6 +2,7 @@
 
 import { requireAdmin } from '@/lib/auth';
 import { KitService } from '@/lib/services/kit.service';
+import { serializePrismaData } from '@/lib/db/utils';
 import type { KitStatus } from '@prisma/client';
 
 export interface ActionResult<T = any> {
@@ -24,7 +25,7 @@ export async function getAllKits(filters?: {
 
     return {
       success: true,
-      data: kits,
+      data: serializePrismaData(kits),
     };
   } catch (error: any) {
     console.error('Error getting kits:', error);
@@ -50,7 +51,7 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: kit,
+      data: serializePrismaData(kit),
     };
   } catch (error: any) {
     console.error('Error getting kit details:', error);
@@ -75,7 +76,7 @@ export async function updateKitStatus(
 
     return {
       success: true,
-      data: kit,
+      data: serializePrismaData(kit),
     };
   } catch (error: any) {
     console.error('Error updating kit status:', error);
@@ -100,7 +101,7 @@ export async function updateKitNotes(
 
     return {
       success: true,
-      data: kit,
+      data: serializePrismaData(kit),
     };
   } catch (error: any) {
     console.error('Error updating kit notes:', error);

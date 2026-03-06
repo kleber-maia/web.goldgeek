@@ -7,6 +7,7 @@ import { OfferService } from '@/lib/services/offer.service';
 import { ReturnService } from '@/lib/services/return.service';
 import { PaymentService } from '@/lib/services/payment.service';
 import { prisma } from '@/lib/db';
+import { serializePrismaData } from '@/lib/db/utils';
 import { PaymentMethod } from '@prisma/client';
 import {
   customerProfileSchema,
@@ -17,7 +18,7 @@ import {
   type PaymentPreferencesInput,
 } from '@/lib/validators/customer';
 
-export interface ActionResult<T = unknown> {
+export interface ActionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
@@ -37,7 +38,7 @@ export async function updateProfile(
 
     return {
       success: true,
-      data: customer,
+      data: serializePrismaData(customer),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update profile';
@@ -61,7 +62,7 @@ export async function addAddress(data: AddressInput): Promise<ActionResult> {
 
     return {
       success: true,
-      data: address,
+      data: serializePrismaData(address),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to add address';
@@ -87,7 +88,7 @@ export async function updateAddress(
 
     return {
       success: true,
-      data: address,
+      data: serializePrismaData(address),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update address';
@@ -156,7 +157,7 @@ export async function acceptOffer(
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to accept offer';
@@ -191,7 +192,7 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: offer,
+      data: serializePrismaData(offer),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to decline offer';
@@ -243,7 +244,7 @@ export async function getMyKits(): Promise<ActionResult> {
 
     return {
       success: true,
-      data: kits,
+      data: serializePrismaData(kits),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get kits';
@@ -275,7 +276,7 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: kit,
+      data: serializePrismaData(kit),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get kit details';

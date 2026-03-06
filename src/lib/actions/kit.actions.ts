@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { KitService } from '@/lib/services/kit.service';
 import { CustomerService } from '@/lib/services/customer.service';
+import { serializePrismaData } from '@/lib/db/utils';
 import { headers } from 'next/headers';
 import {
   appraisalRequestSchema,
@@ -10,7 +11,7 @@ import {
 } from '@/lib/validators/appraisal-request';
 import { createMagicLink } from '@/lib/auth';
 
-export interface ActionResult<T = unknown> {
+export interface ActionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
@@ -105,7 +106,7 @@ export async function createAppraisalRequest(
     return {
       success: true,
       data: {
-        kit,
+        kit: serializePrismaData(kit),
         magicLinkUrl: process.env.NODE_ENV === 'development' ? magicLinkUrl : undefined,
       },
     };
