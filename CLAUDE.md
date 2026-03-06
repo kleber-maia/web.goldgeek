@@ -11,7 +11,7 @@ Gold Geek is a precious metals and jewelry buying platform, converted from WordP
 ```bash
 # Development
 npm run dev                # Development server at http://localhost:3000
-npm run build              # Production build
+npm run build              # Production build (runs prisma generate first)
 npm run lint               # ESLint
 
 # Database (Prisma + PostgreSQL)
@@ -45,13 +45,15 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ## Architecture
 
 ### Tech Stack
-- Next.js 16 with App Router
+- Next.js 16.1 with App Router
 - React 19
 - TypeScript (strict mode)
-- Prisma ORM with PostgreSQL
+- Prisma ORM 7.x with PostgreSQL (via `@prisma/adapter-pg`)
 - Resend for transactional emails
-- Zod for validation
+- Zod 4.x for validation
 - Swiper for carousels
+- bcrypt for password hashing
+- nanoid for token generation
 
 ### Authentication Architecture
 
@@ -64,9 +66,18 @@ These are SEPARATE entities with SEPARATE magic link tables:
 - `CustomerMagicLink` - for Customer (buyers)
 
 **Why it matters:**
-- Never join User ↔ Customer (they're independent)
+- Never join User <-> Customer (they're independent)
 - Two separate auth flows: `/admin/login` vs `/account/login`
-- Role checks happen server-side (middleware only checks session existence)
+- Auth checks are server-side in page components (no middleware)
+
+**Auth helper functions** (`src/lib/auth/session.ts`):
+- `getSession()` - Returns `{ id, email, type: 'admin' | 'customer' }` or null
+- `requireAuth()` - Throws if not authenticated
+- `requireAdmin()` - Throws if not admin
+- `requireCustomer()` - Throws if not customer
+- `getAdminUser()` - Returns full admin user or null
+- `getCurrentCustomer()` - Returns customer with addresses or null
+- `createSession()` / `destroySession()` - Session lifecycle
 
 ### Path Alias
 `@/*` maps to `./src/*`
@@ -76,30 +87,36 @@ These are SEPARATE entities with SEPARATE magic link tables:
 ```
 src/
 ├── app/                       # Next.js App Router
-│   ├── (main)/                # Public pages
+│   ├── (main)/                # Public pages (home, how-it-works, what-we-buy, etc.)
 │   ├── (account)/account/     # Customer portal (auth required)
 │   ├── (admin)/admin/         # Admin dashboard (admin role required)
-│   └── api/                   # API routes (auth, webhooks)
+│   └── api/                   # API routes (auth endpoints)
 ├── components/
 │   ├── layout/                # Header, Footer, MobileMenu
-│   ├── admin/                 # Admin UI components (Sidebar, Header, BottomNav)
+│   ├── admin/                 # Admin UI (AdminSidebar, AdminHeader, AdminBottomNav)
+│   ├── account/               # Customer UI (AccountContainer, AccountHeader, BottomNav)
 │   ├── ui/                    # Motion/animation components
 │   ├── sections/              # Page sections (TestimonialsCarousel)
 │   └── widgets/               # External embeds (TradingViewWidget)
 ├── lib/
 │   ├── auth/                  # Session management, magic links
-│   ├── db/                    # Prisma client, utilities
+│   ├── db/                    # Prisma client, utilities (generateKitNumber, serializePrismaData, etc.)
 │   ├── services/              # Business logic layer (8 services)
 │   ├── actions/               # Server Actions for mutations
 │   ├── validators/            # Zod schemas
 │   └── email/                 # Email templates and sending
 ├── styles/
-│   └── elementor/             # Exported Elementor theme CSS
-└── middleware.ts              # Route protection
+│   ├── globals.css            # Global styles
+│   └── elementor/             # Exported Elementor theme CSS (38 files)
+└── (no middleware.ts)         # Auth is handled server-side in page components
 
 prisma/
-├── schema.prisma              # Database schema (11 entities)
+├── schema.prisma              # Database schema (12 entities)
 └── seed.ts                    # Test data seeding
+
+scripts/
+├── manage-admin.ts            # Admin user CLI management
+└── migrate-user-customer-split.ts  # One-time migration script
 ```
 
 ### Client vs Server Components
@@ -107,6 +124,7 @@ Interactive components use `"use client"`:
 - All layout components (Header, Footer, MobileMenu)
 - All motion/animation components (MotionFxContainer, MotionFxImage, ScrollRotatingImage)
 - Swiper carousels and external widget embeds
+- Account and admin layout components
 
 Page layouts are server components.
 
@@ -136,19 +154,22 @@ Pages preserve Elementor structure with `data-elementor-type`, `data-elementor-i
 
 ### Database Schema (Prisma)
 
-The platform uses 11 core entities:
+The platform uses 12 core entities:
 
-- **User** - Authentication (email, role)
-- **Customer** - Customer profile linked to User
-- **Address** - Shipping/billing addresses
+- **User** - Admin authentication (email, passwordHash, role)
+- **Customer** - Customer profile (name, email, phone, paymentPreferences)
+- **Address** - Shipping/billing addresses (linked to Customer)
 - **Kit** - Appraisal requests with status workflow
 - **Item** - Evaluated items (metal type, weight, purity, value)
-- **Offer** - Generated offers with calculated totals
-- **Payment** - Payment tracking
+- **Offer** - Generated offers with calculated totals and item snapshots
+- **Payment** - Payment tracking (method, status, amounts)
 - **Return** - Return shipments for declined offers
 - **TimelineEvent** - Activity log per kit
-- **ShippingLabel** - FedEx/USPS labels
-- **MagicLink** - Passwordless authentication tokens
+- **ShippingLabel** - FedEx/USPS labels with tracking
+- **MagicLink** - Passwordless auth tokens for admins
+- **CustomerMagicLink** - Passwordless auth tokens for customers
+
+Key enums: `KitStatus`, `ItemType`, `MetalType`, `OfferStatus`, `PaymentMethod`, `PaymentStatus`, `ReturnStatus`, `ShippingCarrier`, `EventType`
 
 ### Service Layer Pattern
 
@@ -170,13 +191,13 @@ Services handle database operations and return type-safe results. Always use ser
 All mutations use Server Actions in `src/lib/actions/`:
 
 **Customer actions:** (`src/lib/actions/`)
-- `customer.actions.ts` - Appraisal requests, profile updates
-- `kit.actions.ts` - Kit creation, offer responses
+- `customer.actions.ts` - Profile updates, address management
+- `kit.actions.ts` - Kit creation, offer responses (accept/decline)
 
 **Admin actions:** (`src/lib/actions/admin/`)
-- `customer.actions.ts` - Admin customer management
+- `customer.actions.ts` - Search and manage customers
 - `item.actions.ts` - Item evaluation and pricing
-- `kit.actions.ts` - Kit status updates
+- `kit.actions.ts` - Kit status updates, notes
 - `offer.actions.ts` - Offer generation and sending
 - `payment.actions.ts` - Payment processing
 - `shipping.actions.ts` - Shipping label generation
@@ -192,24 +213,30 @@ type ActionResult<T = any> = {
 };
 ```
 
+### API Routes
+
+```
+/api/auth/magic-link  POST  - Request magic link (email login)
+/api/auth/verify      GET   - Verify token and create session
+/api/auth/logout      POST  - Destroy session
+```
+
 ### Authentication Flow
 
 Magic link (passwordless) authentication:
 
-1. User enters email → `POST /api/auth/magic-link`
+1. User enters email -> `POST /api/auth/magic-link`
 2. System creates token and sends email (in dev: logs URL to console)
-3. User clicks link → `GET /api/auth/verify?token=...`
-4. System creates session cookie (`gg-session`) → redirect to account
-5. Middleware protects `/account/*` and `/admin/*` routes
-
-Admin role verification happens server-side in page components using `getSession()`.
+3. User clicks link -> `GET /api/auth/verify?token=...`
+4. System creates session cookie (`gg-session`) -> redirect to account/admin
+5. Page components check auth via `requireAdmin()` / `requireCustomer()`
 
 ### Page Component Pattern
 
 Admin pages follow a server/client split:
 
 **Server Component** (`page.tsx`):
-- Checks authentication and role
+- Checks authentication and role via `requireAdmin()`
 - Fetches data using services
 - Passes data to client component
 
@@ -218,18 +245,29 @@ Admin pages follow a server/client split:
 - Calls Server Actions for mutations
 - Manages local UI state
 
-Example: `/admin/customers/page.tsx` → `CustomersClient.tsx`
+Example: `/admin/customers/page.tsx` -> `CustomersClient.tsx`
 
 ### Kit Status Workflow
 
 ```
-PENDING → KIT_SENT → IN_TRANSIT → RECEIVED → EVALUATING → OFFER_SENT
-                                                               ↓
-                                                   ACCEPTED → PAID
-                                                   DECLINED → RETURNED
+PENDING -> KIT_SENT -> IN_TRANSIT -> RECEIVED -> EVALUATING -> OFFER_SENT
+                                                                   |
+                                                       ACCEPTED -> PAID
+                                                       DECLINED -> RETURNED
+                                                       (CANCELLED from any state)
 ```
 
 Each status change is logged to `TimelineEvent` via `ActivityService`.
+
+### Database Utilities (`src/lib/db/utils.ts`)
+
+- `generateKitNumber()` - Format: GG-YYYY-XXXXXX
+- `generateOfferNumber()` - Format: OFF-YYYY-XXXXXX
+- `generatePaymentNumber()` - Format: PAY-YYYY-XXXXXX
+- `generateReturnNumber()` - Format: RET-YYYY-XXXXXX
+- `generateToken()` - nanoid-based tokens for magic links
+- `serializePrismaData()` - Converts Decimal/Date objects for client components
+- `formatCurrency()` / `formatWeight()` - Display formatting
 
 ### Working with Prisma Decimal
 
@@ -238,6 +276,10 @@ Prisma's `Decimal` type must be converted for display:
 ```typescript
 // Always convert Decimal to number for display
 const amount = parseFloat(payment.amount.toString());
+
+// Or use serializePrismaData() to convert entire objects
+import { serializePrismaData } from '@/lib/db/utils';
+const serialized = serializePrismaData(prismaResult);
 ```
 
 ### Status Display Formatting
@@ -246,5 +288,13 @@ Convert database enums to readable format:
 
 ```typescript
 status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-// "OFFER_SENT" → "Offer Sent"
+// "OFFER_SENT" -> "Offer Sent"
 ```
+
+### Email Templates (`src/lib/email/`)
+
+Available email functions:
+- `sendMagicLinkEmail()` - Login magic link
+- `sendOfferReadyEmail()` - Offer notification
+- `sendPaymentSentEmail()` - Payment confirmation
+- `sendKitReceivedEmail()` - Kit received notification
