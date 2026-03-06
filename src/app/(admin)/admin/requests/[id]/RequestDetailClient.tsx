@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { formatCurrency } from "@/lib/db/utils";
-import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
+import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from "@/lib/admin-utils";
 import { addItemToKit, updateItem, deleteItem } from "@/lib/actions/admin/item.actions";
 import { generateOffer, sendOffer } from "@/lib/actions/admin/offer.actions";
 import { updateKitStatus, updateKitNotes } from "@/lib/actions/admin/kit.actions";
@@ -127,9 +127,8 @@ function Alert({ type, message, onDismiss }: { type: "error" | "success"; messag
   );
 }
 
-export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
+export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const router = useRouter();
-  const [kit] = useState(initialKit);
 
   // UI state
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -166,6 +165,11 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
 
   // Notes state
   const [notesValue, setNotesValue] = useState(kit.notes || "");
+
+  // Sync notes when kit prop changes (after router.refresh)
+  useEffect(() => {
+    setNotesValue(kit.notes || "");
+  }, [kit.notes]);
 
   // Auto-estimate for the add form (reference only)
   const autoEstimate = itemWeight && itemPurity
@@ -963,7 +967,7 @@ export default function RequestDetailClient({ kit: initialKit }: { kit: Kit }) {
                   <div className="admin-timeline-dot"></div>
                   <div className="admin-timeline-content">
                     <div className="admin-timeline-title">{event.title}</div>
-                    {event.description && <div className="admin-timeline-desc">{event.description}</div>}
+                    {event.description && <div className="admin-timeline-desc">{formatDescription(event.description)}</div>}
                     <div className="admin-timeline-date">{formatDate(event.createdAt)}</div>
                   </div>
                 </div>

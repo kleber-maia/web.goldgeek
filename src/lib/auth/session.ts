@@ -75,28 +75,35 @@ export async function getSession(): Promise<Session | null> {
     // Invalid session data - try legacy format (just userId string)
     const userId = sessionCookie.value;
 
-    // Check if it's a legacy admin session
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true },
-    });
-
-    if (user) {
-      // Return session without upgrading (can't modify cookies in Server Component)
-      return { id: user.id, email: user.email, type: 'admin' };
+    // Validate it looks like a CUID before querying
+    if (!userId || userId.length < 20 || userId.length > 40) {
+      return null;
     }
 
-    // Check if it's a legacy customer session
-    const customer = await prisma.customer.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true },
-    });
+    try {
+      // Check if it's a legacy admin session
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
+      });
 
-    if (customer) {
-      return { id: customer.id, email: customer.email, type: 'customer' };
+      if (user) {
+        return { id: user.id, email: user.email, type: 'admin' };
+      }
+
+      // Check if it's a legacy customer session
+      const customer = await prisma.customer.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
+      });
+
+      if (customer) {
+        return { id: customer.id, email: customer.email, type: 'customer' };
+      }
+    } catch {
+      // Invalid ID format - return null
     }
 
-    // Invalid session - return null (don't call destroySession here either)
     return null;
   }
 }

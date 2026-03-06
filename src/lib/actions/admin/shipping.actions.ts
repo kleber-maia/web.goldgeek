@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth';
 import { ShippingService } from '@/lib/services/shipping.service';
 import { ReturnService } from '@/lib/services/return.service';
 import { serializePrismaData } from '@/lib/db/utils';
-import type { ShippingCarrier, ShippingLabelType, ShippingLabelStatus } from '@prisma/client';
+import type { ShippingCarrier, ShippingLabelType, ShippingLabelStatus, ReturnStatus } from '@prisma/client';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -177,7 +177,7 @@ export async function getAllReturns(): Promise<ActionResult> {
  */
 export async function updateReturnStatus(
   returnId: string,
-  status: any
+  status: ReturnStatus
 ): Promise<ActionResult> {
   try {
     const session = await requireAdmin();

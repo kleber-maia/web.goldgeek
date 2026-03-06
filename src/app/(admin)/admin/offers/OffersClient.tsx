@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -31,7 +32,9 @@ interface Offer {
 const filterTabs = ["all", "draft", "sent", "accepted", "declined", "expired"];
 
 export default function OffersClient({ offers }: { offers: Offer[] }) {
-  const [activeFilter, setActiveFilter] = useState("all");
+  const searchParams = useSearchParams();
+  const initialFilter = searchParams.get("status") || "all";
+  const [activeFilter, setActiveFilter] = useState(initialFilter);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredOffers = offers.filter((offer) => {
@@ -56,15 +59,23 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
 
         {/* Filter Tabs */}
         <div className="admin-filter-tabs">
-          {filterTabs.map((tab) => (
-            <button
-              key={tab}
-              className={`admin-filter-tab ${activeFilter === tab ? "active" : ""}`}
-              onClick={() => setActiveFilter(tab)}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+          {filterTabs.map((tab) => {
+            const count = tab === "all"
+              ? offers.length
+              : offers.filter((o) => o.status.toLowerCase() === tab).length;
+            return (
+              <button
+                key={tab}
+                className={`admin-filter-tab ${activeFilter === tab ? "active" : ""}`}
+                onClick={() => setActiveFilter(tab)}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {count > 0 && tab !== "all" && (
+                  <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Search */}

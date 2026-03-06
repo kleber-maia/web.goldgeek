@@ -4,17 +4,13 @@ import { useState, useTransition } from "react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { formatDate } from "@/lib/admin-utils";
 import { createAdminUser, deleteAdminUser } from "@/lib/actions/admin/user.actions";
 
 interface User {
   id: string;
   email: string;
   createdAt: Date | string;
-}
-
-function formatDate(date: Date | string): string {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default function UsersClient({

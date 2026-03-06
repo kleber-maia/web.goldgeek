@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
   {
@@ -74,12 +74,18 @@ const navItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) {
       return pathname === href;
     }
     return pathname.startsWith(href);
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/admin/login");
   };
 
   return (
@@ -95,8 +101,8 @@ export default function AdminSidebar() {
           />
         </Link>
       </div>
-      <nav>
-        <ul className="admin-sidebar-nav">
+      <nav style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <ul className="admin-sidebar-nav" style={{ flex: 1 }}>
           {navItems.map((item) => (
             <li key={item.href}>
               <Link
@@ -109,6 +115,31 @@ export default function AdminSidebar() {
             </li>
           ))}
         </ul>
+        <div style={{ padding: "16px 12px", borderTop: "1px solid #E5E7EB" }}>
+          <button
+            onClick={handleLogout}
+            className="admin-sidebar-item"
+            style={{
+              width: "100%",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "inherit",
+              color: "#6B7280",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+            }}
+          >
+            <svg className="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+            Sign Out
+          </button>
+        </div>
       </nav>
     </aside>
   );

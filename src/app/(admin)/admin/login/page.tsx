@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function AdminLoginPage() {
+  return (
+    <Suspense>
+      <AdminLoginPageInner />
+    </Suspense>
+  );
+}
+
+function AdminLoginPageInner() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [devMagicLink, setDevMagicLink] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,13 +39,9 @@ export default function AdminLoginPage() {
 
       if (data.success) {
         setSuccess(true);
-        // If in development, show the magic link
         if (data.magicLinkUrl) {
           console.log("Admin Magic Link (dev only):", data.magicLinkUrl);
-          // Also display it on the page in development
-          if (process.env.NODE_ENV === 'development') {
-            alert(`Development Mode - Magic Link:\n\n${data.magicLinkUrl}\n\nCopy this URL and paste it in your browser.`);
-          }
+          setDevMagicLink(data.magicLinkUrl);
         }
       } else {
         setError(data.error || "Failed to send magic link");
@@ -84,9 +89,14 @@ export default function AdminLoginPage() {
               We&apos;ve sent a magic link to <strong>{email}</strong>.
               Click the link in the email to access the admin dashboard.
             </p>
-            <p style={{ marginTop: "12px", fontSize: "13px", opacity: 0.8 }}>
-              Development mode: Check the browser console or the alert popup for the magic link.
-            </p>
+            {devMagicLink && (
+              <div style={{ marginTop: "12px", padding: "10px", background: "rgba(0,0,0,0.05)", borderRadius: "6px", fontSize: "13px", wordBreak: "break-all" }}>
+                <strong>Dev mode:</strong>{" "}
+                <a href={devMagicLink} style={{ color: "#AD7B2A" }}>
+                  Click here to login
+                </a>
+              </div>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ textAlign: "left" }}>
