@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { formatCurrency } from "@/lib/db/utils";
+import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from "@/lib/admin-utils";
 import { sendOffer } from "@/lib/actions/admin/offer.actions";
 
 interface OfferDetail {
@@ -52,22 +54,6 @@ interface OfferDetail {
     method: string;
     status: string;
   } | null;
-}
-
-function formatDate(date: Date | string | null): string {
-  if (!date) return "N/A";
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatStatus(status: string): string {
-  return status
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getStatusBannerStyle(status: string) {
@@ -128,11 +114,20 @@ export default function OfferDetailClient({
 }: {
   offer: OfferDetail;
 }) {
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
 
   const totalValue = parseFloat(offer.totalValue.toString());
   const initials = `${offer.kit.customer.firstName.charAt(0)}${offer.kit.customer.lastName.charAt(0)}`;
   const bannerStyle = getStatusBannerStyle(offer.status);
+
+  const showFeedback = (type: "error" | "success", message: string) => {
+    setFeedback({ type, message });
+    if (type === "success") {
+      setTimeout(() => setFeedback(null), 3000);
+    }
+  };
 
   const handleSendOffer = async () => {
     if (!confirm("Send this offer to the customer?")) return;
@@ -141,13 +136,14 @@ export default function OfferDetailClient({
     try {
       const result = await sendOffer(offer.id);
       if (result.success) {
-        window.location.reload();
+        showFeedback("success", "Offer sent to customer!");
+        router.refresh();
       } else {
-        alert(result.error || "Failed to send offer");
+        showFeedback("error", result.error || "Failed to send offer");
       }
     } catch (error) {
       console.error("Error sending offer:", error);
-      alert("Failed to send offer");
+      showFeedback("error", "Failed to send offer");
     } finally {
       setIsSubmitting(false);
     }
@@ -158,17 +154,16 @@ export default function OfferDetailClient({
 
     setIsSubmitting(true);
     try {
-      // Re-sending uses the same sendOffer action
       const result = await sendOffer(offer.id);
       if (result.success) {
-        alert("Offer resent successfully!");
-        window.location.reload();
+        showFeedback("success", "Offer resent to customer!");
+        router.refresh();
       } else {
-        alert(result.error || "Failed to resend offer");
+        showFeedback("error", result.error || "Failed to resend offer");
       }
     } catch (error) {
       console.error("Error resending offer:", error);
-      alert("Failed to resend offer");
+      showFeedback("error", "Failed to resend offer");
     } finally {
       setIsSubmitting(false);
     }
@@ -179,6 +174,30 @@ export default function OfferDetailClient({
       <AdminSidebar />
 
       <main className="admin-main" style={{ paddingBottom: "100px" }}>
+        {feedback && (
+          <div
+            style={{
+              padding: "12px 16px",
+              background: feedback.type === "success" ? "#D1FAE5" : "#FEE2E2",
+              color: feedback.type === "success" ? "#065F46" : "#991B1B",
+              borderRadius: "8px",
+              fontSize: "14px",
+              marginBottom: "12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>{feedback.message}</span>
+            <button
+              onClick={() => setFeedback(null)}
+              style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontWeight: 700, marginLeft: "8px" }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="admin-detail-header">
           <Link href="/admin/offers" className="admin-back-btn">
@@ -201,17 +220,7 @@ export default function OfferDetailClient({
           <div>
             <h1 className="admin-detail-title">{offer.offerNumber}</h1>
             <span
-              className={`admin-badge ${
-                offer.status === "SENT"
-                  ? "pending"
-                  : offer.status === "ACCEPTED"
-                  ? "success"
-                  : offer.status === "DECLINED"
-                  ? "danger"
-                  : offer.status === "DRAFT"
-                  ? "gray"
-                  : "gray"
-              }`}
+              className={`admin-badge ${getStatusBadgeClass(offer.status)}`}
               style={{ marginTop: "4px" }}
             >
               {formatStatus(offer.status)}
@@ -422,7 +431,7 @@ export default function OfferDetailClient({
                     <div className="admin-timeline-title">{event.title}</div>
                     {event.description && (
                       <div className="admin-timeline-desc">
-                        {event.description}
+                        {formatDescription(event.description)}
                       </div>
                     )}
                     <div className="admin-timeline-date">

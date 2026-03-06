@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatCurrency } from "@/lib/db/utils";
 import { ActivityService } from "@/lib/services/activity.service";
+import { formatDescription } from "@/lib/admin-utils";
 
 function getTimeAgo(date: Date): string {
   const now = new Date();
@@ -60,7 +61,7 @@ export default async function AdminDashboard() {
 
   const recentActivity = recentEvents.map((event) => ({
     id: event.id,
-    content: event.description || event.title,
+    content: formatDescription(event.description || event.title),
     time: getTimeAgo(event.createdAt),
   }));
 

@@ -9,7 +9,13 @@ export function formatDate(date: Date | string | null): string {
 }
 
 export function formatStatus(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const STATUS_ENUM_PATTERN = /\b(PENDING|KIT_SENT|IN_TRANSIT|RECEIVED|EVALUATING|OFFER_SENT|ACCEPTED|DECLINED|PAID|RETURNED|LABEL_CREATED|DELIVERED|PROCESSING|COMPLETED|SENT|DRAFT|EXPIRED|CANCELLED)\b/g;
+
+export function formatDescription(text: string): string {
+  return text.replace(STATUS_ENUM_PATTERN, (match) => formatStatus(match));
 }
 
 export function getStatusBadgeClass(status: string): string {
