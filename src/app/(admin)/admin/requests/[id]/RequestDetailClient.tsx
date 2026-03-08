@@ -10,7 +10,7 @@ import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from
 import { addItemToKit, updateItem, deleteItem } from "@/lib/actions/admin/item.actions";
 import { generateOffer, sendOffer } from "@/lib/actions/admin/offer.actions";
 import { updateKitStatus, updateKitNotes } from "@/lib/actions/admin/kit.actions";
-import { createShippingLabel } from "@/lib/actions/admin/shipping.actions";
+import { createShippingLabel, generatePhysicalKitFedExLabels, generateReturnFedExLabel, validateAddressWithFedEx } from "@/lib/actions/admin/shipping.actions";
 import type { KitStatus, ItemType, MetalType, ShippingLabelType, ShippingCarrier } from "@prisma/client";
 
 interface Kit {
@@ -59,6 +59,7 @@ interface Kit {
     trackingNumber: string;
     status: string;
     labelUrl: string | null;
+    labelData: string | null;
     createdAt: Date | string;
   }>;
   timeline: Array<{
@@ -162,6 +163,10 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const [labelTracking, setLabelTracking] = useState("");
   const [labelUrl, setLabelUrl] = useState("");
   const [labelCost, setLabelCost] = useState("");
+
+  // FedEx auto-generate state
+  const [isGeneratingFedEx, setIsGeneratingFedEx] = useState(false);
+  const [addressValidation, setAddressValidation] = useState<"valid" | "invalid" | null>(null);
 
   // Notes state
   const [notesValue, setNotesValue] = useState(kit.notes || "");
@@ -361,6 +366,67 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
     }
   };
 
+  const handleGeneratePhysicalKitLabels = async () => {
+    setIsGeneratingFedEx(true);
+    setFeedback(null);
+    try {
+      const result = await generatePhysicalKitFedExLabels(kit.id);
+      if (result.success) {
+        showFeedback("success", "FedEx labels generated — Kit Delivery + Inbound prepaid label ready.");
+        router.refresh();
+      } else {
+        showFeedback("error", result.error || "Failed to generate FedEx labels");
+      }
+    } catch {
+      showFeedback("error", "Failed to generate FedEx labels");
+    } finally {
+      setIsGeneratingFedEx(false);
+    }
+  };
+
+  const handleGenerateReturnLabel = async () => {
+    setIsGeneratingFedEx(true);
+    setFeedback(null);
+    try {
+      const result = await generateReturnFedExLabel(kit.id);
+      if (result.success) {
+        showFeedback("success", "FedEx return label generated.");
+        router.refresh();
+      } else {
+        showFeedback("error", result.error || "Failed to generate return label");
+      }
+    } catch {
+      showFeedback("error", "Failed to generate return label");
+    } finally {
+      setIsGeneratingFedEx(false);
+    }
+  };
+
+  const handleValidateAddress = async () => {
+    const addr = shippingAddress;
+    if (!addr) return;
+    setFeedback(null);
+    try {
+      const result = await validateAddressWithFedEx({
+        street1: addr.street1,
+        street2: addr.street2 ?? undefined,
+        city: addr.city,
+        state: addr.state,
+        zipCode: addr.zipCode,
+      });
+      if (result.success && result.data?.valid) {
+        setAddressValidation("valid");
+        showFeedback("success", "Address validated by FedEx.");
+      } else {
+        setAddressValidation("invalid");
+        showFeedback("error", result.data?.message ?? result.error ?? "Address validation failed.");
+      }
+    } catch {
+      setAddressValidation("invalid");
+      showFeedback("error", "Address validation failed.");
+    }
+  };
+
   const handleSaveNotes = async () => {
     setIsSubmitting(true);
     try {
@@ -505,13 +571,42 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
             <h2 className="admin-section-title">
               Shipping Labels ({kit.shippingLabels?.length || 0})
             </h2>
-            <button
-              onClick={() => setIsCreatingLabel(!isCreatingLabel)}
-              className="admin-btn admin-btn-secondary"
-              style={{ fontSize: "13px", padding: "6px 12px" }}
-            >
-              {isCreatingLabel ? "Cancel" : "+ Create Label"}
-            </button>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {/* FedEx auto-generate buttons — only when customer has an address */}
+              {shippingAddress && (
+                <>
+                  {kit.type === "PHYSICAL" && (
+                    <button
+                      onClick={handleGeneratePhysicalKitLabels}
+                      className="admin-btn admin-btn-primary"
+                      style={{ fontSize: "13px", padding: "6px 12px" }}
+                      disabled={isGeneratingFedEx}
+                      title="Generate Kit Delivery + Inbound prepaid labels via FedEx API"
+                    >
+                      {isGeneratingFedEx ? "Generating…" : "Generate FedEx Labels"}
+                    </button>
+                  )}
+                  {(kit.status === "DECLINED" || kit.status === "RETURNED") && (
+                    <button
+                      onClick={handleGenerateReturnLabel}
+                      className="admin-btn admin-btn-secondary"
+                      style={{ fontSize: "13px", padding: "6px 12px" }}
+                      disabled={isGeneratingFedEx}
+                      title="Generate a return label (Gold Geek → Customer) via FedEx API"
+                    >
+                      {isGeneratingFedEx ? "Generating…" : "Generate Return Label"}
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                onClick={() => setIsCreatingLabel(!isCreatingLabel)}
+                className="admin-btn admin-btn-secondary"
+                style={{ fontSize: "13px", padding: "6px 12px" }}
+              >
+                {isCreatingLabel ? "Cancel" : "+ Manual Label"}
+              </button>
+            </div>
           </div>
 
           {isCreatingLabel && (
@@ -522,6 +617,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                   <select className="admin-form-input" value={labelType} onChange={(e) => setLabelType(e.target.value)}>
                     <option value="INBOUND">Inbound (Customer → Gold Geek)</option>
                     <option value="RETURN">Return (Gold Geek → Customer)</option>
+                    <option value="KIT_DELIVERY">Kit Delivery (Gold Geek → Customer)</option>
                   </select>
                 </div>
                 <div className="admin-form-group">
@@ -554,29 +650,43 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
 
           {kit.shippingLabels && kit.shippingLabels.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
-              {kit.shippingLabels.map((label) => (
-                <div key={label.id} style={{ padding: "12px", background: "#FFFDF7", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#2E1F0C" }}>
-                        {label.carrier} &bull; {label.type === "INBOUND" ? "Inbound" : "Return"}
+              {kit.shippingLabels.map((label) => {
+                const labelTypeLabel =
+                  label.type === "INBOUND" ? "Inbound"
+                  : label.type === "RETURN" ? "Return"
+                  : "Kit Delivery";
+                const pdfDataUrl = label.labelData
+                  ? `data:application/pdf;base64,${label.labelData}`
+                  : null;
+                return (
+                  <div key={label.id} style={{ padding: "12px", background: "#FFFDF7", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "#2E1F0C" }}>
+                          {label.carrier} &bull; {labelTypeLabel}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#6B7280", fontFamily: "monospace", marginTop: "2px" }}>
+                          {label.trackingNumber}
+                        </div>
                       </div>
-                      <div style={{ fontSize: "12px", color: "#6B7280", fontFamily: "monospace", marginTop: "2px" }}>
-                        {label.trackingNumber}
-                      </div>
+                      <span className={`admin-badge ${getStatusBadgeClass(label.status)}`} style={{ fontSize: "11px" }}>
+                        {formatStatus(label.status)}
+                      </span>
                     </div>
-                    <span className={`admin-badge ${getStatusBadgeClass(label.status)}`} style={{ fontSize: "11px" }}>
-                      {formatStatus(label.status)}
-                    </span>
+                    <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                      <span>Created {formatDate(label.createdAt)}</span>
+                      {label.labelUrl && (
+                        <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#AD7B2A" }}>View Label</a>
+                      )}
+                      {pdfDataUrl && (
+                        <a href={pdfDataUrl} download={`label-${label.trackingNumber}.pdf`} style={{ color: "#AD7B2A" }}>
+                          Download PDF
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
-                    Created {formatDate(label.createdAt)}
-                    {label.labelUrl && (
-                      <> &bull; <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#AD7B2A" }}>View Label</a></>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             !isCreatingLabel && (
@@ -617,6 +727,20 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                     {shippingAddress.street1}<br />
                     {shippingAddress.street2 && <>{shippingAddress.street2}<br /></>}
                     {shippingAddress.city}, {shippingAddress.state} {shippingAddress.zipCode}
+                    <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "8px" }}>
+                      <button
+                        onClick={handleValidateAddress}
+                        style={{ fontSize: "11px", padding: "3px 8px", background: "none", border: "1px solid #D1D5DB", borderRadius: "4px", cursor: "pointer", color: "#6B7280" }}
+                      >
+                        Validate with FedEx
+                      </button>
+                      {addressValidation === "valid" && (
+                        <span style={{ fontSize: "11px", color: "#065F46" }}>&#10003; Valid</span>
+                      )}
+                      {addressValidation === "invalid" && (
+                        <span style={{ fontSize: "11px", color: "#991B1B" }}>&#10005; Invalid</span>
+                      )}
+                    </div>
                   </>
                 ) : "N/A"}
               </div>

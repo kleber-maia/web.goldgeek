@@ -86,8 +86,9 @@ enum ShippingCarrier {
 }
 
 enum ShippingLabelType {
-  INBOUND  // Customer to Gold Geek
-  RETURN   // Gold Geek to Customer
+  INBOUND      // Customer to Gold Geek (prepaid label included in physical kit)
+  RETURN       // Gold Geek to Customer (declined offer return)
+  KIT_DELIVERY // Gold Geek to Customer (physical kit box delivery)
 }
 
 enum ShippingLabelStatus {
@@ -368,4 +369,18 @@ model TimelineEvent {
 
   @@index([kitId])
   @@index([createdAt])
+}
+
+// Singleton company/shipper settings (always id = "singleton")
+model CompanySettings {
+  id        String   @id @default("singleton")
+  name      String   @default("Gold Geek")
+  street1   String   @default("")
+  street2   String?
+  city      String   @default("")
+  state     String   @default("")
+  zipCode   String   @default("")
+  phone     String   @default("")
+  email     String?
+  updatedAt DateTime @updatedAt
 }

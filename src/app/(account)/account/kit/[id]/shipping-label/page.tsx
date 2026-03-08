@@ -18,6 +18,7 @@ interface ShippingLabelData {
   kitId: string;
   kitNumber: string;
   trackingNumber: string;
+  labelData?: string; // base64 PDF
   from: AddressView;
   to: AddressView;
 }
@@ -55,6 +56,20 @@ export default function ShippingLabelPage() {
     window.print();
   };
 
+  const handleDownloadPdf = () => {
+    if (!labelData?.labelData) return;
+    const binary = atob(labelData.labelData);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `shipping-label-${labelData.trackingNumber}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (isLoading || !labelData) {
     return (
       <AccountContainer
@@ -80,101 +95,113 @@ export default function ShippingLabelPage() {
       }}
     >
       {/* Label Container */}
-      <div className="account-label-container">
-        <div className="account-label-header">
-          <svg
-            width="80"
-            height="24"
-            viewBox="0 0 80 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <text
-              x="0"
-              y="18"
-              fill="#4D148C"
-              fontFamily="Arial, sans-serif"
-              fontWeight="bold"
-              fontSize="16"
-            >
-              FedEx
-            </text>
-          </svg>
-          <span
-            style={{
-              fontSize: 12,
-              color: "var(--status-gray)",
-              textTransform: "uppercase",
-              letterSpacing: 1,
-            }}
-          >
-            Pre-Paid Shipping Label
-          </span>
+      {labelData.labelData ? (
+        /* Real FedEx PDF label — embed directly */
+        <div className="account-label-container" style={{ padding: 0, overflow: "hidden" }}>
+          <iframe
+            src={`data:application/pdf;base64,${labelData.labelData}`}
+            style={{ width: "100%", minHeight: "500px", border: "none", display: "block" }}
+            title="FedEx Shipping Label"
+          />
         </div>
-
-        <div className="account-label-content">
-          {/* From Address */}
-          <div className="account-label-address-box">
-            <div className="account-label-address-label">From:</div>
-            <div className="account-label-address-text">
-              {labelData.from.name || "Customer"}
-              <br />
-              {labelData.from.street1}
-              {labelData.from.street2 && (
-                <>
-                  <br />
-                  {labelData.from.street2}
-                </>
-              )}
-              <br />
-              {labelData.from.city}, {labelData.from.state}{" "}
-              {labelData.from.zip}
-            </div>
+      ) : (
+        /* Fallback text-based label when no PDF is stored */
+        <div className="account-label-container">
+          <div className="account-label-header">
+            <svg
+              width="80"
+              height="24"
+              viewBox="0 0 80 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <text
+                x="0"
+                y="18"
+                fill="#4D148C"
+                fontFamily="Arial, sans-serif"
+                fontWeight="bold"
+                fontSize="16"
+              >
+                FedEx
+              </text>
+            </svg>
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--status-gray)",
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              Pre-Paid Shipping Label
+            </span>
           </div>
 
-          {/* To Address */}
-          <div className="account-label-address-box">
-            <div className="account-label-address-label">To:</div>
-            <div className="account-label-address-text">
-              <strong>{labelData.to.name}</strong>
-              <br />
-              {labelData.to.street1}
-              {labelData.to.street2 && (
-                <>
-                  <br />
-                  {labelData.to.street2}
-                </>
-              )}
-              <br />
-              {labelData.to.city}, {labelData.to.state} {labelData.to.zip}
+          <div className="account-label-content">
+            {/* From Address */}
+            <div className="account-label-address-box">
+              <div className="account-label-address-label">From:</div>
+              <div className="account-label-address-text">
+                {labelData.from.name || "Customer"}
+                <br />
+                {labelData.from.street1}
+                {labelData.from.street2 && (
+                  <>
+                    <br />
+                    {labelData.from.street2}
+                  </>
+                )}
+                <br />
+                {labelData.from.city}, {labelData.from.state}{" "}
+                {labelData.from.zip}
+              </div>
             </div>
-          </div>
 
-          {/* Barcode */}
-          <div className="account-label-barcode">
+            {/* To Address */}
+            <div className="account-label-address-box">
+              <div className="account-label-address-label">To:</div>
+              <div className="account-label-address-text">
+                <strong>{labelData.to.name}</strong>
+                <br />
+                {labelData.to.street1}
+                {labelData.to.street2 && (
+                  <>
+                    <br />
+                    {labelData.to.street2}
+                  </>
+                )}
+                <br />
+                {labelData.to.city}, {labelData.to.state} {labelData.to.zip}
+              </div>
+            </div>
+
+            {/* Barcode */}
+            <div className="account-label-barcode">
+              <div
+                style={{
+                  height: 60,
+                  background:
+                    "repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 5px, #fff 5px, #fff 8px)",
+                  marginBottom: 8,
+                }}
+              />
+              <div className="account-label-tracking">{labelData.trackingNumber}</div>
+            </div>
+
+            {/* Reference */}
             <div
               style={{
-                height: 60,
-                background:
-                  "repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 5px, #fff 5px, #fff 8px)",
-                marginBottom: 8,
+                textAlign: "center",
+                fontSize: 12,
+                color: "var(--status-gray)",
               }}
-            />
-            <div className="account-label-tracking">{labelData.trackingNumber}</div>
-          </div>
-
-          {/* Reference */}
-          <div
-            style={{
-              textAlign: "center",
-              fontSize: 12,
-              color: "var(--status-gray)",
-            }}
-          >
-            Reference: Kit #{labelData.kitNumber}
+            >
+              Reference: Kit #{labelData.kitNumber}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Actions */}
       <div className="account-label-actions">
@@ -200,11 +227,10 @@ export default function ShippingLabelPage() {
           Print Label
         </button>
         <button
-          onClick={() => {
-            // In a real app, this would download a PDF
-            alert("In production, this would download a PDF of the label.");
-          }}
+          onClick={handleDownloadPdf}
           className="account-btn account-btn-secondary"
+          disabled={!labelData?.labelData}
+          style={{ opacity: labelData?.labelData ? 1 : 0.5 }}
         >
           <svg
             width="18"

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db';
 import type { ShippingLabel, ShippingCarrier, ShippingLabelType, ShippingLabelStatus } from '@prisma/client';
 import { ActivityService } from './activity.service';
+import { SettingsService } from './settings.service';
+import { FedExClient } from '@/lib/fedex/client';
 
 export interface CreateShippingLabelInput {
   kitId: string;
@@ -38,11 +40,20 @@ export class ShippingService {
     });
 
     // Log activity
+    const activityTypeMap: Record<string, { type: string; title: string }> = {
+      INBOUND: { type: 'KIT_SENT', title: 'Inbound Label Created' },
+      RETURN: { type: 'RETURN_LABEL_CREATED', title: 'Return Label Created' },
+      KIT_DELIVERY: { type: 'KIT_SENT', title: 'Kit Delivery Label Created' },
+    };
+    const activityInfo = activityTypeMap[data.type] ?? {
+      type: 'STATUS_CHANGED',
+      title: 'Label Created',
+    };
     await ActivityService.logEvent({
       kitId: data.kitId,
       userId,
-      type: data.type === 'INBOUND' ? 'KIT_SENT' : 'RETURN_LABEL_CREATED',
-      title: `${data.type === 'INBOUND' ? 'Kit' : 'Return'} Label Created`,
+      type: activityInfo.type as any,
+      title: activityInfo.title,
       description: `${data.carrier} label created: ${data.trackingNumber}`,
       metadata: { labelId: label.id },
     });
@@ -122,7 +133,33 @@ export class ShippingService {
     });
 
     // Update kit/return status based on label type and status
-    if (label.type === 'INBOUND') {
+    if (label.type === 'KIT_DELIVERY') {
+      // The kit box itself is on its way to the customer
+      if (status === 'IN_TRANSIT') {
+        await prisma.kit.update({
+          where: { id: label.kitId },
+          data: { status: 'KIT_SENT', kitSentAt: new Date() },
+        });
+        await ActivityService.logEvent({
+          kitId: label.kitId,
+          userId,
+          type: 'KIT_SENT',
+          title: 'Kit Shipped to Customer',
+          description: `Kit box shipped via FedEx: ${label.trackingNumber}`,
+          metadata: { labelId: label.id },
+        });
+      } else if (status === 'DELIVERED') {
+        // Kit box arrived at customer — no separate kit status change needed
+        await ActivityService.logEvent({
+          kitId: label.kitId,
+          userId,
+          type: 'STATUS_CHANGED',
+          title: 'Kit Box Delivered to Customer',
+          description: `Kit box delivered: ${label.trackingNumber}`,
+          metadata: { labelId: label.id },
+        });
+      }
+    } else if (label.type === 'INBOUND') {
       if (status === 'IN_TRANSIT') {
         await prisma.kit.update({
           where: { id: label.kitId },
@@ -195,73 +232,216 @@ export class ShippingService {
   }
 
   /**
-   * Generate label via FedEx API (stub - implement with actual FedEx API)
+   * Generate a single FedEx label (INBOUND, RETURN, or KIT_DELIVERY).
+   *
+   * Direction matrix:
+   *  INBOUND      → shipper = customer,   recipient = Gold Geek
+   *  RETURN       → shipper = Gold Geek,  recipient = customer
+   *  KIT_DELIVERY → shipper = Gold Geek,  recipient = customer
    */
   static async generateFedExLabel(
     kitId: string,
     type: ShippingLabelType,
-    shippingAddress: any
+    customerAddress: {
+      name: string;
+      phone?: string;
+      street1: string;
+      street2?: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    },
+    userId?: string
   ): Promise<ShippingLabel> {
-    // TODO: Implement FedEx API integration
-    // This is a stub that shows the structure
+    // Load Gold Geek shipper address from DB settings
+    const companySettings = await SettingsService.getCompanySettings();
+    if (
+      !companySettings ||
+      !companySettings.street1 ||
+      !companySettings.city ||
+      !companySettings.state ||
+      !companySettings.zipCode
+    ) {
+      throw new Error(
+        'Company shipper address is not configured. Go to Admin → Settings to set it up.'
+      );
+    }
 
-    throw new Error('FedEx API integration not yet implemented');
+    const accountNumber = process.env.FEDEX_ACCOUNT_NUMBER;
+    if (!accountNumber) {
+      throw new Error('FEDEX_ACCOUNT_NUMBER is not set');
+    }
 
-    // Example implementation:
-    // const response = await fetch('https://apis.fedex.com/ship/v1/shipments', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${process.env.FEDEX_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     // FedEx shipment request data
-    //   }),
-    // });
-    // const data = await response.json();
-    // return this.createLabel({
-    //   kitId,
-    //   type,
-    //   carrier: 'FEDEX',
-    //   trackingNumber: data.trackingNumber,
-    //   labelUrl: data.labelUrl,
-    //   cost: data.cost,
-    //   externalId: data.shipmentId,
-    //   metadata: data,
-    // });
+    const goldGeekContact = {
+      name: companySettings.name,
+      phone: companySettings.phone,
+      company: companySettings.name,
+    };
+    const goldGeekAddress = {
+      street1: companySettings.street1,
+      street2: companySettings.street2 ?? undefined,
+      city: companySettings.city,
+      state: companySettings.state,
+      zipCode: companySettings.zipCode,
+    };
+
+    const customerContact = {
+      name: customerAddress.name,
+      phone: customerAddress.phone ?? '0000000000',
+    };
+
+    // Determine shipper / recipient by label type
+    const isGoldGeekSender = type === 'RETURN' || type === 'KIT_DELIVERY';
+
+    const shipperParty = isGoldGeekSender
+      ? FedExClient.buildParty(goldGeekContact, goldGeekAddress, accountNumber)
+      : FedExClient.buildParty(customerContact, customerAddress);
+
+    const recipientParty = isGoldGeekSender
+      ? FedExClient.buildParty(customerContact, customerAddress)
+      : FedExClient.buildParty(goldGeekContact, goldGeekAddress);
+
+    // Kit number for reference (fetched separately to avoid circular deps)
+    const kit = await prisma.kit.findUnique({
+      where: { id: kitId },
+      select: { kitNumber: true },
+    });
+
+    const shipRequest = {
+      labelResponseOptions: 'LABEL' as const,
+      accountNumber: { value: accountNumber },
+      requestedShipment: {
+        shipper: shipperParty,
+        recipients: [recipientParty],
+        serviceType: 'FEDEX_GROUND',
+        packagingType: 'YOUR_PACKAGING',
+        pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
+        requestedPackageLineItems: [
+          {
+            weight: { units: 'LB' as const, value: 1 },
+            customerReferences: kit
+              ? [
+                  {
+                    customerReferenceType: 'CUSTOMER_REFERENCE' as const,
+                    value: kit.kitNumber,
+                  },
+                ]
+              : [],
+          },
+        ],
+        labelSpecification: {
+          labelFormatType: 'COMMON2D' as const,
+          imageType: 'PDF' as const,
+          labelStockType: 'PAPER_85X11_TOP_HALF_LABEL',
+        },
+        shippingChargesPayment: {
+          paymentType: 'SENDER' as const,
+          payor: {
+            responsibleParty: {
+              accountNumber: { value: accountNumber },
+            },
+          },
+        },
+      },
+    };
+
+    // Validate the customer address before creating the shipment
+    await FedExClient.validateAddress(customerAddress);
+
+    const result = await FedExClient.createShipment(shipRequest);
+
+    const label = await this.createLabel(
+      {
+        kitId,
+        type,
+        carrier: 'FEDEX',
+        trackingNumber: result.trackingNumber,
+        labelData: result.labelData,
+        labelUrl: result.labelUrl,
+        cost: result.cost,
+        externalId: result.externalId,
+        metadata: { masterTrackingNumber: result.masterTrackingNumber },
+      },
+      userId
+    );
+
+    // Subscribe to tracking webhook (non-fatal if it fails)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+      await FedExClient.subscribeTracking(
+        result.trackingNumber,
+        `${appUrl}/api/webhooks/fedex`
+      );
+    }
+
+    return label;
   }
 
   /**
-   * Generate label via USPS API (stub - implement with actual USPS API)
+   * Generate both FedEx labels for a PHYSICAL kit in one call:
+   *  1. KIT_DELIVERY — Gold Geek → customer (ships the kit box)
+   *  2. INBOUND      — customer → Gold Geek  (prepaid label inside the box)
+   *
+   * Returns [kitDeliveryLabel, inboundLabel].
+   */
+  static async generatePhysicalKitLabels(
+    kitId: string,
+    customerAddress: {
+      name: string;
+      phone?: string;
+      street1: string;
+      street2?: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    },
+    userId?: string
+  ): Promise<[ShippingLabel, ShippingLabel]> {
+    const kitDeliveryLabel = await this.generateFedExLabel(
+      kitId,
+      'KIT_DELIVERY',
+      customerAddress,
+      userId
+    );
+
+    const inboundLabel = await this.generateFedExLabel(
+      kitId,
+      'INBOUND',
+      customerAddress,
+      userId
+    );
+
+    return [kitDeliveryLabel, inboundLabel];
+  }
+
+  /**
+   * Generate a FedEx RETURN label (Gold Geek → customer, for declined offers).
+   */
+  static async generateReturnLabel(
+    kitId: string,
+    customerAddress: {
+      name: string;
+      phone?: string;
+      street1: string;
+      street2?: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    },
+    userId?: string
+  ): Promise<ShippingLabel> {
+    return this.generateFedExLabel(kitId, 'RETURN', customerAddress, userId);
+  }
+
+  /**
+   * Generate label via USPS API (not yet implemented).
    */
   static async generateUSPSLabel(
-    kitId: string,
-    type: ShippingLabelType,
-    shippingAddress: any
+    _kitId: string,
+    _type: ShippingLabelType,
+    _shippingAddress: unknown
   ): Promise<ShippingLabel> {
-    // TODO: Implement USPS API integration
-    // This is a stub that shows the structure
-
     throw new Error('USPS API integration not yet implemented');
-
-    // Example implementation:
-    // const response = await fetch('https://secure.shippingapis.com/ShippingAPI.dll', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/xml',
-    //   },
-    //   body: `<xml>...</xml>`, // USPS request XML
-    // });
-    // const data = await parseXML(await response.text());
-    // return this.createLabel({
-    //   kitId,
-    //   type,
-    //   carrier: 'USPS',
-    //   trackingNumber: data.trackingNumber,
-    //   labelUrl: data.labelUrl,
-    //   cost: data.cost,
-    //   metadata: data,
-    // });
   }
 
   /**
