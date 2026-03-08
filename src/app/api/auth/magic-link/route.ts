@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createMagicLink } from '@/lib/auth';
+import { sendMagicLinkEmail } from '@/lib/email';
 import { z } from 'zod';
 
 const requestSchema = z.object({
@@ -19,9 +20,15 @@ export async function POST(request: Request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin || 'http://localhost:3000';
     const magicLinkUrl = `${baseUrl}/api/auth/verify?token=${result.token}`;
 
-    // TODO: Send email with magic link
-    console.log('Magic link URL:', magicLinkUrl);
-    console.log('Auth type:', result.type);
+    // Send the magic link email
+    const emailSent = await sendMagicLinkEmail(email, magicLinkUrl, baseUrl);
+    if (!emailSent) {
+      console.error('Failed to send magic link email to:', email);
+      return NextResponse.json(
+        { success: false, error: 'Failed to send email. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

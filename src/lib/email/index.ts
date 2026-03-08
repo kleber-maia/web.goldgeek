@@ -40,8 +40,13 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  */
 export async function sendMagicLinkEmail(
   email: string,
-  magicLinkUrl: string
+  magicLinkUrl: string,
+  baseUrl?: string
 ): Promise<boolean> {
+  const appUrl = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
+  const logoUrl = `${appUrl}/images/logos/GoldGeekLogo-horizontal.png`;
+  const year = new Date().getFullYear();
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -50,26 +55,63 @@ export async function sendMagicLinkEmail(
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Sign in to Gold Geek</title>
       </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #57370D; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0;">Gold Geek</h1>
-        </div>
-        <div style="padding: 30px; background-color: #f9f9f9;">
-          <h2 style="color: #57370D;">Sign in to your account</h2>
-          <p>Click the button below to sign in to your Gold Geek account. This link will expire in 15 minutes.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${magicLinkUrl}" style="background-color: #AD7B2A; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              Sign In
-            </a>
-          </div>
-          <p style="color: #666; font-size: 14px;">If you didn't request this email, you can safely ignore it.</p>
-          <p style="color: #666; font-size: 14px;">Or copy and paste this URL into your browser:<br>
-            <a href="${magicLinkUrl}" style="color: #AD7B2A; word-break: break-all;">${magicLinkUrl}</a>
-          </p>
-        </div>
-        <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
-          <p>&copy; ${new Date().getFullYear()} Gold Geek. All rights reserved.</p>
-        </div>
+      <body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width: 560px; width: 100%;">
+                <!-- Header with logo -->
+                <tr>
+                  <td align="center" style="padding: 0 0 32px 0;">
+                    <img src="${logoUrl}" alt="Gold Geek" width="180" style="display: block; max-width: 180px; height: auto;" />
+                  </td>
+                </tr>
+                <!-- Main card -->
+                <tr>
+                  <td style="background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 2px 8px rgba(87, 55, 13, 0.08);">
+                    <!-- Gold accent bar -->
+                    <div style="height: 4px; background: linear-gradient(90deg, #AD7B2A, #FBEF9C, #AD7B2A); border-radius: 12px 12px 0 0;"></div>
+                    <div style="padding: 40px 40px 36px 40px;">
+                      <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Sign in to your account</h1>
+                      <p style="margin: 0 0 28px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+                        Click the button below to securely sign in.<br>This link expires in 15 minutes.
+                      </p>
+                      <!-- CTA button -->
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td align="center" style="padding: 4px 0 28px 0;">
+                            <a href="${magicLinkUrl}" style="display: inline-block; background-color: #AD7B2A; color: #FFFFFF; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 40px; border-radius: 8px; letter-spacing: 0.3px;">
+                              Sign In to Gold Geek
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      <!-- Divider -->
+                      <div style="height: 1px; background-color: #EDE8E2; margin: 0 0 20px 0;"></div>
+                      <p style="margin: 0 0 6px 0; font-size: 13px; color: #A09488; line-height: 1.5;">
+                        If the button doesn't work, copy and paste this link:
+                      </p>
+                      <p style="margin: 0; font-size: 13px; word-break: break-all; line-height: 1.5;">
+                        <a href="${magicLinkUrl}" style="color: #AD7B2A; text-decoration: underline;">${magicLinkUrl}</a>
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td align="center" style="padding: 28px 20px 0 20px;">
+                    <p style="margin: 0 0 4px 0; font-size: 12px; color: #A09488; line-height: 1.5;">
+                      If you didn't request this email, you can safely ignore it.
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #A09488;">
+                      &copy; ${year} Gold Geek. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
     </html>
   `;
