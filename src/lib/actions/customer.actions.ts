@@ -6,6 +6,7 @@ import { KitService } from '@/lib/services/kit.service';
 import { OfferService } from '@/lib/services/offer.service';
 import { ReturnService } from '@/lib/services/return.service';
 import { PaymentService } from '@/lib/services/payment.service';
+import { SettingsService } from '@/lib/services/settings.service';
 import { prisma } from '@/lib/db';
 import { serializePrismaData } from '@/lib/db/utils';
 import { PaymentMethod } from '@prisma/client';
@@ -366,6 +367,7 @@ export interface ShippingLabelData {
   kitId: string;
   kitNumber: string;
   trackingNumber: string;
+  labelData?: string; // base64 PDF from FedEx API, if available
   from: {
     name?: string;
     street1: string;
@@ -429,12 +431,33 @@ export async function getShippingLabelData(
         .toString()
         .padStart(10, '0')}`;
 
+    // Use saved company settings for the "To" address; fall back to placeholder
+    const companySettings = await SettingsService.getCompanySettings();
+    const toAddress = companySettings && companySettings.street1
+      ? {
+          name: companySettings.name,
+          street1: companySettings.street1,
+          street2: companySettings.street2 ?? null,
+          city: companySettings.city,
+          state: companySettings.state,
+          zip: companySettings.zipCode,
+        }
+      : {
+          name: 'Gold Geek',
+          street1: '1234 Gold Avenue',
+          street2: null,
+          city: 'Dallas',
+          state: 'TX',
+          zip: '75201',
+        };
+
     return {
       success: true,
       data: {
         kitId: kit.id,
         kitNumber: kit.kitNumber,
         trackingNumber,
+        labelData: inboundLabel?.labelData ?? undefined,
         from: {
           name: customerName || undefined,
           street1: fromAddress.street1,
@@ -443,14 +466,7 @@ export async function getShippingLabelData(
           state: fromAddress.state,
           zip: fromAddress.zipCode,
         },
-        to: {
-          name: 'Gold Geek',
-          street1: '1234 Gold Avenue',
-          street2: null,
-          city: 'Dallas',
-          state: 'TX',
-          zip: '75201',
-        },
+        to: toAddress,
       },
     };
   } catch (error: unknown) {
