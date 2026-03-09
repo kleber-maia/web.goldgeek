@@ -72,7 +72,7 @@ export default function SettingsClient({ initialSettings }: Props) {
   };
 
   return (
-    <div className="admin-layout">
+    <div className="admin-container">
       <AdminSidebar />
       <main className="admin-main">
         <AdminHeader title="Settings" />
