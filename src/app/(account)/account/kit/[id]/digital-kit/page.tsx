@@ -97,9 +97,7 @@ export default function DigitalKitPage() {
   const handlePrint = () => {
     const originalTitle = document.title;
     document.title = `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}`;
-    document.body.classList.add("dk-print-layout");
     window.print();
-    document.body.classList.remove("dk-print-layout");
     document.title = originalTitle;
   };
 
@@ -116,10 +114,10 @@ export default function DigitalKitPage() {
     const html2pdf = (await import("html2pdf.js")).default;
     await html2pdf()
       .set({
-        margin: 0.4,
+        margin: [0.25, 0.25, 0.25, 0.25],
         filename: `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, width: 816 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"], before: ".dk-page-break" },
       })

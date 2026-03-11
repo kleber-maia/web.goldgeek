@@ -1444,8 +1444,8 @@ a.account-btn-full {
 .dk-print-layout .digital-kit-page {
   box-shadow: none;
   border-radius: 0;
-  margin: 0 0 0.25in;
-  padding: 0.35in;
+  margin: 0;
+  padding: 0.3in;
   font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
   color: #2E1F0C !important;
   background: #fff !important;
@@ -1576,18 +1576,20 @@ a.account-btn-full {
     font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
   }
 
-  .digital-kit-wrapper {
+  .digital-kit-wrapper,
+  .dk-print-layout .digital-kit-wrapper {
     width: 100% !important;
     max-width: none !important;
   }
 
-  .digital-kit-page {
+  .digital-kit-page,
+  .dk-print-layout .digital-kit-page {
     break-after: page;
     break-inside: avoid;
     box-shadow: none;
     border-radius: 0;
     margin: 0;
-    padding: 0.25in;
+    padding: 0.2in;
     font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
     color: #2E1F0C !important;
     background: #fff !important;
