@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, Badge, Timeline, OfferBanner, KitTypeToggle } from "@/components/account";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getKitDetails } from "@/lib/actions/customer.actions";
 import { formatCurrency } from "@/lib/db/utils";
 
@@ -29,6 +30,10 @@ export default async function KitDetailPage({
 
   if (!session) {
     redirect("/account/login");
+  }
+
+  if (session.type !== "customer") {
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getKitDetails(id);

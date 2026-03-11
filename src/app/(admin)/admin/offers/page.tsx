@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getAllOffers } from "@/lib/actions/admin/offer.actions";
 import OffersClient from "./OffersClient";
 
@@ -11,7 +12,7 @@ export default async function OffersPage() {
   }
 
   if (session.type !== "admin") {
-    redirect("/admin/login?error=unauthorized");
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getAllOffers();

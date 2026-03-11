@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getAllReturns } from "@/lib/actions/admin/shipping.actions";
 import ReturnsClient from "./ReturnsClient";
 
@@ -11,7 +12,7 @@ export default async function ReturnsPage() {
   }
 
   if (session.type !== "admin") {
-    redirect("/admin/login?error=unauthorized");
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getAllReturns();

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getCustomerById } from "@/lib/actions/admin/customer.actions";
 import CustomerDetailClient from "./CustomerDetailClient";
 
@@ -16,7 +17,7 @@ export default async function CustomerDetailPage({
   }
 
   if (session.type !== "admin") {
-    redirect("/admin/login?error=unauthorized");
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getCustomerById(id);

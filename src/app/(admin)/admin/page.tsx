@@ -4,6 +4,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { prisma } from "@/lib/db";
 import { formatCurrency } from "@/lib/db/utils";
 import { ActivityService } from "@/lib/services/activity.service";
@@ -28,7 +29,7 @@ export default async function AdminDashboard() {
   }
 
   if (session.type !== "admin") {
-    redirect("/admin/login?error=unauthorized");
+    return <AccessDenied userType={session.type} />;
   }
 
   // Get stats

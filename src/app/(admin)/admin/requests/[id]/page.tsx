@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getKitDetails } from "@/lib/actions/admin/kit.actions";
 import RequestDetailClient from "./RequestDetailClient";
 
@@ -16,7 +17,7 @@ export default async function RequestDetailPage({
   }
 
   if (session.type !== "admin") {
-    redirect("/admin/login?error=unauthorized");
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getKitDetails(id);

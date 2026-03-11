@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
-import { getCurrentCustomer } from "@/lib/auth";
+import { getSession, getCurrentCustomer } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
 import { LogoutButton } from "@/components/account/LogoutButton";
 
@@ -64,6 +65,16 @@ const icons = [
 ];
 
 export default async function AccountDashboardPage() {
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/account/login");
+  }
+
+  if (session.type !== "customer") {
+    return <AccessDenied userType={session.type} />;
+  }
+
   const customer = await getCurrentCustomer();
 
   if (!customer) {

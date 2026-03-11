@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AccountContainer, KitCard } from "@/components/account";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getMyKits } from "@/lib/actions/customer.actions";
 import { normalizeKitType } from "@/lib/account";
 
@@ -25,6 +26,10 @@ export default async function ManageKitsPage() {
 
   if (!session) {
     redirect("/account/login");
+  }
+
+  if (session.type !== "customer") {
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getMyKits();

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { getCompanySettings } from "@/lib/actions/admin/settings.actions";
 import SettingsClient from "./SettingsClient";
 
@@ -11,7 +12,7 @@ export default async function AdminSettingsPage() {
   }
 
   if (session.type !== "admin") {
-    redirect("/admin/login?error=unauthorized");
+    return <AccessDenied userType={session.type} />;
   }
 
   const result = await getCompanySettings();

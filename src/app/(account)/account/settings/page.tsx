@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
 import { prisma } from "@/lib/db";
 import { PaymentMethod } from "@/lib/account";
@@ -8,8 +9,12 @@ import SettingsClient from "./SettingsClient";
 export default async function SettingsPage() {
   const session = await getSession();
 
-  if (!session || session.type !== "customer") {
+  if (!session) {
     redirect("/account/login");
+  }
+
+  if (session.type !== "customer") {
+    return <AccessDenied userType={session.type} />;
   }
 
   const customer = await CustomerService.getById(session.id);
