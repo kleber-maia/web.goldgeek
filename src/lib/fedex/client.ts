@@ -133,9 +133,22 @@ export class FedExClient {
       throw new Error('FedEx: could not extract tracking number from response');
     }
 
+    // Try primary path: completedPackageDetails[0].label
     const label = pkgDetail?.label;
-    const labelData = label?.encodedLabel;
-    const labelUrl = label?.url;
+    let labelData = label?.encodedLabel;
+    let labelUrl = label?.url;
+
+    // Fallback: pieceResponses[0].packageDocuments (used by sandbox & newer API versions)
+    if (!labelData) {
+      const piece = (shipment as any).pieceResponses?.[0];
+      const doc = piece?.packageDocuments?.find(
+        (d: any) => d.contentType === 'LABEL'
+      );
+      if (doc) {
+        labelData = doc.encodedLabel;
+        labelUrl = labelUrl || doc.url;
+      }
+    }
 
     const rateDetails = shipment.shipmentRating?.shipmentRateDetails;
     const cost = rateDetails

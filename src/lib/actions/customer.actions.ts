@@ -7,6 +7,7 @@ import { OfferService } from '@/lib/services/offer.service';
 import { ReturnService } from '@/lib/services/return.service';
 import { PaymentService } from '@/lib/services/payment.service';
 import { SettingsService } from '@/lib/services/settings.service';
+import { ShippingService } from '@/lib/services/shipping.service';
 import { prisma } from '@/lib/db';
 import { serializePrismaData } from '@/lib/db/utils';
 import { PaymentMethod } from '@prisma/client';
@@ -470,13 +471,30 @@ export async function getShippingLabelData(
       return { success: false, error: 'Shipping address not found' };
     }
 
-    const inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
+    let inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
+
+    // Auto-generate FedEx inbound label for digital kits when none exists
+    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'KIT_SENT'].includes(kit.status)) {
+      const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.trim();
+      const addr = shippingSnapshot || defaultAddress;
+      if (addr) {
+        const generated = await ShippingService.generateFedExLabel(kitId, 'INBOUND', {
+          name: customerName || 'Customer',
+          phone: kit.customer.phone ?? undefined,
+          street1: addr.street1,
+          street2: addr.street2 ?? undefined,
+          city: addr.city,
+          state: addr.state,
+          zipCode: addr.zipCode,
+        });
+        inboundLabel = generated;
+      }
+    }
+
     const trackingNumber =
       inboundLabel?.trackingNumber ||
       kit.trackingNumber ||
-      `7489${Math.floor(Math.random() * 10000000000)
-        .toString()
-        .padStart(10, '0')}`;
+      '';
 
     // Use saved company settings for the "To" address; fall back to placeholder
     const companySettings = await SettingsService.getCompanySettings();

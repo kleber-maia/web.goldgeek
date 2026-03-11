@@ -30,19 +30,27 @@ export default function ShippingLabelPage() {
 
   const [labelData, setLabelData] = useState<ShippingLabelData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadLabelData = async () => {
-      const result = await getShippingLabelData(kitId);
-      if (!result.success || !result.data) {
-        router.replace("/account");
-        return;
+      try {
+        const result = await getShippingLabelData(kitId);
+        if (!isMounted) return;
+        if (!result.success || !result.data) {
+          setError(result.error || "Failed to load shipping label");
+          setIsLoading(false);
+          return;
+        }
+        setLabelData(result.data);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : "Unexpected error loading label");
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      if (!isMounted) return;
-      setLabelData(result.data);
-      setIsLoading(false);
     };
 
     loadLabelData();
@@ -50,27 +58,44 @@ export default function ShippingLabelPage() {
     return () => {
       isMounted = false;
     };
-  }, [router, kitId]);
+  }, [kitId]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleDownloadPdf = () => {
-    if (!labelData?.labelData) return;
+  const buildPdfBlob = (): Blob | null => {
+    if (!labelData?.labelData) return null;
     const binary = atob(labelData.labelData);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], { type: 'application/pdf' });
+    return new Blob([bytes], { type: 'application/pdf' });
+  };
+
+  const handlePrint = () => {
+    if (labelData?.labelData) {
+      const blob = buildPdfBlob();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          printWindow.print();
+        });
+      }
+    } else {
+      window.print();
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    const blob = buildPdfBlob();
+    if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `shipping-label-${labelData.trackingNumber}.pdf`;
+    a.download = `shipping-label-${labelData!.trackingNumber}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading || !labelData) {
+  if (isLoading) {
     return (
       <AccountContainer
         headerProps={{
@@ -80,7 +105,44 @@ export default function ShippingLabelPage() {
         }}
       >
         <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <p style={{ color: "var(--status-gray)" }}>Loading...</p>
+          <div style={{
+            width: 32,
+            height: 32,
+            border: "3px solid #e5e7eb",
+            borderTopColor: "var(--brand-primary, #AD7B2A)",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+            margin: "0 auto 12px",
+          }} />
+          <p style={{ color: "var(--status-gray)" }}>Generating your shipping label...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
+      </AccountContainer>
+    );
+  }
+
+  if (error || !labelData) {
+    return (
+      <AccountContainer
+        headerProps={{
+          showBackButton: true,
+          backHref: `/account/kit/${kitId}`,
+          title: "Shipping Label",
+        }}
+      >
+        <div style={{
+          textAlign: "center",
+          padding: "60px 24px",
+          background: "var(--status-error-bg, #fef2f2)",
+          borderRadius: 12,
+          margin: 16,
+        }}>
+          <p style={{ color: "var(--status-error, #dc2626)", fontWeight: 600, marginBottom: 8 }}>
+            Unable to load shipping label
+          </p>
+          <p style={{ color: "var(--status-gray)", fontSize: 14 }}>
+            {error || "No label data available"}
+          </p>
         </div>
       </AccountContainer>
     );

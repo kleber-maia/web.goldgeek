@@ -151,14 +151,14 @@ export default async function KitDetailPage({
       )}
 
       {/* Kit Type Toggle */}
-      {canChangeType && (
-        <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16 }}>
+        {canChangeType && (
           <div style={{ fontSize: 13, color: "#6B7280", textAlign: "center", marginBottom: 8 }}>
             Choose your kit type
           </div>
-          <KitTypeToggle kitId={kit.id} currentType={kit.type} />
-        </div>
-      )}
+        )}
+        <KitTypeToggle kitId={kit.id} currentType={kit.type} disabled={!canChangeType} />
+      </div>
 
       {/* Physical Kit Info — only after kit has been shipped */}
       {showPhysicalKitMessage && (

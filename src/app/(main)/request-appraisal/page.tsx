@@ -8,7 +8,6 @@ import { setPendingEmail, setPendingMagicLink } from "@/lib/account";
 interface FormData {
   items: string[];
   description: string;
-  kitType: "PHYSICAL" | "DIGITAL";
   firstName: string;
   lastName: string;
   email: string;
@@ -39,7 +38,6 @@ export default function RequestAppraisalPage() {
   const [formData, setFormData] = useState<FormData>({
     items: [],
     description: "",
-    kitType: "DIGITAL",
     firstName: "",
     lastName: "",
     email: "",
@@ -102,7 +100,7 @@ export default function RequestAppraisalPage() {
 
     try {
       const result = await createAppraisalRequest({
-        kitType: formData.kitType,
+        kitType: "DIGITAL",
         estimatedValue: undefined,
         notes: `Items: ${formData.items.join(", ")}\n\nDescription: ${formData.description}`,
         customer: {
@@ -138,7 +136,6 @@ export default function RequestAppraisalPage() {
         setFormData({
           items: [],
           description: "",
-          kitType: "DIGITAL",
           firstName: "",
           lastName: "",
           email: "",
@@ -285,60 +282,10 @@ export default function RequestAppraisalPage() {
                       </div>
                     </div>
 
-                    {/* Step 2 - Kit Type & Description */}
+                    {/* Step 2 - Description */}
                     <div
                       className={`e-form__step ${currentStep !== 2 ? "elementor-hidden" : ""}`}
                     >
-                      <div className="elementor-field-type-radio elementor-field-group elementor-column elementor-col-100 elementor-field-required elementor-mark-required">
-                        <label className="elementor-field-label">
-                          Kit Type
-                        </label>
-                        <div className="elementor-field-subgroup">
-                          <span className="elementor-field-option">
-                            <input
-                              type="radio"
-                              value="DIGITAL"
-                              id="form-field-kitType-digital"
-                              name="kitType"
-                              checked={formData.kitType === "DIGITAL"}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  kitType: e.target.value as "PHYSICAL" | "DIGITAL",
-                                }))
-                              }
-                              required
-                            />
-                            <label
-                              htmlFor="form-field-kitType-digital"
-                              style={{ marginLeft: "8px" }}
-                            >
-                              Digital Kit (receive only prepaid label)
-                            </label>
-                          </span>
-                          <span className="elementor-field-option">
-                            <input
-                              type="radio"
-                              value="PHYSICAL"
-                              id="form-field-kitType-physical"
-                              name="kitType"
-                              checked={formData.kitType === "PHYSICAL"}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  kitType: e.target.value as "PHYSICAL" | "DIGITAL",
-                                }))
-                              }
-                            />
-                            <label
-                              htmlFor="form-field-kitType-physical"
-                              style={{ marginLeft: "8px" }}
-                            >
-                              Physical Kit (receive kit box + prepaid label)
-                            </label>
-                          </span>
-                        </div>
-                      </div>
                       <div className="elementor-field-type-textarea elementor-field-group elementor-column elementor-field-group-field_3bbaa9a elementor-col-100">
                         <label
                           htmlFor="form-field-description"

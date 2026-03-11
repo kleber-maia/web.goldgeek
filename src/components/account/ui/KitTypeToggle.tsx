@@ -7,6 +7,7 @@ import { updateKitType } from "@/lib/actions/customer.actions";
 interface KitTypeToggleProps {
   kitId: string;
   currentType: string;
+  disabled?: boolean;
 }
 
 const options = [
@@ -22,13 +23,13 @@ const options = [
   },
 ];
 
-export default function KitTypeToggle({ kitId, currentType }: KitTypeToggleProps) {
+export default function KitTypeToggle({ kitId, currentType, disabled = false }: KitTypeToggleProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState(currentType);
 
   const handleToggle = (type: "PHYSICAL" | "DIGITAL") => {
-    if (type === selected || isPending) return;
+    if (type === selected || isPending || disabled) return;
 
     setSelected(type);
     startTransition(async () => {
@@ -45,7 +46,7 @@ export default function KitTypeToggle({ kitId, currentType }: KitTypeToggleProps
     <div style={{
       display: "flex",
       gap: 10,
-      opacity: isPending ? 0.6 : 1,
+      opacity: isPending || disabled ? 0.6 : 1,
       transition: "opacity 0.2s",
     }}>
       {options.map((opt) => {
@@ -55,14 +56,14 @@ export default function KitTypeToggle({ kitId, currentType }: KitTypeToggleProps
             key={opt.value}
             type="button"
             onClick={() => handleToggle(opt.value)}
-            disabled={isPending}
+            disabled={isPending || disabled}
             style={{
               flex: 1,
               padding: "14px 16px",
               borderRadius: 8,
               border: isSelected ? "2px solid #AD7B2A" : "2px solid #E5E5E5",
               background: isSelected ? "#FBF7EF" : "#FFFFFF",
-              cursor: isPending ? "wait" : "pointer",
+              cursor: disabled ? "default" : isPending ? "wait" : "pointer",
               transition: "all 0.2s",
               textAlign: "center",
             }}
