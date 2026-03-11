@@ -53,7 +53,7 @@ export async function getSession(): Promise<Session | null> {
       });
 
       if (!user) {
-        // User no longer exists - return null (can't modify cookies in Server Component)
+        cookieStore.delete(SESSION_COOKIE_NAME);
         return null;
       }
 
@@ -65,7 +65,7 @@ export async function getSession(): Promise<Session | null> {
       });
 
       if (!customer) {
-        // Customer no longer exists - return null (can't modify cookies in Server Component)
+        cookieStore.delete(SESSION_COOKIE_NAME);
         return null;
       }
 

@@ -13,16 +13,14 @@ export function proxy(request: NextRequest) {
     const isAuthCallback = pathname === '/account/auth-callback';
 
     if (!session && !isLoginPage && !isAuthCallback) {
-      // Redirect to login if not authenticated
       const url = new URL('/account/login', request.url);
       url.searchParams.set('redirect', pathname);
       return NextResponse.redirect(url);
     }
 
-    if (session && isLoginPage) {
-      // Redirect to account if already authenticated
-      return NextResponse.redirect(new URL('/account', request.url));
-    }
+    // Note: We intentionally do NOT redirect from login → dashboard here.
+    // The cookie may exist but the session may be invalid/expired.
+    // Page-level auth handles the redirect when the session is valid.
   }
 
   // Protect /admin/* routes
@@ -30,19 +28,14 @@ export function proxy(request: NextRequest) {
     const isAdminLoginPage = pathname === '/admin/login';
 
     if (!session && !isAdminLoginPage) {
-      // Redirect to admin login if not authenticated
       const url = new URL('/admin/login', request.url);
       url.searchParams.set('redirect', pathname);
       return NextResponse.redirect(url);
     }
 
-    if (session && isAdminLoginPage) {
-      // Redirect to admin dashboard if already authenticated
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
-
-    // Note: Role verification happens server-side in the pages
-    // We can't check the user's role in middleware without hitting the database
+    // Note: We intentionally do NOT redirect from login → dashboard here.
+    // The cookie may exist but the session may be invalid/expired.
+    // Page-level auth handles the redirect when the session is valid.
   }
 
   return NextResponse.next();

@@ -192,9 +192,12 @@ export default async function KitDetailPage({
       {showShippingLabel && (
         <Link
           href={`/account/kit/${kit.id}/digital-kit`}
-          className="account-digital-kit-btn"
+          className="account-btn account-btn-full"
+          style={{ background: "var(--status-purple)", color: "white", marginBottom: 16 }}
         >
           <svg
+            width="20"
+            height="20"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
