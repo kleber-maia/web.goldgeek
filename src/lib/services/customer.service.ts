@@ -121,6 +121,7 @@ export class CustomerService {
       include: {
         items: true,
         offers: true,
+        shippingLabels: true,
       },
       orderBy: {
         createdAt: 'desc',

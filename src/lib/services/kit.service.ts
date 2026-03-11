@@ -211,6 +211,25 @@ export class KitService {
   }
 
   /**
+   * Update kit type (PHYSICAL/DIGITAL)
+   */
+  static async updateType(kitId: string, type: KitType): Promise<Kit> {
+    const kit = await prisma.kit.update({
+      where: { id: kitId },
+      data: { type },
+    });
+
+    await ActivityService.logEvent({
+      kitId,
+      type: 'NOTE_ADDED',
+      title: 'Kit Type Changed',
+      description: `Kit type changed to ${type}`,
+    });
+
+    return kit;
+  }
+
+  /**
    * Delete kit
    */
   static async delete(kitId: string): Promise<void> {

@@ -3,3 +3,4 @@ export { default as KitCard } from "./KitCard";
 export { default as Timeline } from "./Timeline";
 export { default as OfferBanner } from "./OfferBanner";
 export { default as PaymentOption } from "./PaymentOption";
+export { default as KitTypeToggle } from "./KitTypeToggle";

@@ -235,6 +235,53 @@ export async function updatePaymentPreferences(
 }
 
 /**
+ * Update kit type (PHYSICAL/DIGITAL)
+ */
+export async function updateKitType(
+  kitId: string,
+  type: 'PHYSICAL' | 'DIGITAL'
+): Promise<ActionResult> {
+  try {
+    const session = await requireCustomer();
+
+    if (type !== 'PHYSICAL' && type !== 'DIGITAL') {
+      return { success: false, error: 'Invalid kit type' };
+    }
+
+    const kit = await KitService.getById(kitId);
+    if (!kit) {
+      return { success: false, error: 'Kit not found' };
+    }
+
+    if (kit.customerId !== session.id) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!['PENDING', 'KIT_SENT'].includes(kit.status)) {
+      return { success: false, error: 'Kit type can only be changed before shipping' };
+    }
+
+    if (kit.shippingLabels && kit.shippingLabels.length > 0) {
+      return { success: false, error: 'Kit type cannot be changed after a label has been issued' };
+    }
+
+    const updated = await KitService.updateType(kitId, type);
+
+    return {
+      success: true,
+      data: serializePrismaData(updated),
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update kit type';
+    console.error('Error updating kit type:', error);
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+/**
  * Get customer kits
  */
 export async function getMyKits(): Promise<ActionResult> {

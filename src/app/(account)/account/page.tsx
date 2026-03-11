@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
-import { getSession } from "@/lib/auth";
+import { getCurrentCustomer } from "@/lib/auth";
+import { CustomerService } from "@/lib/services/customer.service";
 import { LogoutButton } from "@/components/account/LogoutButton";
 
-const shortcuts = [
+const ACTIVE_KIT_STATUSES = ["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING"] as const;
+
+interface Shortcut {
+  href: string;
+  title: string;
+  description: string;
+  highlight?: boolean;
+}
+
+const defaultShortcuts: Shortcut[] = [
   {
     href: "/account/settings",
     title: "Edit My Account",
@@ -54,14 +64,45 @@ const icons = [
 ];
 
 export default async function AccountDashboardPage() {
-  const session = await getSession();
+  const customer = await getCurrentCustomer();
 
-  if (!session) {
+  if (!customer) {
     redirect("/account/login");
   }
 
-  // Extract first name from email (or use "there" as fallback)
-  const firstName = session.email.split("@")[0] || "there";
+  const firstName = customer.firstName || customer.email.split("@")[0];
+
+  // Fetch kits to build dynamic tile subtitles
+  const kits = await CustomerService.getKits(customer.id);
+  const activeKitCount = kits.filter((k) =>
+    (ACTIVE_KIT_STATUSES as readonly string[]).includes(k.status)
+  ).length;
+  const kitsWithOffer = kits.filter((k) => k.status === "OFFER_SENT");
+  const offerCount = kitsWithOffer.length;
+  const kitsNeedingLabel = kits.filter(
+    (k) =>
+      k.type === "DIGITAL" &&
+      ["PENDING", "KIT_SENT"].includes(k.status) &&
+      (k.shippingLabels?.length ?? 0) === 0
+  );
+
+  const shortcuts = defaultShortcuts.map((s, i) => {
+    if (i === 1 && activeKitCount > 0) {
+      return {
+        ...s,
+        description: `${activeKitCount} kit${activeKitCount === 1 ? "" : "s"} in progress`,
+        highlight: true,
+      };
+    }
+    if (i === 2 && offerCount > 0) {
+      return {
+        ...s,
+        description: `${offerCount} offer${offerCount === 1 ? "" : "s"} to review`,
+        highlight: true,
+      };
+    }
+    return s;
+  });
 
   const styles = {
     banner: {
@@ -100,7 +141,7 @@ export default async function AccountDashboardPage() {
     },
     grid: {
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+      gridTemplateColumns: "repeat(3, 1fr)",
       gap: "12px",
       marginBottom: "24px",
     },
@@ -180,6 +221,118 @@ export default async function AccountDashboardPage() {
         highest payouts.
       </p>
 
+      {/* Label Alert */}
+      {kitsNeedingLabel.map((kit) => (
+        <Link
+          key={kit.id}
+          href={`/account/kit/${kit.id}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "14px 16px",
+            background: "#FEF3C7",
+            border: "1px solid #F59E0B",
+            borderRadius: 8,
+            marginBottom: 12,
+            textDecoration: "none",
+            color: "#92400E",
+          }}
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#F59E0B"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ flexShrink: 0 }}
+          >
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>
+              Kit #{kit.kitNumber} needs a shipping label
+            </div>
+            <div style={{ fontSize: 13, marginTop: 2 }}>
+              Print your label to ship your items to us
+            </div>
+          </div>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#92400E"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ flexShrink: 0 }}
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
+      ))}
+
+      {/* Offer Alert */}
+      {kitsWithOffer.map((kit) => (
+        <Link
+          key={kit.id}
+          href={`/account/kit/${kit.id}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "14px 16px",
+            background: "#ECFDF5",
+            border: "1px solid #10B981",
+            borderRadius: 8,
+            marginBottom: 12,
+            textDecoration: "none",
+            color: "#065F46",
+          }}
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#10B981"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ flexShrink: 0 }}
+          >
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+          </svg>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>
+              Kit #{kit.kitNumber} has an offer ready
+            </div>
+            <div style={{ fontSize: 13, marginTop: 2 }}>
+              Review and respond to your offer
+            </div>
+          </div>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#065F46"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ flexShrink: 0 }}
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
+      ))}
+
       {/* Quick Shortcuts */}
       <h2 style={styles.subtitle}>What would you like to do?</h2>
       <div style={styles.grid}>
@@ -187,7 +340,12 @@ export default async function AccountDashboardPage() {
           <Link key={shortcut.title} href={shortcut.href} style={styles.card}>
             <div style={styles.cardIcon}>{icons[index]}</div>
             <h3 style={styles.cardTitle}>{shortcut.title}</h3>
-            <p style={styles.cardDesc}>{shortcut.description}</p>
+            <p style={{
+              ...styles.cardDesc,
+              ...(shortcut.highlight && { color: "#AD7B2A", fontWeight: 600 }),
+            }}>
+              {shortcut.description}
+            </p>
           </Link>
         ))}
       </div>

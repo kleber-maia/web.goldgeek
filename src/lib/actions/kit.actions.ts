@@ -10,6 +10,7 @@ import {
   type AppraisalRequestInput,
 } from '@/lib/validators/appraisal-request';
 import { createMagicLink } from '@/lib/auth';
+import { sendMagicLinkEmail } from '@/lib/email';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -101,7 +102,11 @@ export async function createAppraisalRequest(
       process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
     const magicLinkUrl = `${baseUrl}/api/auth/verify?token=${result.token}`;
 
-    // TODO: Send email with magic link and kit details
+    // Send magic link email to customer
+    const emailSent = await sendMagicLinkEmail(normalizedEmail, magicLinkUrl, baseUrl);
+    if (!emailSent) {
+      console.error('Failed to send magic link email to:', normalizedEmail);
+    }
 
     return {
       success: true,

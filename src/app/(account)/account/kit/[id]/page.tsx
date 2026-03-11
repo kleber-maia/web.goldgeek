@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { AccountContainer, Badge, Timeline, OfferBanner } from "@/components/account";
+import { AccountContainer, Badge, Timeline, OfferBanner, KitTypeToggle } from "@/components/account";
 import { getSession } from "@/lib/auth";
 import { getKitDetails } from "@/lib/actions/customer.actions";
 import { formatCurrency } from "@/lib/db/utils";
@@ -51,7 +51,12 @@ export default async function KitDetailPage({
 
   const showOfferBanner =
     kit.status === "OFFER_SENT" && activeOffer?.status === "SENT";
-  const showShippingLabel = kit.status === "PENDING";
+  const hasLabels = (kit.shippingLabels || []).length > 0;
+  const canChangeType = ["PENDING", "KIT_SENT"].includes(kit.status) && !hasLabels;
+  const showShippingLabel =
+    kit.type === "DIGITAL" && ["PENDING", "KIT_SENT"].includes(kit.status);
+  const showPhysicalKitMessage =
+    kit.type === "PHYSICAL" && kit.status === "KIT_SENT";
 
   const timelineEvents =
     (kit.timeline as TimelineLike[] | undefined)?.map((event) => ({
@@ -145,7 +150,40 @@ export default async function KitDetailPage({
         </div>
       )}
 
-      {/* Shipping Label Button */}
+      {/* Kit Type Toggle */}
+      {canChangeType && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: "#6B7280", textAlign: "center", marginBottom: 8 }}>
+            Choose your kit type
+          </div>
+          <KitTypeToggle kitId={kit.id} currentType={kit.type} />
+        </div>
+      )}
+
+      {/* Physical Kit Info — only after kit has been shipped */}
+      {showPhysicalKitMessage && (
+        <div className="account-physical-kit-info">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+            />
+          </svg>
+          <div className="account-physical-kit-info-text">
+            Your appraisal kit is on its way! Use the included pre-paid label
+            to ship your items.
+          </div>
+        </div>
+      )}
+
+      {/* Shipping Label Button — only for Digital kits before shipping */}
       {showShippingLabel && (
         <Link
           href={`/account/kit/${kit.id}/shipping-label`}
@@ -167,30 +205,6 @@ export default async function KitDetailPage({
           Print Shipping Label
         </Link>
       )}
-
-      {/* Physical Kit Info */}
-      {kit.type === "PHYSICAL" &&
-        ["PENDING", "KIT_SENT"].includes(kit.status) && (
-          <div className="account-physical-kit-info">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
-              />
-            </svg>
-            <div className="account-physical-kit-info-text">
-              Your appraisal kit is on its way! Use the included pre-paid label
-              to ship your items.
-            </div>
-          </div>
-        )}
 
       {/* Kit Summary */}
       <div className="account-section">

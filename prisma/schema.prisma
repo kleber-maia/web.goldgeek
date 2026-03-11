@@ -212,7 +212,7 @@ model Kit {
   id                String    @id @default(cuid())
   customerId        String
   kitNumber         String    @unique // e.g., "GG-2026-001234"
-  type              KitType   @default(PHYSICAL)
+  type              KitType   @default(DIGITAL)
   status            KitStatus @default(PENDING)
   trackingNumber    String?
   estimatedValue    Decimal?  @db.Decimal(10, 2)

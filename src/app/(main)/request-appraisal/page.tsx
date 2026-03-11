@@ -39,7 +39,7 @@ export default function RequestAppraisalPage() {
   const [formData, setFormData] = useState<FormData>({
     items: [],
     description: "",
-    kitType: "PHYSICAL",
+    kitType: "DIGITAL",
     firstName: "",
     lastName: "",
     email: "",
@@ -138,7 +138,7 @@ export default function RequestAppraisalPage() {
         setFormData({
           items: [],
           description: "",
-          kitType: "PHYSICAL",
+          kitType: "DIGITAL",
           firstName: "",
           lastName: "",
           email: "",
@@ -297,28 +297,6 @@ export default function RequestAppraisalPage() {
                           <span className="elementor-field-option">
                             <input
                               type="radio"
-                              value="PHYSICAL"
-                              id="form-field-kitType-physical"
-                              name="kitType"
-                              checked={formData.kitType === "PHYSICAL"}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  kitType: e.target.value as "PHYSICAL" | "DIGITAL",
-                                }))
-                              }
-                              required
-                            />
-                            <label
-                              htmlFor="form-field-kitType-physical"
-                              style={{ marginLeft: "8px" }}
-                            >
-                              Physical Kit (receive kit box + prepaid label)
-                            </label>
-                          </span>
-                          <span className="elementor-field-option">
-                            <input
-                              type="radio"
                               value="DIGITAL"
                               id="form-field-kitType-digital"
                               name="kitType"
@@ -329,12 +307,34 @@ export default function RequestAppraisalPage() {
                                   kitType: e.target.value as "PHYSICAL" | "DIGITAL",
                                 }))
                               }
+                              required
                             />
                             <label
                               htmlFor="form-field-kitType-digital"
                               style={{ marginLeft: "8px" }}
                             >
                               Digital Kit (receive only prepaid label)
+                            </label>
+                          </span>
+                          <span className="elementor-field-option">
+                            <input
+                              type="radio"
+                              value="PHYSICAL"
+                              id="form-field-kitType-physical"
+                              name="kitType"
+                              checked={formData.kitType === "PHYSICAL"}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  kitType: e.target.value as "PHYSICAL" | "DIGITAL",
+                                }))
+                              }
+                            />
+                            <label
+                              htmlFor="form-field-kitType-physical"
+                              style={{ marginLeft: "8px" }}
+                            >
+                              Physical Kit (receive kit box + prepaid label)
                             </label>
                           </span>
                         </div>
