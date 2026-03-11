@@ -11,6 +11,13 @@ if (!globalForPrisma.pool) {
   globalForPrisma.pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
     max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+
+  // Log pool errors instead of crashing the process
+  globalForPrisma.pool.on('error', (err) => {
+    console.error('Unexpected idle client error', err);
   });
 }
 
@@ -20,7 +27,7 @@ if (!globalForPrisma.prisma) {
   const adapter = new PrismaPg(pool);
   globalForPrisma.prisma = new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 }
 
