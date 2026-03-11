@@ -852,6 +852,20 @@ a.account-btn-full {
   line-height: 1.5;
 }
 
+/* Dashboard grid */
+.account-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (min-width: 768px) {
+  .account-dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 /* Logout button */
 .account-logout-btn {
   width: 100%;
@@ -926,12 +940,25 @@ a.account-btn-full {
 
 .digital-kit-actions {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 24px;
 }
 
 .digital-kit-actions .account-btn {
-  flex: 1;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .digital-kit-actions {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .digital-kit-actions .account-btn {
+    flex: 1;
+    width: auto;
+  }
 }
 
 .digital-kit-page {

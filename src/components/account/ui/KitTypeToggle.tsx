@@ -19,7 +19,7 @@ const options = [
   {
     value: "PHYSICAL" as const,
     label: "Physical Kit",
-    desc: "We mail you a kit box + prepaid label",
+    desc: "We mail you a prepaid kit",
   },
 ];
 

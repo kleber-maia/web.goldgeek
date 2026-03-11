@@ -150,12 +150,7 @@ export default async function AccountDashboardPage() {
       textAlign: "center" as const,
       margin: "0 0 16px 0",
     },
-    grid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: "12px",
-      marginBottom: "24px",
-    },
+    grid: {} as React.CSSProperties,
     card: {
       display: "flex",
       flexDirection: "column" as const,
@@ -346,7 +341,7 @@ export default async function AccountDashboardPage() {
 
       {/* Quick Shortcuts */}
       <h2 style={styles.subtitle}>What would you like to do?</h2>
-      <div style={styles.grid}>
+      <div className="account-dashboard-grid">
         {shortcuts.map((shortcut, index) => (
           <Link key={shortcut.title} href={shortcut.href} style={styles.card}>
             <div style={styles.cardIcon}>{icons[index]}</div>
