@@ -1430,6 +1430,136 @@ a.account-btn-full {
   }
 }
 
+/* Digital Kit - Print & PDF-capture shared layout
+   .dk-print-layout is added during html2pdf capture on mobile
+   so the same "desktop" overrides apply to both print and download. */
+.dk-print-layout .digital-kit-actions { display: none !important; }
+
+.dk-print-layout .digital-kit-wrapper {
+  width: 8.5in !important;
+  max-width: 8.5in !important;
+  margin: 0 auto;
+}
+
+.dk-print-layout .digital-kit-page {
+  box-shadow: none;
+  border-radius: 0;
+  margin: 0 0 0.25in;
+  padding: 0.35in;
+  font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  color: #2E1F0C !important;
+  background: #fff !important;
+  line-height: 1.6;
+}
+
+/* Force desktop grids in capture mode */
+.dk-print-layout .dk-info-grid {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.dk-print-layout .dk-items-columns {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.dk-print-layout .dk-bottom-split {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.dk-print-layout .dk-welcome-header {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+}
+
+.dk-print-layout .dk-card-footer {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Hardcode colors for print/capture (CSS variables may not resolve) */
+.dk-print-layout .dk-welcome-body h2,
+.dk-print-layout .dk-closing strong,
+.dk-print-layout .dk-info-header h2,
+.dk-print-layout .dk-terms h4,
+.dk-print-layout .dk-payment h4,
+.dk-print-layout .dk-promo-amount-label,
+.dk-print-layout .dk-promo-deadline,
+.dk-print-layout .dk-locations-title {
+  color: #57370D !important;
+}
+
+.dk-print-layout .dk-promo-amount,
+.dk-print-layout .dk-info-section h3,
+.dk-print-layout .dk-items-list li span:first-child,
+.dk-print-layout .dk-info-header .dk-kit-number,
+.dk-print-layout .dk-promo-badge {
+  color: #AD7B2A !important;
+}
+
+.dk-print-layout .dk-welcome-meta,
+.dk-print-layout .dk-info-grid .dk-field-label,
+.dk-print-layout .dk-signature-line span,
+.dk-print-layout .dk-card-footer,
+.dk-print-layout .dk-promo-fine {
+  color: #6B7280 !important;
+}
+
+.dk-print-layout .dk-welcome-meta strong,
+.dk-print-layout .dk-info-grid .dk-field-value {
+  color: #2E1F0C !important;
+}
+
+.dk-print-layout .dk-locations-table th {
+  background: #AD7B2A !important;
+  color: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.dk-print-layout .dk-locations-table tr:nth-child(even) td {
+  background: #FDFAF3 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.dk-print-layout .dk-info-header .dk-kit-number {
+  background: #FBF7EF !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.dk-print-layout .dk-info-section h3 {
+  border-bottom-color: #AD7B2A !important;
+}
+
+.dk-print-layout .dk-separator {
+  border-top-color: #AD7B2A !important;
+}
+
+.dk-print-layout .dk-coupon {
+  border-color: #AD7B2A !important;
+  background: linear-gradient(135deg, #FFFDF7 0%, #FBF7EF 50%, #FFF8E1 100%) !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.dk-print-layout .dk-promo-badge {
+  background: linear-gradient(135deg, #AD7B2A 0%, #C9963A 100%) !important;
+  color: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.dk-print-layout .dk-promo-divider {
+  background: #AD7B2A !important;
+}
+
+.dk-print-layout .dk-promo-deadline {
+  border-color: #AD7B2A !important;
+  background: #fff !important;
+}
+
 /* Digital Kit - Print styles */
 @media print {
   @page {
@@ -1437,9 +1567,18 @@ a.account-btn-full {
     margin: 0.5in;
   }
 
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  }
+
+  .digital-kit-wrapper {
+    width: 100% !important;
+    max-width: none !important;
   }
 
   .digital-kit-page {
@@ -1449,6 +1588,9 @@ a.account-btn-full {
     border-radius: 0;
     margin: 0;
     padding: 0.25in;
+    font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+    color: #2E1F0C !important;
+    background: #fff !important;
   }
 
   .digital-kit-page:last-child {
@@ -1472,5 +1614,102 @@ a.account-btn-full {
 
   .account-container {
     min-height: auto;
+  }
+
+  /* Force desktop grid layouts when printing from mobile */
+  .dk-info-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .dk-items-columns {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .dk-bottom-split {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .dk-welcome-header {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+  }
+
+  .dk-card-footer {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* Hardcode all colors (CSS variables unreliable in print) */
+  .dk-welcome-body h2,
+  .dk-closing strong,
+  .dk-info-header h2,
+  .dk-terms h4,
+  .dk-payment h4,
+  .dk-promo-amount-label,
+  .dk-promo-deadline,
+  .dk-locations-title {
+    color: #57370D !important;
+  }
+
+  .dk-promo-amount,
+  .dk-info-section h3,
+  .dk-items-list li span:first-child,
+  .dk-info-header .dk-kit-number {
+    color: #AD7B2A !important;
+  }
+
+  .dk-welcome-meta,
+  .dk-info-grid .dk-field-label,
+  .dk-signature-line span,
+  .dk-card-footer,
+  .dk-promo-fine {
+    color: #6B7280 !important;
+  }
+
+  .dk-welcome-meta strong,
+  .dk-info-grid .dk-field-value {
+    color: #2E1F0C !important;
+  }
+
+  .dk-locations-table th {
+    background: #AD7B2A !important;
+    color: #fff !important;
+  }
+
+  .dk-locations-table tr:nth-child(even) td {
+    background: #FDFAF3 !important;
+  }
+
+  .dk-info-header .dk-kit-number {
+    background: #FBF7EF !important;
+  }
+
+  .dk-info-section h3 {
+    border-bottom-color: #AD7B2A !important;
+  }
+
+  .dk-separator {
+    border-top-color: #AD7B2A !important;
+  }
+
+  .dk-coupon {
+    border-color: #AD7B2A !important;
+    background: linear-gradient(135deg, #FFFDF7 0%, #FBF7EF 50%, #FFF8E1 100%) !important;
+  }
+
+  .dk-promo-badge {
+    background: linear-gradient(135deg, #AD7B2A 0%, #C9963A 100%) !important;
+    color: #fff !important;
+  }
+
+  .dk-promo-divider {
+    background: #AD7B2A !important;
+  }
+
+  .dk-promo-deadline {
+    border-color: #AD7B2A !important;
+    background: #fff !important;
   }
 }

@@ -97,7 +97,9 @@ export default function DigitalKitPage() {
   const handlePrint = () => {
     const originalTitle = document.title;
     document.title = `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}`;
+    document.body.classList.add("dk-print-layout");
     window.print();
+    document.body.classList.remove("dk-print-layout");
     document.title = originalTitle;
   };
 
@@ -105,24 +107,26 @@ export default function DigitalKitPage() {
     const element = wrapperRef.current;
     if (!element) return;
 
-    // Hide action buttons during PDF capture
-    const actions = element.querySelector(".digital-kit-actions") as HTMLElement | null;
-    if (actions) actions.style.display = "none";
+    // Add print-layout class to force desktop widths / hardcoded colors
+    document.body.classList.add("dk-print-layout");
+
+    // Give the browser a frame to reflow at the forced width
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const html2pdf = (await import("html2pdf.js")).default;
     await html2pdf()
       .set({
         margin: 0.4,
         filename: `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}.pdf`,
-        image: { type: "jpeg", quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true },
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, width: 816 },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"], before: ".dk-page-break" },
       })
       .from(element)
       .save();
 
-    if (actions) actions.style.display = "";
+    document.body.classList.remove("dk-print-layout");
   };
 
   if (isLoading) {
