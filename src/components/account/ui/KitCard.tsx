@@ -32,7 +32,7 @@ export default function KitCard({ kit }: KitCardProps) {
   if (hasOffer) {
     ctaText = "Review & Respond";
   } else if (needsLabel) {
-    ctaText = "Print Shipping Label";
+    ctaText = "View Digital Kit";
   }
 
   const kitTypeLabel =

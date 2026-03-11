@@ -267,10 +267,10 @@ export default async function AccountDashboardPage() {
           </svg>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 14 }}>
-              Kit #{kit.kitNumber} needs a shipping label
+              Kit #{kit.kitNumber} needs a Digital Kit
             </div>
             <div style={{ fontSize: 13, marginTop: 2 }}>
-              Print your label to ship your items to us
+              Print your Digital Kit to ship your items to us
             </div>
           </div>
           <svg

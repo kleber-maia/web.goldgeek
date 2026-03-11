@@ -8,6 +8,8 @@ import { ReturnService } from '@/lib/services/return.service';
 import { PaymentService } from '@/lib/services/payment.service';
 import { SettingsService } from '@/lib/services/settings.service';
 import { ShippingService } from '@/lib/services/shipping.service';
+import { FedExClient } from '@/lib/fedex/client';
+import type { NearbyFedExLocation } from '@/lib/fedex/types';
 import { prisma } from '@/lib/db';
 import { serializePrismaData } from '@/lib/db/utils';
 import { PaymentMethod } from '@prisma/client';
@@ -537,6 +539,162 @@ export async function getShippingLabelData(
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get shipping label data';
     console.error('Error getting shipping label data:', error);
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+export interface DigitalKitData {
+  kitId: string;
+  kitNumber: string;
+  trackingNumber: string;
+  labelData?: string;
+  kitCreatedAt: string;
+  customer: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    address: {
+      street1: string;
+      street2?: string | null;
+      city: string;
+      state: string;
+      zip: string;
+    };
+  };
+  company: {
+    name: string;
+    phone: string;
+    email: string;
+    street1: string;
+    street2?: string | null;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  fedexLocations: NearbyFedExLocation[];
+}
+
+export async function getDigitalKitData(
+  kitId: string
+): Promise<ActionResult<DigitalKitData>> {
+  try {
+    const session = await requireCustomer();
+
+    const kit = await KitService.getById(kitId);
+    if (!kit) {
+      return { success: false, error: 'Kit not found' };
+    }
+
+    if (kit.customerId !== session.id) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.trim();
+
+    const shippingSnapshot = kit.shippingAddress as
+      | { street1: string; street2?: string | null; city: string; state: string; zipCode: string }
+      | null;
+
+    const defaultAddress =
+      kit.customer.addresses.find((a) => a.type === 'shipping' && a.isDefault) ||
+      kit.customer.addresses.find((a) => a.type === 'shipping') ||
+      kit.customer.addresses[0];
+
+    const fromAddress = shippingSnapshot || defaultAddress;
+    if (!fromAddress) {
+      return { success: false, error: 'Shipping address not found' };
+    }
+
+    let inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
+
+    // Auto-generate FedEx inbound label for digital kits when none exists
+    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'KIT_SENT'].includes(kit.status)) {
+      const addr = shippingSnapshot || defaultAddress;
+      if (addr) {
+        const generated = await ShippingService.generateFedExLabel(kitId, 'INBOUND', {
+          name: customerName || 'Customer',
+          phone: kit.customer.phone ?? undefined,
+          street1: addr.street1,
+          street2: addr.street2 ?? undefined,
+          city: addr.city,
+          state: addr.state,
+          zipCode: addr.zipCode,
+        });
+        inboundLabel = generated;
+      }
+    }
+
+    const trackingNumber = inboundLabel?.trackingNumber || kit.trackingNumber || '';
+
+    // Company settings
+    const companySettings = await SettingsService.getCompanySettings();
+    const company = companySettings && companySettings.street1
+      ? {
+          name: companySettings.name,
+          phone: companySettings.phone,
+          email: companySettings.email ?? 'support@goldgeek.com',
+          street1: companySettings.street1,
+          street2: companySettings.street2 ?? null,
+          city: companySettings.city,
+          state: companySettings.state,
+          zip: companySettings.zipCode,
+        }
+      : {
+          name: 'Gold Geek',
+          phone: '877-465-3165',
+          email: 'support@goldgeek.com',
+          street1: '1234 Gold Avenue',
+          street2: null,
+          city: 'Dallas',
+          state: 'TX',
+          zip: '75201',
+        };
+
+    // Fetch nearby FedEx locations (non-blocking)
+    let fedexLocations: NearbyFedExLocation[] = [];
+    try {
+      fedexLocations = await FedExClient.searchLocations(
+        fromAddress.zipCode,
+        fromAddress.state,
+        fromAddress.city,
+        4
+      );
+    } catch (err) {
+      console.error('FedEx location search failed (non-fatal):', err);
+    }
+
+    return {
+      success: true,
+      data: {
+        kitId: kit.id,
+        kitNumber: kit.kitNumber,
+        trackingNumber,
+        labelData: inboundLabel?.labelData ?? undefined,
+        kitCreatedAt: kit.createdAt.toISOString(),
+        customer: {
+          firstName: kit.customer.firstName,
+          lastName: kit.customer.lastName,
+          email: kit.customer.email,
+          phone: kit.customer.phone,
+          address: {
+            street1: fromAddress.street1,
+            street2: fromAddress.street2 ?? null,
+            city: fromAddress.city,
+            state: fromAddress.state,
+            zip: fromAddress.zipCode,
+          },
+        },
+        company,
+        fedexLocations,
+      },
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get digital kit data';
+    console.error('Error getting digital kit data:', error);
     return {
       success: false,
       error: message,

@@ -14,7 +14,7 @@ const options = [
   {
     value: "DIGITAL" as const,
     label: "Digital Kit",
-    desc: "Print your own shipping label",
+    desc: "Print your own Digital Kit",
   },
   {
     value: "PHYSICAL" as const,

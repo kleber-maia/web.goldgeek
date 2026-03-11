@@ -199,6 +199,46 @@ export interface AddressValidationResult {
 }
 
 // ---------------------------------------------------------------------------
+// Location Search
+// ---------------------------------------------------------------------------
+
+export interface FedExLocationSearchRequest {
+  location: {
+    address: {
+      city?: string;
+      stateOrProvinceCode?: string;
+      postalCode: string;
+      countryCode: string;
+    };
+  };
+  locationTypes?: string[];
+  resultsRequested?: number;
+  radiusInMiles?: number;
+}
+
+export interface FedExLocationResult {
+  locationId: string;
+  address: {
+    streetLines: string[];
+    city: string;
+    stateOrProvinceCode: string;
+    postalCode: string;
+  };
+  distance: { value: number; units: string };
+  locationTypeDescription?: string;
+  storeHours?: Array<{ dayOfWeek: string; hours: string }>;
+}
+
+export interface NearbyFedExLocation {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  distance: string;
+  description: string;
+}
+
+// ---------------------------------------------------------------------------
 // Tracking Webhook
 // ---------------------------------------------------------------------------
 

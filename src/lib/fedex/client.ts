@@ -7,6 +7,8 @@ import type {
   FedExAddressValidationResponse,
   AddressValidationResult,
   FedExTrackingSubscriptionRequest,
+  FedExLocationSearchRequest,
+  NearbyFedExLocation,
   FedExAddress,
   FedExContact,
   FedExParty,
@@ -269,6 +271,58 @@ export class FedExClient {
       // Log and continue so the label creation doesn't break.
       console.error('FedEx tracking subscription failed (non-fatal):', err);
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Search nearby FedEx locations
+  // -------------------------------------------------------------------------
+
+  static async searchLocations(
+    postalCode: string,
+    state: string,
+    city: string,
+    maxResults = 6
+  ): Promise<NearbyFedExLocation[]> {
+    const body: FedExLocationSearchRequest = {
+      location: {
+        address: {
+          postalCode,
+          stateOrProvinceCode: state,
+          city,
+          countryCode: 'US',
+        },
+      },
+      resultsRequested: maxResults,
+    };
+
+    const raw = await this.request<any>('/location/v1/locations', body);
+    const locations = raw?.output?.locationDetailList ?? [];
+
+    return locations.slice(0, maxResults).map((loc: any) => {
+      const addr = loc.contactAndAddress?.address ?? {};
+      const rawName =
+        loc.contactAndAddress?.addressAncillaryDetail?.displayName
+        ?? loc.locationType
+        ?? 'FedEx Location';
+      // Humanize enum codes like "FEDEX_SELF_SERVICE_LOCATION" → "FedEx Self Service Location"
+      const description = rawName.includes('_')
+        ? rawName
+            .replace(/^FEDEX_?/i, 'FedEx ')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c: string) => c.toUpperCase())
+            .trim()
+        : rawName;
+      return {
+        street: addr.streetLines?.[0] ?? '',
+        city: addr.city ?? '',
+        state: addr.stateOrProvinceCode ?? '',
+        zip: addr.postalCode ?? '',
+        distance: loc.distance
+          ? `${loc.distance.value} ${loc.distance.units?.toLowerCase() ?? 'mi'}`
+          : '',
+        description,
+      };
+    });
   }
 
   // -------------------------------------------------------------------------
