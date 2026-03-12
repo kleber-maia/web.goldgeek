@@ -953,8 +953,10 @@ a.account-btn-full {
   padding: 40px;
   margin-bottom: 24px;
   font-family: 'Poppins', sans-serif;
+  font-size: 13px;
   color: #2E1F0C;
   line-height: 1.6;
+  max-height: 999999px;
 }
 
 /* Page 1: Welcome Letter */
@@ -985,6 +987,11 @@ a.account-btn-full {
   border: none;
   border-top: 2px dotted #AD7B2A;
   margin: 16px 0 24px;
+}
+
+.dk-welcome-body {
+  display: flex;
+  flex-direction: column;
 }
 
 .dk-welcome-body h2 {

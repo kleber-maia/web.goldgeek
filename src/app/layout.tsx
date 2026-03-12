@@ -41,7 +41,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-US">
+    <html lang="en-US" style={{ WebkitTextSizeAdjust: "100%", textSizeAdjust: "100%" }}>
       <body
         className={`${poppins.variable} ${alegreyaSans.variable}`}
         style={{ fontFamily: "var(--font-poppins), sans-serif", margin: 0 }}

@@ -111,7 +111,7 @@ export default function DigitalKitPage() {
         margin: [0.5, 0.5, 0.5, 0.5],
         filename: `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, windowWidth: 816 },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"], before: ".dk-page-break" },
       })
