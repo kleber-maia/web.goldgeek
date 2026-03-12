@@ -1,3 +1,4 @@
+import "@/styles/dashboard.css";
 import "@/styles/admin/admin.css";
 
 export const metadata = {

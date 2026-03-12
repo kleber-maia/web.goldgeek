@@ -4,7 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Gold Geek is a precious metals and jewelry buying platform, converted from WordPress/Elementor to Next.js. The site retains Elementor CSS classes and data attributes for styling compatibility.
+Gold Geek is a precious metals and jewelry buying platform, converted from WordPress/Elementor to Next.js. The public site retains Elementor CSS classes; the dashboards use Tailwind CSS.
+
+## Three Products (CRITICAL — Read Before Any Change)
+
+This project contains 3 distinct products sharing one codebase:
+
+| Product | Route | Auth | Styling | Purpose |
+|---------|-------|------|---------|---------|
+| Public Website | `/` | None | Elementor CSS | Marketing pages |
+| Customer Dashboard | `/account/*` | Customer | Tailwind + account.css | Kit tracking, offers |
+| Admin Dashboard | `/admin/*` | Admin | Tailwind + admin.css | Operations, evaluations |
+
+**Planning Rule — before implementing ANY feature or fix:**
+1. Identify which products are affected
+2. Most features affect BOTH `/account` AND `/admin` — plan for both
+3. UI changes must be tested at mobile (375px) AND desktop (1024px+)
+4. Don't implement in one dashboard and forget the other
+
+**Shared concerns between dashboards:** kits, offers, payments, customer info, timeline events, status badges
 
 ## Commands
 
@@ -48,6 +66,7 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 - Next.js 16.1 with App Router
 - React 19
 - TypeScript (strict mode)
+- Tailwind CSS v4 (dashboards only, via `@tailwindcss/postcss`)
 - Prisma ORM 7.x with PostgreSQL (via `@prisma/adapter-pg`)
 - Resend for transactional emails
 - Zod 4.x for validation
@@ -92,10 +111,11 @@ src/
 │   ├── (admin)/admin/         # Admin dashboard (admin role required)
 │   └── api/                   # API routes (auth endpoints)
 ├── components/
-│   ├── layout/                # Header, Footer, MobileMenu
-│   ├── admin/                 # Admin UI (AdminSidebar, AdminHeader, AdminBottomNav)
-│   ├── account/               # Customer UI (AccountContainer, AccountHeader, BottomNav)
-│   ├── ui/                    # Motion/animation components
+│   ├── shared/                # Shared between account and admin dashboards (Tailwind)
+│   ├── account/               # Customer dashboard only (layout + UI components)
+│   ├── admin/                 # Admin dashboard only (AdminSidebar, AdminHeader, AdminBottomNav)
+│   ├── layout/                # Public site layout (Header, Footer, MobileMenu)
+│   ├── ui/                    # Motion/animation components (public site)
 │   ├── sections/              # Page sections (TestimonialsCarousel)
 │   └── widgets/               # External embeds (TradingViewWidget)
 ├── lib/
@@ -106,8 +126,13 @@ src/
 │   ├── validators/            # Zod schemas
 │   └── email/                 # Email templates and sending
 ├── styles/
-│   ├── globals.css            # Global styles
-│   └── elementor/             # Exported Elementor theme CSS (38 files)
+│   ├── globals.css            # Global styles + Elementor imports (public site)
+│   ├── dashboard.css          # Tailwind CSS import (dashboards only)
+│   ├── elementor/             # Exported Elementor theme CSS (38 files, public site only)
+│   ├── account/
+│   │   └── account.css        # Customer dashboard custom styles
+│   └── admin/
+│       └── admin.css          # Admin dashboard custom styles
 └── (no middleware.ts)         # Auth is handled server-side in page components
 
 prisma/
@@ -140,15 +165,54 @@ Custom scroll-based animations in `src/components/ui/`:
 
 All support `disableOnMobile` (768px breakpoint).
 
-### Styling
-- Elementor CSS framework imported globally
-- Inline styles for dynamic values
-- Mobile breakpoint: 768px
-- Color palette: gold accents (#AD7B2A, #FBEF9C), dark brown backgrounds (#57370D)
-- Fonts: Poppins (primary), Alegreya Sans (secondary)
+### Styling Architecture
 
-### Elementor Markup
-Pages preserve Elementor structure with `data-elementor-type`, `data-elementor-id`, and container classes (`e-con`, `e-con-inner`). This is intentional for CSS compatibility.
+**Public Website** — Elementor CSS (DO NOT CHANGE the approach)
+- 38 Elementor CSS files in `src/styles/elementor/`
+- Imported via `src/styles/globals.css`
+- Uses Elementor classes: `e-con`, `elementor-widget`, `elementor-element-*`
+- Pages preserve Elementor structure with `data-elementor-type`, `data-elementor-id`
+- DO NOT add Elementor classes to dashboard components
+
+**Customer & Admin Dashboards** — Tailwind CSS + custom CSS
+- Tailwind CSS imported via `src/styles/dashboard.css` (shared by both dashboards)
+- `src/styles/account/account.css` — account-specific custom styles
+- `src/styles/admin/admin.css` — admin-specific custom styles
+- New dashboard UI should prefer Tailwind classes over custom CSS
+- Shared components in `src/components/shared/` use Tailwind only
+- Existing custom CSS classes (`.account-*`, `.admin-*`) still work alongside Tailwind
+
+**Brand Colors (all products):**
+- Primary Gold: `#AD7B2A`
+- Accent Yellow: `#FBEF9C`
+- Dark Brown: `#57370D`
+- Text Dark: `#2E1F0C`
+
+**Fonts:** Poppins (primary), Alegreya Sans (secondary)
+
+### Mobile-First Design (All Products)
+
+All 3 products are mobile-first. Base styles target mobile; media queries enhance for larger screens.
+
+**Breakpoints:**
+- `480px` — small mobile adjustments
+- `768px` — primary breakpoint (tablet, dashboard layout changes)
+- `1024px` — desktop (admin sidebar appears, table views replace cards)
+
+**Navigation patterns:**
+- Mobile: bottom navigation bar (fixed, 88px height padding)
+- Desktop: sidebar (admin at 1024px+) or header links (public site)
+
+**Rules:**
+- Every UI change MUST work at 375px AND 1024px+
+- Never fix one viewport and break the other
+- Test mobile first, then verify desktop
+- Use `min-width` media queries (mobile-first), not `max-width`
+
+**Print context (Digital Kit):**
+- Forces 7.5in width for letter-size printing
+- Has separate `@media print` rules in `account.css`
+- Print changes are high-risk for mobile display — test both
 
 ## Data Layer Architecture
 
@@ -231,12 +295,20 @@ Magic link (passwordless) authentication:
 4. System creates session cookie (`gg-session`) -> redirect to account/admin
 5. Page components check auth via `requireAdmin()` / `requireCustomer()`
 
+### Shared Components
+
+Components used by both dashboards go in `src/components/shared/` (Tailwind only).
+Account-only components: `src/components/account/`
+Admin-only components: `src/components/admin/`
+
+When building UI that both dashboards need (status badges, timeline, kit info cards), create a shared component first. Don't duplicate between account and admin.
+
 ### Page Component Pattern
 
-Admin pages follow a server/client split:
+Both dashboards follow a server/client split:
 
 **Server Component** (`page.tsx`):
-- Checks authentication and role via `requireAdmin()`
+- Checks authentication via `requireAdmin()` or `requireCustomer()`
 - Fetches data using services
 - Passes data to client component
 
@@ -245,7 +317,7 @@ Admin pages follow a server/client split:
 - Calls Server Actions for mutations
 - Manages local UI state
 
-Example: `/admin/customers/page.tsx` -> `CustomersClient.tsx`
+Examples: `/admin/customers/page.tsx` -> `CustomersClient.tsx`, `/account/kits/page.tsx` -> client component
 
 ### Kit Status Workflow
 

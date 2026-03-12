@@ -2,10 +2,19 @@
 
 Precious metals and jewelry buying platform built with Next.js. Customers request appraisal kits, send in their items, receive offers, and get paid — all managed through admin and customer portals.
 
+## Products
+
+| Product | Route | Description |
+|---------|-------|-------------|
+| Public Website | `/` | Marketing pages (how it works, what we buy/pay, FAQ) |
+| Customer Dashboard | `/account` | Kit tracking, offer review, payment preferences |
+| Admin Dashboard | `/admin` | Kit evaluation, offer generation, payments, returns |
+
 ## Tech Stack
 
 - **Next.js 16.1** with App Router
 - **React 19** with TypeScript
+- **Tailwind CSS v4** (dashboards)
 - **Prisma ORM 7.x** with PostgreSQL
 - **Resend** for transactional emails
 - **Zod 4.x** for validation
@@ -79,11 +88,15 @@ Precious metals and jewelry buying platform built with Next.js. Customers reques
 ```
 src/
 ├── app/                    # Next.js App Router
-│   ├── (main)/             # Public pages
-│   ├── (account)/account/  # Customer portal
+│   ├── (main)/             # Public marketing pages
+│   ├── (account)/account/  # Customer dashboard
 │   ├── (admin)/admin/      # Admin dashboard
 │   └── api/                # Auth API routes
-├── components/             # React components
+├── components/
+│   ├── shared/             # Shared dashboard components (Tailwind)
+│   ├── account/            # Customer dashboard components
+│   ├── admin/              # Admin dashboard components
+│   └── layout/             # Public site (Header, Footer, MobileMenu)
 ├── lib/
 │   ├── auth/               # Session & magic link auth
 │   ├── db/                 # Prisma client & utilities
@@ -91,8 +104,17 @@ src/
 │   ├── actions/            # Server Actions
 │   ├── validators/         # Zod schemas
 │   └── email/              # Email templates
-└── styles/                 # Global & Elementor CSS
+└── styles/
+    ├── globals.css         # Elementor imports (public site)
+    ├── dashboard.css       # Tailwind import (dashboards)
+    ├── account/            # Customer dashboard CSS
+    └── admin/              # Admin dashboard CSS
 ```
+
+## Styling
+
+- **Public site:** Elementor CSS (legacy from WordPress conversion)
+- **Dashboards:** Tailwind CSS v4 + custom CSS (`account.css`, `admin.css`)
 
 ## Authentication
 
