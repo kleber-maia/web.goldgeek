@@ -908,11 +908,9 @@ a.account-btn-full {
 
 /* ===== Digital Kit ===== */
 
-/* Screen view */
-.digital-kit-wrapper {
-  max-width: 8.5in;
-  margin: 0 auto;
-}
+/* The Digital Kit is a fixed-width print document (letter size).
+   It always renders at 7.5in (the printable area of a letter page)
+   so print/PDF output is always correct regardless of device. */
 
 .digital-kit-actions {
   display: flex;
@@ -937,6 +935,17 @@ a.account-btn-full {
   }
 }
 
+.digital-kit-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.digital-kit-wrapper {
+  width: 7.5in;
+  min-width: 7.5in;
+  margin: 0 auto;
+}
+
 .digital-kit-page {
   background: white;
   border-radius: 8px;
@@ -944,7 +953,7 @@ a.account-btn-full {
   padding: 40px;
   margin-bottom: 24px;
   font-family: 'Poppins', sans-serif;
-  color: var(--brand-text);
+  color: #2E1F0C;
   line-height: 1.6;
 }
 
@@ -964,17 +973,17 @@ a.account-btn-full {
 .dk-welcome-meta {
   text-align: right;
   font-size: 12px;
-  color: var(--status-gray);
+  color: #6B7280;
   line-height: 1.8;
 }
 
 .dk-welcome-meta strong {
-  color: var(--brand-text);
+  color: #2E1F0C;
 }
 
 .dk-separator {
   border: none;
-  border-top: 2px dotted var(--brand-primary);
+  border-top: 2px dotted #AD7B2A;
   margin: 16px 0 24px;
 }
 
@@ -982,7 +991,7 @@ a.account-btn-full {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 12px;
-  color: var(--brand-secondary);
+  color: #57370D;
 }
 
 .dk-welcome-body p {
@@ -1007,14 +1016,14 @@ a.account-btn-full {
 
 .dk-closing strong {
   display: block;
-  color: var(--brand-secondary);
+  color: #57370D;
 }
 
 /* FedEx locations */
 .dk-locations-title {
   font-size: 14px;
   font-weight: 700;
-  color: var(--brand-secondary);
+  color: #57370D;
   margin: 24px 0 8px;
 }
 
@@ -1026,7 +1035,7 @@ a.account-btn-full {
 }
 
 .dk-locations-table th {
-  background: var(--brand-primary);
+  background: #AD7B2A;
   color: white;
   padding: 8px 10px;
   text-align: left;
@@ -1034,11 +1043,13 @@ a.account-btn-full {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .dk-locations-table td {
   padding: 7px 10px;
-  border-bottom: 1px solid var(--account-border);
+  border-bottom: 1px solid #E5E5E5;
 }
 
 .dk-locations-table tr:nth-child(even) td {
@@ -1054,18 +1065,20 @@ a.account-btn-full {
 .dk-info-header h2 {
   font-size: 18px;
   font-weight: 700;
-  color: var(--brand-secondary);
+  color: #57370D;
   margin: 0 0 4px;
 }
 
 .dk-info-header .dk-kit-number {
   font-family: monospace;
   font-size: 14px;
-  color: var(--brand-primary);
+  color: #AD7B2A;
   background: #FBF7EF;
   padding: 4px 12px;
   border-radius: 4px;
   display: inline-block;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .dk-info-section {
@@ -1077,8 +1090,8 @@ a.account-btn-full {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--brand-primary);
-  border-bottom: 2px solid var(--brand-primary);
+  color: #AD7B2A;
+  border-bottom: 2px solid #AD7B2A;
   padding-bottom: 4px;
   margin: 0 0 8px;
 }
@@ -1100,12 +1113,12 @@ a.account-btn-full {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--status-gray);
+  color: #6B7280;
   margin-bottom: 2px;
 }
 
 .dk-info-grid .dk-field-value {
-  border-bottom: 1px solid var(--account-border);
+  border-bottom: 1px solid #E5E5E5;
   padding-bottom: 4px;
   min-height: 20px;
 }
@@ -1132,7 +1145,7 @@ a.account-btn-full {
 
 .dk-items-list li span:first-child {
   font-weight: 600;
-  color: var(--brand-primary);
+  color: #AD7B2A;
   min-width: 24px;
 }
 
@@ -1148,7 +1161,7 @@ a.account-btn-full {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--brand-secondary);
+  color: #57370D;
   margin: 0 0 12px;
 }
 
@@ -1161,12 +1174,12 @@ a.account-btn-full {
 .dk-signature-line span {
   font-size: 10px;
   text-transform: uppercase;
-  color: var(--status-gray);
+  color: #6B7280;
   margin-top: 4px;
 }
 
 .dk-signature-line .dk-line {
-  border-bottom: 1px solid var(--brand-text);
+  border-bottom: 1px solid #2E1F0C;
   height: 22px;
 }
 
@@ -1182,7 +1195,7 @@ a.account-btn-full {
 .dk-payment-options input[type="checkbox"] {
   width: 14px;
   height: 14px;
-  accent-color: var(--brand-primary);
+  accent-color: #AD7B2A;
 }
 
 .dk-payment-inline {
@@ -1191,7 +1204,7 @@ a.account-btn-full {
 
 .dk-inline-line {
   flex: 1;
-  border-bottom: 1px solid var(--brand-text);
+  border-bottom: 1px solid #2E1F0C;
   height: 14px;
   margin-left: 4px;
 }
@@ -1207,9 +1220,9 @@ a.account-btn-full {
   gap: 16px;
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--account-border);
+  border-top: 1px solid #E5E5E5;
   font-size: 11px;
-  color: var(--status-gray);
+  color: #6B7280;
   text-align: center;
 }
 
@@ -1233,7 +1246,7 @@ a.account-btn-full {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border: 3px dashed var(--brand-primary);
+  border: 3px dashed #AD7B2A;
   border-radius: 16px;
   padding: 40px 36px 32px;
   position: relative;
@@ -1244,6 +1257,8 @@ a.account-btn-full {
   background-size: 100% 100%;
   max-width: 540px;
   width: 100%;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .dk-coupon::before,
@@ -1251,7 +1266,7 @@ a.account-btn-full {
   content: "✂";
   position: absolute;
   font-size: 18px;
-  color: var(--brand-primary);
+  color: #AD7B2A;
   opacity: 0.6;
 }
 
@@ -1288,7 +1303,7 @@ a.account-btn-full {
 .dk-promo-amount {
   font-size: 72px;
   font-weight: 800;
-  color: var(--brand-primary);
+  color: #AD7B2A;
   line-height: 1;
   margin-bottom: 0;
 }
@@ -1298,14 +1313,14 @@ a.account-btn-full {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 6px;
-  color: var(--brand-secondary);
+  color: #57370D;
   margin-bottom: 20px;
 }
 
 .dk-promo-divider {
   width: 80px;
   height: 2px;
-  background: var(--brand-primary);
+  background: #AD7B2A;
   margin: 0 auto 20px;
   border: none;
 }
@@ -1315,25 +1330,25 @@ a.account-btn-full {
   line-height: 1.7;
   max-width: 440px;
   margin: 0 auto 20px;
-  color: var(--brand-text);
+  color: #2E1F0C;
 }
 
 .dk-promo-deadline {
   display: inline-block;
   background: white;
-  border: 2px solid var(--brand-primary);
+  border: 2px solid #AD7B2A;
   border-radius: 8px;
   padding: 10px 28px;
   font-size: 14px;
   font-weight: 700;
-  color: var(--brand-secondary);
+  color: #57370D;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(173, 123, 42, 0.15);
 }
 
 .dk-promo-fine {
   font-size: 9px;
-  color: var(--status-gray);
+  color: #6B7280;
   max-width: 420px;
   margin: 0 auto;
   line-height: 1.5;
@@ -1359,7 +1374,7 @@ a.account-btn-full {
   gap: 12px;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--account-border);
+  border-bottom: 1px solid #E5E5E5;
 }
 
 .dk-label-fallback-addresses {
@@ -1369,7 +1384,7 @@ a.account-btn-full {
 }
 
 .dk-label-address-box {
-  background: var(--account-bg);
+  background: #FFFDF7;
   border-radius: 8px;
   padding: 16px;
 }
@@ -1377,7 +1392,7 @@ a.account-btn-full {
 .dk-label-address-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--status-gray);
+  color: #6B7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -1385,7 +1400,7 @@ a.account-btn-full {
 
 .dk-label-address-text {
   font-size: 14px;
-  color: var(--brand-text);
+  color: #2E1F0C;
   line-height: 1.5;
   font-family: monospace;
 }
@@ -1395,14 +1410,14 @@ a.account-btn-full {
   padding: 20px;
   margin-top: 20px;
   background: white;
-  border: 2px dashed var(--account-border);
+  border: 2px dashed #E5E5E5;
   border-radius: 8px;
 }
 
 .dk-label-tracking {
   font-family: monospace;
   font-size: 14px;
-  color: var(--brand-text);
+  color: #2E1F0C;
   margin-top: 8px;
 }
 
@@ -1430,136 +1445,6 @@ a.account-btn-full {
   }
 }
 
-/* Digital Kit - Print & PDF-capture shared layout
-   .dk-print-layout is added during html2pdf capture on mobile
-   so the same "desktop" overrides apply to both print and download. */
-.dk-print-layout .digital-kit-actions { display: none !important; }
-
-.dk-print-layout .digital-kit-wrapper {
-  width: 8.5in !important;
-  max-width: 8.5in !important;
-  margin: 0 auto;
-}
-
-.dk-print-layout .digital-kit-page {
-  box-shadow: none;
-  border-radius: 0;
-  margin: 0;
-  padding: 0.3in;
-  font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-  color: #2E1F0C !important;
-  background: #fff !important;
-  line-height: 1.6;
-}
-
-/* Force desktop grids in capture mode */
-.dk-print-layout .dk-info-grid {
-  grid-template-columns: 1fr 1fr !important;
-}
-
-.dk-print-layout .dk-items-columns {
-  grid-template-columns: 1fr 1fr !important;
-}
-
-.dk-print-layout .dk-bottom-split {
-  grid-template-columns: 1fr 1fr !important;
-}
-
-.dk-print-layout .dk-welcome-header {
-  display: flex !important;
-  flex-direction: row !important;
-  justify-content: space-between !important;
-}
-
-.dk-print-layout .dk-card-footer {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-}
-
-/* Hardcode colors for print/capture (CSS variables may not resolve) */
-.dk-print-layout .dk-welcome-body h2,
-.dk-print-layout .dk-closing strong,
-.dk-print-layout .dk-info-header h2,
-.dk-print-layout .dk-terms h4,
-.dk-print-layout .dk-payment h4,
-.dk-print-layout .dk-promo-amount-label,
-.dk-print-layout .dk-promo-deadline,
-.dk-print-layout .dk-locations-title {
-  color: #57370D !important;
-}
-
-.dk-print-layout .dk-promo-amount,
-.dk-print-layout .dk-info-section h3,
-.dk-print-layout .dk-items-list li span:first-child,
-.dk-print-layout .dk-info-header .dk-kit-number,
-.dk-print-layout .dk-promo-badge {
-  color: #AD7B2A !important;
-}
-
-.dk-print-layout .dk-welcome-meta,
-.dk-print-layout .dk-info-grid .dk-field-label,
-.dk-print-layout .dk-signature-line span,
-.dk-print-layout .dk-card-footer,
-.dk-print-layout .dk-promo-fine {
-  color: #6B7280 !important;
-}
-
-.dk-print-layout .dk-welcome-meta strong,
-.dk-print-layout .dk-info-grid .dk-field-value {
-  color: #2E1F0C !important;
-}
-
-.dk-print-layout .dk-locations-table th {
-  background: #AD7B2A !important;
-  color: #fff !important;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-.dk-print-layout .dk-locations-table tr:nth-child(even) td {
-  background: #FDFAF3 !important;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-.dk-print-layout .dk-info-header .dk-kit-number {
-  background: #FBF7EF !important;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-.dk-print-layout .dk-info-section h3 {
-  border-bottom-color: #AD7B2A !important;
-}
-
-.dk-print-layout .dk-separator {
-  border-top-color: #AD7B2A !important;
-}
-
-.dk-print-layout .dk-coupon {
-  border-color: #AD7B2A !important;
-  background: linear-gradient(135deg, #FFFDF7 0%, #FBF7EF 50%, #FFF8E1 100%) !important;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-.dk-print-layout .dk-promo-badge {
-  background: linear-gradient(135deg, #AD7B2A 0%, #C9963A 100%) !important;
-  color: #fff !important;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-.dk-print-layout .dk-promo-divider {
-  background: #AD7B2A !important;
-}
-
-.dk-print-layout .dk-promo-deadline {
-  border-color: #AD7B2A !important;
-  background: #fff !important;
-}
-
 /* Digital Kit - Print styles */
 @media print {
   @page {
@@ -1572,38 +1457,7 @@ a.account-btn-full {
     print-color-adjust: exact !important;
   }
 
-  body {
-    font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-  }
-
-  .digital-kit-wrapper,
-  .dk-print-layout .digital-kit-wrapper {
-    width: 100% !important;
-    max-width: none !important;
-  }
-
-  .digital-kit-page,
-  .dk-print-layout .digital-kit-page {
-    break-after: page;
-    break-inside: avoid;
-    box-shadow: none;
-    border-radius: 0;
-    margin: 0;
-    padding: 0.2in;
-    font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-    color: #2E1F0C !important;
-    background: #fff !important;
-  }
-
-  .digital-kit-page:last-child {
-    break-after: auto;
-  }
-
   .digital-kit-actions,
-  .digital-kit-screen-only {
-    display: none !important;
-  }
-
   .account-header,
   .account-bottom-nav {
     display: none !important;
@@ -1618,100 +1472,26 @@ a.account-btn-full {
     min-height: auto;
   }
 
-  /* Force desktop grid layouts when printing from mobile */
-  .dk-info-grid {
-    grid-template-columns: 1fr 1fr !important;
+  .digital-kit-scroll {
+    overflow: visible;
   }
 
-  .dk-items-columns {
-    grid-template-columns: 1fr 1fr !important;
+  .digital-kit-wrapper {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
   }
 
-  .dk-bottom-split {
-    grid-template-columns: 1fr 1fr !important;
+  .digital-kit-page {
+    break-after: page;
+    break-inside: avoid;
+    box-shadow: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
   }
 
-  .dk-welcome-header {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: space-between !important;
-  }
-
-  .dk-card-footer {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-  }
-
-  /* Hardcode all colors (CSS variables unreliable in print) */
-  .dk-welcome-body h2,
-  .dk-closing strong,
-  .dk-info-header h2,
-  .dk-terms h4,
-  .dk-payment h4,
-  .dk-promo-amount-label,
-  .dk-promo-deadline,
-  .dk-locations-title {
-    color: #57370D !important;
-  }
-
-  .dk-promo-amount,
-  .dk-info-section h3,
-  .dk-items-list li span:first-child,
-  .dk-info-header .dk-kit-number {
-    color: #AD7B2A !important;
-  }
-
-  .dk-welcome-meta,
-  .dk-info-grid .dk-field-label,
-  .dk-signature-line span,
-  .dk-card-footer,
-  .dk-promo-fine {
-    color: #6B7280 !important;
-  }
-
-  .dk-welcome-meta strong,
-  .dk-info-grid .dk-field-value {
-    color: #2E1F0C !important;
-  }
-
-  .dk-locations-table th {
-    background: #AD7B2A !important;
-    color: #fff !important;
-  }
-
-  .dk-locations-table tr:nth-child(even) td {
-    background: #FDFAF3 !important;
-  }
-
-  .dk-info-header .dk-kit-number {
-    background: #FBF7EF !important;
-  }
-
-  .dk-info-section h3 {
-    border-bottom-color: #AD7B2A !important;
-  }
-
-  .dk-separator {
-    border-top-color: #AD7B2A !important;
-  }
-
-  .dk-coupon {
-    border-color: #AD7B2A !important;
-    background: linear-gradient(135deg, #FFFDF7 0%, #FBF7EF 50%, #FFF8E1 100%) !important;
-  }
-
-  .dk-promo-badge {
-    background: linear-gradient(135deg, #AD7B2A 0%, #C9963A 100%) !important;
-    color: #fff !important;
-  }
-
-  .dk-promo-divider {
-    background: #AD7B2A !important;
-  }
-
-  .dk-promo-deadline {
-    border-color: #AD7B2A !important;
-    background: #fff !important;
+  .digital-kit-page:last-child {
+    break-after: auto;
   }
 }
