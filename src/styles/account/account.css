@@ -1457,19 +1457,30 @@ a.account-btn-full {
     print-color-adjust: exact !important;
   }
 
+  html, body {
+    width: 7.5in !important;
+    min-width: 7.5in !important;
+    max-width: 7.5in !important;
+    overflow: visible !important;
+  }
+
   .digital-kit-actions,
   .account-header,
   .account-bottom-nav {
     display: none !important;
   }
 
-  .account-main {
-    padding: 0;
-    max-width: none;
+  .account-container {
+    min-height: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
   }
 
-  .account-container {
-    min-height: auto;
+  .account-main {
+    padding: 0 !important;
+    max-width: none !important;
+    width: 7.5in !important;
+    margin: 0 !important;
   }
 
   .digital-kit-scroll {
