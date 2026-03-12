@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins, Alegreya_Sans } from "next/font/google";
 import "@/styles/account/account.css";
 
@@ -15,6 +15,13 @@ const alegreyaSans = Alegreya_Sans({
   weight: ["100", "300", "400", "500", "700", "800", "900"],
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "Gold Geek – Turn Your Gold Into Cash",
