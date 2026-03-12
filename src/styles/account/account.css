@@ -1504,4 +1504,8 @@ a.account-btn-full {
   .digital-kit-page:last-child {
     break-after: auto;
   }
+
+  .dk-coupon {
+    background: linear-gradient(135deg, #FFFDF7 0%, #FBF7EF 50%, #FFF8E1 100%) !important;
+  }
 }
