@@ -1473,13 +1473,12 @@ a.account-btn-full {
   }
 
   .digital-kit-scroll {
-    overflow: visible;
+    overflow: visible !important;
   }
 
   .digital-kit-wrapper {
-    width: 100% !important;
+    width: 7.5in !important;
     min-width: 0 !important;
-    max-width: none !important;
   }
 
   .digital-kit-page {
