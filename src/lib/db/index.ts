@@ -10,13 +10,12 @@ const globalForPrisma = globalThis as unknown as {
 if (!globalForPrisma.pool) {
   globalForPrisma.pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 5,
-    idleTimeoutMillis: 10000,
+    max: 1,
+    idleTimeoutMillis: 5000,
     connectionTimeoutMillis: 10000,
     allowExitOnIdle: true,
   });
 
-  // Log pool errors instead of crashing the process
   globalForPrisma.pool.on('error', (err) => {
     console.error('Unexpected idle client error', err);
   });
