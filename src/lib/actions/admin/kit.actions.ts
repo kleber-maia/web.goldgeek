@@ -113,6 +113,31 @@ export async function updateKitNotes(
 }
 
 /**
+ * Update kit type (admin only)
+ */
+export async function updateKitType(
+  kitId: string,
+  type: 'PHYSICAL' | 'DIGITAL'
+): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+
+    const kit = await KitService.updateType(kitId, type);
+
+    return {
+      success: true,
+      data: serializePrismaData(kit),
+    };
+  } catch (error: any) {
+    console.error('Error updating kit type:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to update kit type',
+    };
+  }
+}
+
+/**
  * Delete kit (admin only)
  */
 export async function deleteKit(kitId: string): Promise<ActionResult> {

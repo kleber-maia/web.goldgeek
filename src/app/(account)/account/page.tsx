@@ -27,9 +27,9 @@ const defaultShortcuts: Shortcut[] = [
     description: "View order history and track kits in transit.",
   },
   {
-    href: "/account/kits",
-    title: "View My Offers",
-    description: "Review and respond to offers.",
+    href: "/account/payments",
+    title: "My Payments",
+    description: "Track payment status and history.",
   },
   {
     href: "#refer",
@@ -105,12 +105,9 @@ export default async function AccountDashboardPage() {
         highlight: true,
       };
     }
-    if (i === 2 && offerCount > 0) {
-      return {
-        ...s,
-        description: `${offerCount} offer${offerCount === 1 ? "" : "s"} to review`,
-        highlight: true,
-      };
+    if (i === 2) {
+      // "My Payments" tile — no dynamic count needed
+      return s;
     }
     return s;
   });

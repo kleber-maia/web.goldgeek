@@ -50,8 +50,10 @@ export default async function SettingsPage() {
         firstName: customer.firstName,
         lastName: customer.lastName,
         email: customer.email,
+        phone: customer.phone || "",
         address: defaultAddress
           ? {
+              id: defaultAddress.id,
               street1: defaultAddress.street1,
               street2: defaultAddress.street2,
               city: defaultAddress.city,

@@ -209,19 +209,25 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
 }
 
 /**
- * Update payment preferences (stored in metadata or separate table)
+ * Update payment preferences
  */
 export async function updatePaymentPreferences(
   data: PaymentPreferencesInput
 ): Promise<ActionResult> {
   try {
-    await requireCustomer();
+    const session = await requireCustomer();
 
     const validated = paymentPreferencesSchema.parse(data);
 
-    // TODO: Store payment preferences securely
-    // For now, we'll just validate and return success
-    // In production, encrypt accountInfo before storing
+    await prisma.customer.update({
+      where: { id: session.id },
+      data: {
+        paymentPreferences: {
+          method: validated.method,
+          accountInfo: validated.accountInfo || {},
+        },
+      },
+    });
 
     return {
       success: true,
@@ -576,6 +582,64 @@ export interface DigitalKitData {
     zip: string;
   };
   fedexLocations: NearbyFedExLocation[];
+}
+
+/**
+ * Get customer's payment history
+ */
+export async function getMyPayments(): Promise<ActionResult> {
+  try {
+    const session = await requireCustomer();
+
+    const payments = await prisma.payment.findMany({
+      where: { customerId: session.id },
+      include: {
+        offer: {
+          include: {
+            kit: { select: { id: true, kitNumber: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: serializePrismaData(payments),
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get payments';
+    console.error('Error getting payments:', error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Get customer's returns
+ */
+export async function getMyReturns(): Promise<ActionResult> {
+  try {
+    const session = await requireCustomer();
+
+    const returns = await prisma.return.findMany({
+      where: {
+        kit: { customerId: session.id },
+      },
+      include: {
+        kit: { select: { id: true, kitNumber: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: serializePrismaData(returns),
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get returns';
+    console.error('Error getting returns:', error);
+    return { success: false, error: message };
+  }
 }
 
 export async function getDigitalKitData(

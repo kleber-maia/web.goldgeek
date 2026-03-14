@@ -4,7 +4,8 @@ import { AccountContainer, Badge, Timeline, OfferBanner, KitTypeToggle } from "@
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { getKitDetails } from "@/lib/actions/customer.actions";
-import { formatCurrency } from "@/lib/db/utils";
+import { formatCurrency, formatWeight } from "@/lib/db/utils";
+import { formatDate } from "@/lib/account";
 
 type OfferLike = {
   id: string;
@@ -19,6 +20,95 @@ type TimelineLike = {
   createdAt: Date;
   description?: string | null;
 };
+
+type ItemLike = {
+  id: string;
+  description: string;
+  type: string;
+  metalType: string | null;
+  weight: { toString(): string } | null;
+  purity: string | null;
+  finalValue: { toString(): string } | null;
+};
+
+type ShippingLabelLike = {
+  id: string;
+  type: string;
+  carrier: string;
+  trackingNumber: string;
+  status: string;
+  createdAt: Date;
+};
+
+type ReturnLike = {
+  id: string;
+  returnNumber: string;
+  status: string;
+  trackingNumber: string | null;
+  createdAt: Date;
+  shippedAt: Date | null;
+  deliveredAt: Date | null;
+};
+
+function formatMetalInfo(metalType: string | null, purity: string | null): string {
+  if (!metalType && !purity) return "";
+  const metal = metalType
+    ? metalType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "";
+  if (metal && purity) return `${metal} - ${purity}`;
+  return metal || purity || "";
+}
+
+function formatLabelType(type: string): string {
+  switch (type) {
+    case "INBOUND":
+      return "Shipping to Gold Geek";
+    case "KIT_DELIVERY":
+      return "Kit Delivery";
+    case "RETURN":
+      return "Return Shipment";
+    default:
+      return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
+function formatLabelStatus(status: string): { label: string; badgeClass: string } {
+  switch (status) {
+    case "PENDING":
+      return { label: "Pending", badgeClass: "pending" };
+    case "CREATED":
+      return { label: "Label Created", badgeClass: "purple" };
+    case "IN_TRANSIT":
+      return { label: "In Transit", badgeClass: "in-progress" };
+    case "DELIVERED":
+      return { label: "Delivered", badgeClass: "success" };
+    case "CANCELLED":
+      return { label: "Cancelled", badgeClass: "gray" };
+    default:
+      return {
+        label: status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        badgeClass: "gray",
+      };
+  }
+}
+
+function formatReturnStatus(status: string): { label: string; badgeClass: string } {
+  switch (status) {
+    case "PENDING":
+      return { label: "Pending", badgeClass: "pending" };
+    case "LABEL_CREATED":
+      return { label: "Label Created", badgeClass: "purple" };
+    case "IN_TRANSIT":
+      return { label: "In Transit", badgeClass: "in-progress" };
+    case "DELIVERED":
+      return { label: "Delivered", badgeClass: "success" };
+    default:
+      return {
+        label: status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        badgeClass: "gray",
+      };
+  }
+}
 
 export default async function KitDetailPage({
   params,
@@ -69,6 +159,27 @@ export default async function KitDetailPage({
       date: event.createdAt,
       description: event.description || undefined,
     })) || [];
+
+  // Item/Offer breakdown data
+  const items = (kit.items || []) as ItemLike[];
+  const evaluatedItems = items.filter(
+    (item) => item.finalValue && parseFloat(item.finalValue.toString()) > 0
+  );
+  const showItemBreakdown = evaluatedItems.length > 0;
+  const itemsTotal = evaluatedItems.reduce(
+    (sum, item) => sum + parseFloat(item.finalValue!.toString()),
+    0
+  );
+
+  // Shipping labels
+  const shippingLabels = (kit.shippingLabels || []) as ShippingLabelLike[];
+  const showShippingTracking = shippingLabels.length > 0;
+
+  // Returns
+  const returns = (kit.returns || []) as ReturnLike[];
+  const showReturnTracking =
+    returns.length > 0 &&
+    ["DECLINED", "RETURNED"].includes(kit.status);
 
   return (
     <AccountContainer
@@ -243,6 +354,274 @@ export default async function KitDetailPage({
           )}
         </div>
       </div>
+
+      {/* Shipping Tracking */}
+      {showShippingTracking && (
+        <div className="account-section">
+          <div className="account-section-title">Shipping</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {shippingLabels.map((label) => {
+              const statusInfo = formatLabelStatus(label.status);
+              return (
+                <div
+                  key={label.id}
+                  style={{
+                    background: "var(--account-bg)",
+                    borderRadius: 10,
+                    padding: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--brand-secondary)",
+                      }}
+                    >
+                      {formatLabelType(label.type)}
+                    </span>
+                    <span
+                      className={`account-badge ${statusInfo.badgeClass}`}
+                      style={{ fontSize: 11 }}
+                    >
+                      {statusInfo.label}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ color: "var(--status-gray)" }}>
+                      {label.carrier}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        fontSize: 12,
+                        color: "var(--brand-text)",
+                      }}
+                    >
+                      {label.trackingNumber}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--status-gray)",
+                      marginTop: 6,
+                    }}
+                  >
+                    Created {formatDate(label.createdAt)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Item / Offer Breakdown */}
+      {showItemBreakdown && (
+        <div className="account-section">
+          <div className="account-section-title">Appraisal Breakdown</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {evaluatedItems.map((item) => {
+              const metalInfo = formatMetalInfo(item.metalType, item.purity);
+              const weight = item.weight
+                ? parseFloat(item.weight.toString())
+                : null;
+              const value = parseFloat(item.finalValue!.toString());
+
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    padding: "12px 0",
+                    borderBottom: "1px solid var(--account-border)",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: "var(--brand-text)",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {item.description}
+                    </div>
+                    {metalInfo && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--status-gray)",
+                        }}
+                      >
+                        {metalInfo}
+                      </div>
+                    )}
+                    {weight !== null && weight > 0 && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--status-gray)",
+                        }}
+                      >
+                        {formatWeight(weight)}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--brand-secondary)",
+                      marginLeft: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatCurrency(value)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Total */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: 12,
+              marginTop: 4,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--brand-text)",
+              }}
+            >
+              Total Appraised Value
+            </span>
+            <span
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: "var(--brand-primary)",
+              }}
+            >
+              {formatCurrency(itemsTotal)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Return Tracking */}
+      {showReturnTracking && (
+        <div className="account-section">
+          <div className="account-section-title">Return Tracking</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {returns.map((ret) => {
+              const statusInfo = formatReturnStatus(ret.status);
+              return (
+                <div
+                  key={ret.id}
+                  style={{
+                    background: "var(--account-bg)",
+                    borderRadius: 10,
+                    padding: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--brand-secondary)",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {ret.returnNumber}
+                    </span>
+                    <span
+                      className={`account-badge ${statusInfo.badgeClass}`}
+                      style={{ fontSize: 11 }}
+                    >
+                      {statusInfo.label}
+                    </span>
+                  </div>
+                  {ret.trackingNumber && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: 13,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span style={{ color: "var(--status-gray)" }}>
+                        Tracking
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          fontSize: 12,
+                          color: "var(--brand-text)",
+                        }}
+                      >
+                        {ret.trackingNumber}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 16,
+                      fontSize: 11,
+                      color: "var(--status-gray)",
+                      marginTop: 4,
+                    }}
+                  >
+                    <span>Created {formatDate(ret.createdAt)}</span>
+                    {ret.shippedAt && (
+                      <span>Shipped {formatDate(ret.shippedAt)}</span>
+                    )}
+                    {ret.deliveredAt && (
+                      <span>Delivered {formatDate(ret.deliveredAt)}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="account-section">

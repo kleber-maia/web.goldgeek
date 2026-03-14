@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { formatCurrency } from "@/lib/db/utils";
 import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
+import { updateCustomerProfile, updateCustomerAddress } from "@/lib/actions/admin/customer.actions";
 
 interface Customer {
   id: string;
@@ -14,6 +17,7 @@ interface Customer {
   phone: string | null;
   createdAt: Date | string;
   addresses: Array<{
+    id: string;
     street1: string;
     street2?: string;
     city: string;
@@ -41,13 +45,108 @@ interface Customer {
 }
 
 export default function CustomerDetailClient({ customer }: { customer: Customer }) {
+  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const defaultAddress = customer.addresses.find((a) => a.isDefault) || customer.addresses[0];
+
+  // Form state
+  const [firstName, setFirstName] = useState(customer.firstName);
+  const [lastName, setLastName] = useState(customer.lastName);
+  const [email, setEmail] = useState(customer.email);
+  const [phone, setPhone] = useState(customer.phone || "");
+  const [street1, setStreet1] = useState(defaultAddress?.street1 || "");
+  const [street2, setStreet2] = useState(defaultAddress?.street2 || "");
+  const [city, setCity] = useState(defaultAddress?.city || "");
+  const [state, setState] = useState(defaultAddress?.state || "");
+  const [zipCode, setZipCode] = useState(defaultAddress?.zipCode || "");
+
   const totalPaid = customer.payments
     .filter((p) => p.status === "COMPLETED")
     .reduce((sum, p) => sum + parseFloat(p.amount?.toString() || "0"), 0);
 
   const offersAccepted = customer.kits.filter((k) => k.status === "ACCEPTED" || k.status === "PAID").length;
   const initials = `${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`;
-  const defaultAddress = customer.addresses.find((a) => a.isDefault) || customer.addresses[0];
+
+  function handleEditClick() {
+    // Reset form to current customer data
+    setFirstName(customer.firstName);
+    setLastName(customer.lastName);
+    setEmail(customer.email);
+    setPhone(customer.phone || "");
+    setStreet1(defaultAddress?.street1 || "");
+    setStreet2(defaultAddress?.street2 || "");
+    setCity(defaultAddress?.city || "");
+    setState(defaultAddress?.state || "");
+    setZipCode(defaultAddress?.zipCode || "");
+    setError(null);
+    setIsEditing(true);
+  }
+
+  function handleCancel() {
+    setIsEditing(false);
+    setError(null);
+  }
+
+  async function handleSave() {
+    // Basic validation
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      setError("First name, last name, and email are required.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      // Update profile
+      const profileResult = await updateCustomerProfile(customer.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+      });
+
+      if (!profileResult.success) {
+        setError(profileResult.error || "Failed to update profile.");
+        setSaving(false);
+        return;
+      }
+
+      // Update address if any address field is filled
+      const hasAddressData = street1.trim() || city.trim() || state.trim() || zipCode.trim();
+      if (hasAddressData) {
+        if (!street1.trim() || !city.trim() || !state.trim() || !zipCode.trim()) {
+          setError("Please fill in all required address fields (street, city, state, zip).");
+          setSaving(false);
+          return;
+        }
+
+        const addressResult = await updateCustomerAddress(customer.id, {
+          street1: street1.trim(),
+          street2: street2.trim() || undefined,
+          city: city.trim(),
+          state: state.trim(),
+          zipCode: zipCode.trim(),
+        });
+
+        if (!addressResult.success) {
+          setError(addressResult.error || "Failed to update address.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      setIsEditing(false);
+      router.refresh();
+    } catch {
+      setError("An unexpected error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="admin-container">
@@ -73,36 +172,190 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
 
         {/* Customer Profile */}
         <div className="admin-section">
-          <div className="admin-section-title">Customer Information</div>
-          <div className="admin-customer-profile">
-            <div className="admin-customer-avatar">
-              {initials}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isEditing ? "16px" : "0" }}>
+            <div className="admin-section-title">Customer Information</div>
+            {!isEditing && (
+              <button
+                onClick={handleEditClick}
+                className="admin-btn admin-btn-secondary"
+                style={{ padding: "6px 14px", fontSize: "13px" }}
+              >
+                <svg width="14" height="14" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" style={{ marginRight: "4px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                </svg>
+                Edit
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div style={{
+              background: "#FEE2E2",
+              color: "#DC2626",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              marginBottom: "12px",
+            }}>
+              {error}
             </div>
-            <div className="admin-customer-info">
-              <div className="admin-info-grid">
-                <div>
-                  <div className="admin-info-label">Email</div>
-                  <div className="admin-info-value">{customer.email}</div>
+          )}
+
+          {isEditing ? (
+            /* Edit Mode */
+            <div className="admin-form">
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label className="admin-form-label">First Name</label>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
                 </div>
-                <div>
-                  <div className="admin-info-label">Phone</div>
-                  <div className="admin-info-value">{customer.phone || "N/A"}</div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Last Name</label>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
                 </div>
-                <div>
-                  <div className="admin-info-label">Address</div>
-                  <div className="admin-info-value">
-                    {defaultAddress ? (
-                      <>
-                        {defaultAddress.street1}<br />
-                        {defaultAddress.street2 && <>{defaultAddress.street2}<br /></>}
-                        {defaultAddress.city}, {defaultAddress.state} {defaultAddress.zipCode}
-                      </>
-                    ) : "N/A"}
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Email</label>
+                  <input
+                    type="email"
+                    className="admin-form-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Phone</label>
+                  <input
+                    type="tel"
+                    className="admin-form-input"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+              </div>
+
+              <div style={{ borderTop: "1px solid #E5E5E5", paddingTop: "12px", marginTop: "4px" }}>
+                <div className="admin-form-label" style={{ fontSize: "14px", fontWeight: "600", marginBottom: "12px" }}>
+                  Address
+                </div>
+
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Street Address</label>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    value={street1}
+                    onChange={(e) => setStreet1(e.target.value)}
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Street Address 2</label>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    value={street2}
+                    onChange={(e) => setStreet2(e.target.value)}
+                    placeholder="Apt, suite, unit, etc. (optional)"
+                  />
+                </div>
+
+                <div className="admin-form-row">
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">City</label>
+                    <input
+                      type="text"
+                      className="admin-form-input"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                    />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">State</label>
+                    <input
+                      type="text"
+                      className="admin-form-input"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      placeholder="e.g. CA"
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-form-group" style={{ maxWidth: "200px" }}>
+                  <label className="admin-form-label">Zip Code</label>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="admin-btn admin-btn-primary"
+                  style={{ opacity: saving ? 0.7 : 1 }}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="admin-btn admin-btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Read-Only Mode */
+            <div className="admin-customer-profile">
+              <div className="admin-customer-avatar">
+                {initials}
+              </div>
+              <div className="admin-customer-info">
+                <div className="admin-info-grid">
+                  <div>
+                    <div className="admin-info-label">Email</div>
+                    <div className="admin-info-value">{customer.email}</div>
+                  </div>
+                  <div>
+                    <div className="admin-info-label">Phone</div>
+                    <div className="admin-info-value">{customer.phone || "N/A"}</div>
+                  </div>
+                  <div>
+                    <div className="admin-info-label">Address</div>
+                    <div className="admin-info-value">
+                      {defaultAddress ? (
+                        <>
+                          {defaultAddress.street1}<br />
+                          {defaultAddress.street2 && <>{defaultAddress.street2}<br /></>}
+                          {defaultAddress.city}, {defaultAddress.state} {defaultAddress.zipCode}
+                        </>
+                      ) : "N/A"}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Stats */}

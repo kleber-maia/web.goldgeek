@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/db/utils";
 import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from "@/lib/admin-utils";
 import { addItemToKit, updateItem, deleteItem } from "@/lib/actions/admin/item.actions";
 import { generateOffer, sendOffer } from "@/lib/actions/admin/offer.actions";
-import { updateKitStatus, updateKitNotes } from "@/lib/actions/admin/kit.actions";
+import { updateKitStatus, updateKitNotes, updateKitType } from "@/lib/actions/admin/kit.actions";
 import { createShippingLabel, generatePhysicalKitFedExLabels, generateReturnFedExLabel, validateAddressWithFedEx } from "@/lib/actions/admin/shipping.actions";
 import type { KitStatus, ItemType, MetalType, ShippingLabelType, ShippingCarrier } from "@prisma/client";
 
@@ -509,8 +509,49 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
 
           <div style={{ fontSize: "13px", color: "#6B7280", marginBottom: "12px" }}>
             Current: <strong style={{ color: "#2E1F0C" }}>{formatStatus(kit.status)}</strong>
-            {kit.type && <> &bull; {kit.type.charAt(0) + kit.type.slice(1).toLowerCase()} Kit</>}
             {kit.trackingNumber && <> &bull; Tracking: <code style={{ fontSize: "12px" }}>{kit.trackingNumber}</code></>}
+          </div>
+
+          {/* Kit Type Toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px", padding: "10px 12px", background: "#F9FAFB", borderRadius: "8px" }}>
+            <span style={{ fontSize: "13px", color: "#6B7280", minWidth: "60px" }}>Kit Type:</span>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {(["PHYSICAL", "DIGITAL"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={async () => {
+                    if (t === kit.type) return;
+                    setIsSubmitting(true);
+                    try {
+                      const result = await updateKitType(kit.id, t);
+                      if (result.success) {
+                        showFeedback("success", `Kit type changed to ${t.toLowerCase()}`);
+                        router.refresh();
+                      } else {
+                        showFeedback("error", result.error || "Failed to update kit type");
+                      }
+                    } catch {
+                      showFeedback("error", "Failed to update kit type");
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: "13px",
+                    fontWeight: t === kit.type ? 600 : 400,
+                    border: t === kit.type ? "1px solid #AD7B2A" : "1px solid #E5E7EB",
+                    borderRadius: "6px",
+                    background: t === kit.type ? "#AD7B2A" : "#FFFFFF",
+                    color: t === kit.type ? "#FFFFFF" : "#6B7280",
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {t.charAt(0) + t.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Next status button */}
