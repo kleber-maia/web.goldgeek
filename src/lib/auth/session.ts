@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import type { AuthType } from './magic-link';
@@ -33,9 +34,11 @@ export async function createSession(id: string, type: AuthType): Promise<void> {
 }
 
 /**
- * Gets the current session
+ * Gets the current session (cached per request to avoid duplicate DB queries)
  */
-export async function getSession(): Promise<Session | null> {
+export const getSession = cache(_getSession);
+
+async function _getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
 

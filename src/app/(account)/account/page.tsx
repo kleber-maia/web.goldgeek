@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
-import { getSession, getCurrentCustomer } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
 import { LogoutButton } from "@/components/account/LogoutButton";
@@ -75,7 +75,8 @@ export default async function AccountDashboardPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const customer = await getCurrentCustomer();
+  // Single DB call: get customer + kits together
+  const customer = await CustomerService.getById(session.id);
 
   if (!customer) {
     redirect("/account/login");
@@ -83,8 +84,7 @@ export default async function AccountDashboardPage() {
 
   const firstName = customer.firstName || customer.email.split("@")[0];
 
-  // Fetch kits to build dynamic tile subtitles
-  const kits = await CustomerService.getKits(customer.id);
+  const kits = await CustomerService.getKits(session.id);
   const activeKitCount = kits.filter((k) =>
     (ACTIVE_KIT_STATUSES as readonly string[]).includes(k.status)
   ).length;
