@@ -3,6 +3,13 @@ import type { ShippingLabel, ShippingCarrier, ShippingLabelType, ShippingLabelSt
 import { ActivityService } from './activity.service';
 import { SettingsService } from './settings.service';
 import { FedExClient } from '@/lib/fedex/client';
+import {
+  sendKitShippedToCustomerEmail,
+  sendPackageInTransitEmail,
+  sendKitReceivedEmail,
+  sendReturnShippedEmail,
+  sendReturnDeliveredEmail,
+} from '@/lib/email';
 
 export interface CreateShippingLabelInput {
   kitId: string;
@@ -128,9 +135,11 @@ export class ShippingService {
       where: { id: labelId },
       data: updates,
       include: {
-        kit: true,
+        kit: { include: { customer: true } },
       },
     });
+
+    const customerEmail = label.kit.customer?.email;
 
     // Update kit/return status based on label type and status
     if (label.type === 'KIT_DELIVERY') {
@@ -148,6 +157,12 @@ export class ShippingService {
           description: `Kit box shipped via FedEx: ${label.trackingNumber}`,
           metadata: { labelId: label.id },
         });
+
+        if (customerEmail) {
+          sendKitShippedToCustomerEmail(customerEmail, label.kit.kitNumber, label.trackingNumber).catch(err =>
+            console.error('Failed to send kit shipped email:', err)
+          );
+        }
       } else if (status === 'DELIVERED') {
         // Kit box arrived at customer — no separate kit status change needed
         await ActivityService.logEvent({
@@ -174,6 +189,12 @@ export class ShippingService {
           description: `Package is in transit: ${label.trackingNumber}`,
           metadata: { labelId: label.id },
         });
+
+        if (customerEmail) {
+          sendPackageInTransitEmail(customerEmail, label.kit.kitNumber, label.trackingNumber).catch(err =>
+            console.error('Failed to send package in transit email:', err)
+          );
+        }
       } else if (status === 'DELIVERED') {
         await prisma.kit.update({
           where: { id: label.kitId },
@@ -191,6 +212,12 @@ export class ShippingService {
           description: `Package delivered: ${label.trackingNumber}`,
           metadata: { labelId: label.id },
         });
+
+        if (customerEmail) {
+          sendKitReceivedEmail(customerEmail, label.kit.kitNumber).catch(err =>
+            console.error('Failed to send kit received email:', err)
+          );
+        }
       }
     } else if (label.type === 'RETURN') {
       // Update return status if exists
@@ -209,6 +236,12 @@ export class ShippingService {
               shippedAt: new Date(),
             },
           });
+
+          if (customerEmail) {
+            sendReturnShippedEmail(customerEmail, label.kit.kitNumber, returnRecord.returnNumber, label.trackingNumber).catch(err =>
+              console.error('Failed to send return shipped email:', err)
+            );
+          }
         } else if (status === 'DELIVERED') {
           await prisma.return.update({
             where: { id: returnRecord.id },
@@ -217,6 +250,12 @@ export class ShippingService {
               deliveredAt: new Date(),
             },
           });
+
+          if (customerEmail) {
+            sendReturnDeliveredEmail(customerEmail, label.kit.kitNumber, returnRecord.returnNumber).catch(err =>
+              console.error('Failed to send return delivered email:', err)
+            );
+          }
         }
       }
     }

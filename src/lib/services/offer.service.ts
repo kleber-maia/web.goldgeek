@@ -3,6 +3,7 @@ import { generateOfferNumber, calculateOfferExpiration } from '@/lib/db/utils';
 import type { Offer, OfferStatus } from '@prisma/client';
 import type { OfferInput } from '@/lib/validators/offer';
 import { ActivityService } from './activity.service';
+import { sendOfferReadyEmail } from '@/lib/email';
 
 export class OfferService {
   /**
@@ -106,7 +107,7 @@ export class OfferService {
         sentAt: new Date(),
       },
       include: {
-        kit: true,
+        kit: { include: { customer: true } },
       },
     });
 
@@ -126,7 +127,16 @@ export class OfferService {
       metadata: { offerId: offer.id },
     });
 
-    // TODO: Send email to customer
+    // Send email to customer
+    const customerEmail = offer.kit.customer?.email;
+    if (customerEmail) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
+      const offerUrl = `${appUrl}/account/kits/${offer.kitId}`;
+      const totalValue = parseFloat(offer.totalValue.toString());
+      sendOfferReadyEmail(customerEmail, offer.offerNumber, totalValue, offerUrl).catch(err =>
+        console.error('Failed to send offer ready email:', err)
+      );
+    }
 
     return offer;
   }

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { generatePaymentNumber } from '@/lib/db/utils';
 import type { Payment, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { ActivityService } from './activity.service';
+import { sendPaymentSentEmail } from '@/lib/email';
 
 export interface CreatePaymentInput {
   offerId: string;
@@ -120,6 +121,7 @@ export class PaymentService {
             kit: true,
           },
         },
+        customer: true,
       },
     });
 
@@ -151,6 +153,19 @@ export class PaymentService {
       description: `Payment ${payment.paymentNumber} status: ${status}`,
       metadata: { paymentId: payment.id, status },
     });
+
+    // Send email when payment is sent
+    if (status === 'SENT' && payment.customer?.email) {
+      const amount = parseFloat(payment.amount.toString());
+      const methodDisplay = payment.method.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      sendPaymentSentEmail(
+        payment.customer.email,
+        payment.paymentNumber,
+        amount,
+        methodDisplay,
+        payment.trackingNumber ?? undefined
+      ).catch(err => console.error('Failed to send payment sent email:', err));
+    }
 
     return payment;
   }
