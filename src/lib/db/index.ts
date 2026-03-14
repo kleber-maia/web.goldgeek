@@ -10,9 +10,10 @@ const globalForPrisma = globalThis as unknown as {
 if (!globalForPrisma.pool) {
   globalForPrisma.pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 2,
-    idleTimeoutMillis: 30000,
+    max: 5,
+    idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
+    allowExitOnIdle: true,
   });
 
   // Log pool errors instead of crashing the process
