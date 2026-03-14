@@ -476,6 +476,216 @@ export async function sendReturnShippedEmail(
 }
 
 /**
+ * Send offer expired email
+ */
+export async function sendOfferExpiredEmail(
+  email: string,
+  offerNumber: string,
+  kitNumber: string,
+  kitUrl: string,
+  baseUrl?: string
+): Promise<boolean> {
+  const { logoUrl, year } = getEmailDefaults(baseUrl);
+
+  const body = `
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer Has Expired</h1>
+    <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      The offer <strong style="color: #2E1F0C;">${offerNumber}</strong> for kit <strong style="color: #2E1F0C;">${kitNumber}</strong> has expired after 7 days.
+    </p>
+    <div style="background-color: #FAF7F2; border-radius: 8px; padding: 20px; text-align: center; margin: 0 0 24px 0;">
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #7A6B5D;">Don't worry — you can still contact us to discuss your items or request a new evaluation.</p>
+    </div>
+    ${ctaButton(kitUrl, 'View Kit Details')}`;
+
+  const html = emailShell('Offer Expired - Gold Geek', logoUrl, year, body);
+
+  return sendEmail({
+    to: email,
+    subject: `Offer Expired - ${kitNumber} - Gold Geek`,
+    html,
+    text: `Your Offer Has Expired\n\nOffer ${offerNumber} for kit ${kitNumber} has expired.\n\nContact us to discuss your items or request a new evaluation.\n\nView details: ${kitUrl}`,
+  });
+}
+
+/**
+ * Send kit created confirmation email
+ */
+export async function sendKitCreatedEmail(
+  email: string,
+  kitNumber: string,
+  kitType: string,
+  baseUrl?: string
+): Promise<boolean> {
+  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const accountUrl = `${appUrl}/account/kits`;
+
+  const typeLabel = kitType === 'DIGITAL' ? 'Digital Kit' : 'Physical Kit';
+  const nextStep = kitType === 'DIGITAL'
+    ? 'Print your shipping label from your dashboard and drop off your package at a FedEx location.'
+    : 'Your kit box will be shipped to you shortly. Once it arrives, place your items inside and use the prepaid return label.';
+
+  const body = `
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Kit Request Confirmed!</h1>
+    <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      Your appraisal kit <strong style="color: #2E1F0C;">${kitNumber}</strong> has been created.
+    </p>
+    <div style="background-color: #FAF7F2; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #A09488; width: 80px;">Kit</td>
+          <td style="padding: 6px 0; font-size: 14px; color: #2E1F0C; font-weight: 500;">${kitNumber}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #A09488;">Type</td>
+          <td style="padding: 6px 0; font-size: 14px; color: #2E1F0C; font-weight: 500;">${typeLabel}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="margin: 0 0 24px 0; font-size: 14px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      <strong style="color: #57370D;">Next step:</strong> ${nextStep}
+    </p>
+    ${ctaButton(accountUrl, 'View My Kits')}`;
+
+  const html = emailShell('Kit Request Confirmed - Gold Geek', logoUrl, year, body);
+
+  return sendEmail({
+    to: email,
+    subject: `Kit Request Confirmed - ${kitNumber} - Gold Geek`,
+    html,
+    text: `Kit Request Confirmed\n\nKit ${kitNumber} (${typeLabel}) has been created.\n\nNext step: ${nextStep}\n\nView your kits: ${accountUrl}`,
+  });
+}
+
+/**
+ * Send evaluation started email
+ */
+export async function sendEvaluationStartedEmail(
+  email: string,
+  kitNumber: string,
+  baseUrl?: string
+): Promise<boolean> {
+  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const kitUrl = `${appUrl}/account/kits`;
+
+  const body = `
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Evaluation Has Started!</h1>
+    <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      Our team has started evaluating the items in kit <strong style="color: #2E1F0C;">${kitNumber}</strong>.
+    </p>
+    <div style="background-color: #FAF7F2; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+      <h2 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #57370D;">What to expect</h2>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #7A6B5D; line-height: 1.5;">
+            <strong style="color: #AD7B2A;">1.</strong> Each item is carefully inspected and tested
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #7A6B5D; line-height: 1.5;">
+            <strong style="color: #AD7B2A;">2.</strong> We'll prepare a detailed offer within 24–48 hours
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #7A6B5D; line-height: 1.5;">
+            <strong style="color: #AD7B2A;">3.</strong> You'll receive an email when your offer is ready to review
+          </td>
+        </tr>
+      </table>
+    </div>
+    ${ctaButton(kitUrl, 'View Kit Status')}`;
+
+  const html = emailShell('Evaluation Started - Gold Geek', logoUrl, year, body);
+
+  return sendEmail({
+    to: email,
+    subject: `Evaluation Started - ${kitNumber} - Gold Geek`,
+    html,
+    text: `Evaluation Has Started!\n\nOur team has started evaluating the items in kit ${kitNumber}.\n\nWe'll prepare a detailed offer within 24-48 hours.\n\nView status: ${kitUrl}`,
+  });
+}
+
+/**
+ * Send admin notification when customer accepts offer
+ */
+export async function sendOfferAcceptedAdminEmail(
+  adminEmails: string[],
+  offerNumber: string,
+  kitNumber: string,
+  customerName: string,
+  totalValue: number,
+  baseUrl?: string
+): Promise<boolean> {
+  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+
+  const body = `
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Accepted</h1>
+    <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      <strong style="color: #2E1F0C;">${customerName}</strong> has accepted offer <strong style="color: #2E1F0C;">${offerNumber}</strong>.
+    </p>
+    <div style="background-color: #D1FAE5; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #065F46; width: 80px;">Offer</td>
+          <td style="padding: 6px 0; font-size: 14px; color: #065F46; font-weight: 500;">${offerNumber}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #065F46;">Kit</td>
+          <td style="padding: 6px 0; font-size: 14px; color: #065F46; font-weight: 500;">${kitNumber}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: #065F46;">Amount</td>
+          <td style="padding: 6px 0; font-size: 20px; color: #065F46; font-weight: 700;">$${totalValue.toFixed(2)}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="margin: 0 0 24px 0; font-size: 14px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      Please process the payment at your earliest convenience.
+    </p>
+    ${ctaButton(`${appUrl}/admin/payments`, 'Go to Payments')}`;
+
+  const html = emailShell('Offer Accepted - Gold Geek Admin', logoUrl, year, body);
+
+  return sendEmail({
+    to: adminEmails,
+    subject: `Offer Accepted - ${offerNumber} ($${totalValue.toFixed(2)})`,
+    html,
+    text: `Offer Accepted\n\n${customerName} accepted offer ${offerNumber} for kit ${kitNumber}.\nAmount: $${totalValue.toFixed(2)}\n\nPlease process the payment.`,
+  });
+}
+
+/**
+ * Send admin notification when customer declines offer
+ */
+export async function sendOfferDeclinedAdminEmail(
+  adminEmails: string[],
+  offerNumber: string,
+  kitNumber: string,
+  customerName: string,
+  baseUrl?: string
+): Promise<boolean> {
+  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+
+  const body = `
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Declined</h1>
+    <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
+      <strong style="color: #2E1F0C;">${customerName}</strong> has declined offer <strong style="color: #2E1F0C;">${offerNumber}</strong> for kit <strong style="color: #2E1F0C;">${kitNumber}</strong>.
+    </p>
+    <div style="background-color: #FEE2E2; border-radius: 8px; padding: 20px; text-align: center; margin: 0 0 24px 0;">
+      <p style="margin: 0; font-size: 14px; color: #991B1B;">A return has been automatically created. Please generate a return shipping label.</p>
+    </div>
+    ${ctaButton(`${appUrl}/admin/returns`, 'Go to Returns')}`;
+
+  const html = emailShell('Offer Declined - Gold Geek Admin', logoUrl, year, body);
+
+  return sendEmail({
+    to: adminEmails,
+    subject: `Offer Declined - ${offerNumber} - ${kitNumber}`,
+    html,
+    text: `Offer Declined\n\n${customerName} declined offer ${offerNumber} for kit ${kitNumber}.\n\nA return has been automatically created. Please generate a return shipping label.`,
+  });
+}
+
+/**
  * Send return delivered email (items delivered back to customer)
  */
 export async function sendReturnDeliveredEmail(

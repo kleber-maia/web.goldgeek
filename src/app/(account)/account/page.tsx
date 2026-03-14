@@ -42,7 +42,7 @@ const defaultShortcuts: Shortcut[] = [
     description: "Contact support or call 877-465-3165.",
   },
   {
-    href: "/request-appraisal",
+    href: "/account/request-kit",
     title: "Request Another Kit",
     description: "Have more items? Get another kit!",
   },

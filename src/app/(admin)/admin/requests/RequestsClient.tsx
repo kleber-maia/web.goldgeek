@@ -8,6 +8,7 @@ import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { formatCurrency } from "@/lib/db/utils";
 import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
+import { generateCSV, downloadCSV } from "@/lib/export/csv";
 
 interface Kit {
   id: string;
@@ -72,6 +73,53 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
           title="Kit Requests"
           backHref="/admin"
         />
+
+        {/* Action Bar */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginBottom: "12px" }}>
+          <Link
+            href="/admin/requests/new"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              background: "#AD7B2A",
+              color: "#fff",
+              borderRadius: "6px",
+              fontSize: "13px",
+              fontWeight: 500,
+              textDecoration: "none",
+            }}
+          >
+            + New Request
+          </Link>
+          <button
+            onClick={() => {
+              const csv = generateCSV(filteredKits, [
+                { key: "kitNumber", label: "Kit ID" },
+                { key: "customer.firstName", label: "First Name" },
+                { key: "customer.lastName", label: "Last Name" },
+                { key: "customer.email", label: "Email" },
+                { key: "type", label: "Kit Type" },
+                { key: "status", label: "Status", format: (v: string) => formatStatus(v) },
+                { key: "createdAt", label: "Date", format: (v: any) => formatDate(v) },
+                { key: "estimatedValue", label: "Value", format: (v: any) => v ? `$${parseFloat(v).toFixed(2)}` : "" },
+              ]);
+              downloadCSV(csv, `kit-requests-${new Date().toISOString().slice(0, 10)}.csv`);
+            }}
+            style={{
+              padding: "8px 14px",
+              background: "#fff",
+              color: "#2E1F0C",
+              border: "1px solid #D1D5DB",
+              borderRadius: "6px",
+              fontSize: "13px",
+              cursor: "pointer",
+            }}
+          >
+            Export CSV
+          </button>
+        </div>
 
         {/* Filter Tabs */}
         <div className="admin-filter-tabs">

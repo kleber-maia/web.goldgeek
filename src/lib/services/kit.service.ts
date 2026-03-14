@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { generateKitNumber } from '@/lib/db/utils';
 import type { Kit, KitStatus, KitType } from '@prisma/client';
 import { ActivityService } from './activity.service';
+import { sendEvaluationStartedEmail } from '@/lib/email';
 
 export interface CreateKitInput {
   customerId: string;
@@ -136,6 +137,19 @@ export class KitService {
       description: `Kit status changed to ${status}`,
       metadata: { oldStatus: kit.status, newStatus: status },
     });
+
+    // Send evaluation started email when status changes to EVALUATING
+    if (status === 'EVALUATING') {
+      const fullKit = await prisma.kit.findUnique({
+        where: { id: kitId },
+        include: { customer: true },
+      });
+      if (fullKit?.customer?.email) {
+        sendEvaluationStartedEmail(fullKit.customer.email, fullKit.kitNumber).catch(err =>
+          console.error('Failed to send evaluation started email:', err)
+        );
+      }
+    }
 
     return kit;
   }

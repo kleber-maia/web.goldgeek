@@ -175,6 +175,32 @@ export async function getAllReturns(): Promise<ActionResult> {
 }
 
 /**
+ * Get return by ID (admin only)
+ */
+export async function getReturnById(returnId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+
+    const returnRecord = await ReturnService.getById(returnId);
+
+    if (!returnRecord) {
+      return { success: false, error: 'Return not found' };
+    }
+
+    return {
+      success: true,
+      data: serializePrismaData(returnRecord),
+    };
+  } catch (error: any) {
+    console.error('Error getting return details:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get return details',
+    };
+  }
+}
+
+/**
  * Update return status (admin only)
  */
 export async function updateReturnStatus(

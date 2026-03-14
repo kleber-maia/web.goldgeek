@@ -222,6 +222,26 @@ export default async function KitDetailPage({
         </>
       )}
 
+      {/* Expired Offer Banner */}
+      {activeOffer?.status === "EXPIRED" && (
+        <div style={{
+          background: "#F3F4F6",
+          border: "1px solid #D1D5DB",
+          borderRadius: "10px",
+          padding: "16px",
+          textAlign: "center",
+          marginBottom: 16,
+        }}>
+          <p style={{ margin: "0 0 4px 0", fontSize: 15, fontWeight: 600, color: "#6B7280" }}>
+            Offer Expired
+          </p>
+          <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF" }}>
+            The offer of {formatCurrency(parseFloat(activeOffer.totalValue.toString()))} has expired.
+            Contact us at support@goldgeek.com to discuss your items.
+          </p>
+        </div>
+      )}
+
       {/* Success banners */}
       {kit.status === "ACCEPTED" && (
         <div className="account-success-banner">
@@ -341,6 +361,14 @@ export default async function KitDetailPage({
               {kit.type === "PHYSICAL" ? "Physical Kit" : "Digital"}
             </span>
           </div>
+          {kit.estimatedValue && (
+            <div className="account-kit-summary-row">
+              <span className="account-kit-summary-label">Estimated Value</span>
+              <span className="account-kit-summary-value" style={{ color: "var(--brand-primary)", fontWeight: 600 }}>
+                {formatCurrency(parseFloat(kit.estimatedValue.toString()))}
+              </span>
+            </div>
+          )}
           {kit.trackingNumber && (
             <div className="account-kit-summary-row">
               <span className="account-kit-summary-label">Tracking</span>

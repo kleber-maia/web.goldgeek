@@ -10,7 +10,7 @@ import {
   type AppraisalRequestInput,
 } from '@/lib/validators/appraisal-request';
 import { createMagicLink } from '@/lib/auth';
-import { sendMagicLinkEmail } from '@/lib/email';
+import { sendMagicLinkEmail, sendKitCreatedEmail } from '@/lib/email';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -91,6 +91,11 @@ export async function createAppraisalRequest(
         country: validated.shippingAddress.country || 'US',
       },
     });
+
+    // Send kit created confirmation email
+    sendKitCreatedEmail(normalizedEmail, kit.kitNumber, validated.kitType).catch(err =>
+      console.error('Failed to send kit created email:', err)
+    );
 
     // Create magic link for authentication
     const result = await createMagicLink(normalizedEmail);

@@ -200,7 +200,11 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                 <div key={payment.id} className="admin-card">
                   <div className="admin-card-header">
                     <div>
-                      <div className="admin-card-id">{payment.paymentNumber}</div>
+                      <div className="admin-card-id">
+                        <Link href={`/admin/payments/${payment.id}`} style={{ color: "#AD7B2A", textDecoration: "none" }}>
+                          {payment.paymentNumber}
+                        </Link>
+                      </div>
                       <div className="admin-card-name">
                         {payment.customer.firstName} {payment.customer.lastName}
                       </div>
@@ -261,7 +265,11 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                   const isThisUpdating = updatingId === payment.id;
                   return (
                     <tr key={payment.id}>
-                      <td>{payment.paymentNumber}</td>
+                      <td>
+                        <Link href={`/admin/payments/${payment.id}`} className="admin-table-link">
+                          {payment.paymentNumber}
+                        </Link>
+                      </td>
                       <td>{payment.customer.firstName} {payment.customer.lastName}</td>
                       <td>
                         <Link href={`/admin/requests/${payment.offer.kit.id}`} className="admin-table-link">

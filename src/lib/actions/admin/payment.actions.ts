@@ -130,6 +130,36 @@ export async function getAllPayments(filters?: {
 }
 
 /**
+ * Bulk update payment statuses (admin only)
+ */
+export async function bulkUpdatePaymentStatus(
+  paymentIds: string[],
+  status: PaymentStatus
+): Promise<ActionResult> {
+  try {
+    const session = await requireAdmin();
+
+    const results = await Promise.allSettled(
+      paymentIds.map((id) => PaymentService.updateStatus(id, status, session.id))
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    return {
+      success: true,
+      data: { succeeded, failed, total: paymentIds.length },
+    };
+  } catch (error: any) {
+    console.error('Error bulk updating payment status:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to bulk update payments',
+    };
+  }
+}
+
+/**
  * Get payment details (admin only)
  */
 export async function getPaymentDetails(

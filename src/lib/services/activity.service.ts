@@ -81,4 +81,83 @@ export class ActivityService {
       ...(limit && { take: limit }),
     });
   }
+
+  /**
+   * Get all events with filters and pagination
+   */
+  static async getAll(filters?: {
+    type?: EventType;
+    dateFrom?: Date;
+    dateTo?: Date;
+    kitId?: string;
+  }, pagination?: {
+    page?: number;
+    pageSize?: number;
+  }) {
+    const where: any = {};
+
+    if (filters?.type) {
+      where.type = filters.type;
+    }
+
+    if (filters?.kitId) {
+      where.kitId = filters.kitId;
+    }
+
+    if (filters?.dateFrom || filters?.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) where.createdAt.gte = filters.dateFrom;
+      if (filters.dateTo) where.createdAt.lte = filters.dateTo;
+    }
+
+    const page = pagination?.page || 1;
+    const pageSize = pagination?.pageSize || 50;
+
+    const [events, total] = await Promise.all([
+      prisma.timelineEvent.findMany({
+        where,
+        include: {
+          kit: {
+            include: {
+              customer: true,
+            },
+          },
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.timelineEvent.count({ where }),
+    ]);
+
+    return { events, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  /**
+   * Get all events for a customer's kits
+   */
+  static async getCustomerEvents(customerId: string, limit: number = 50): Promise<TimelineEvent[]> {
+    return prisma.timelineEvent.findMany({
+      where: {
+        kit: {
+          customerId,
+        },
+      },
+      include: {
+        kit: {
+          select: {
+            id: true,
+            kitNumber: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+  }
 }

@@ -192,7 +192,9 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                 <div key={returnItem.id} className="admin-card">
                   <div className="admin-card-header">
                     <div>
-                      <div className="admin-card-id">{returnItem.returnNumber}</div>
+                      <Link href={`/admin/returns/${returnItem.id}`} style={{ color: "#AD7B2A", textDecoration: "none", fontWeight: 600 }}>
+                        <div className="admin-card-id">{returnItem.returnNumber}</div>
+                      </Link>
                       <div className="admin-card-name">
                         {returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}
                       </div>
@@ -253,7 +255,11 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                   const isThisUpdating = updatingId === returnItem.id;
                   return (
                     <tr key={returnItem.id}>
-                      <td>{returnItem.returnNumber}</td>
+                      <td>
+                        <Link href={`/admin/returns/${returnItem.id}`} className="admin-table-link">
+                          {returnItem.returnNumber}
+                        </Link>
+                      </td>
                       <td>{returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}</td>
                       <td>
                         <Link href={`/admin/requests/${returnItem.kit.id}`} className="admin-table-link">

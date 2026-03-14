@@ -21,6 +21,7 @@ import {
   type AddressInput,
   type PaymentPreferencesInput,
 } from '@/lib/validators/customer';
+import { sendOfferAcceptedAdminEmail, sendOfferDeclinedAdminEmail, sendKitCreatedEmail } from '@/lib/email';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -159,6 +160,25 @@ export async function acceptOffer(
       );
     }
 
+    // Notify admins
+    const offerWithKit = await OfferService.getById(offerId);
+    if (offerWithKit) {
+      const adminUsers = await prisma.user.findMany({ select: { email: true } });
+      const adminEmails = adminUsers.map((u) => u.email);
+      if (adminEmails.length > 0) {
+        const customerName = offerWithKit.kit.customer
+          ? `${offerWithKit.kit.customer.firstName} ${offerWithKit.kit.customer.lastName}`.trim()
+          : 'Customer';
+        sendOfferAcceptedAdminEmail(
+          adminEmails,
+          offerWithKit.offerNumber,
+          offerWithKit.kit.kitNumber,
+          customerName,
+          parseFloat(offerWithKit.totalValue.toString()),
+        ).catch(err => console.error('Failed to send offer accepted admin email:', err));
+      }
+    }
+
     return {
       success: true,
       data: serializePrismaData(offer),
@@ -192,6 +212,21 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
         },
         session.id
       );
+
+      // Notify admins
+      const adminUsers = await prisma.user.findMany({ select: { email: true } });
+      const adminEmails = adminUsers.map((u) => u.email);
+      if (adminEmails.length > 0) {
+        const customerName = offerWithKit.kit.customer
+          ? `${offerWithKit.kit.customer.firstName} ${offerWithKit.kit.customer.lastName}`.trim()
+          : 'Customer';
+        sendOfferDeclinedAdminEmail(
+          adminEmails,
+          offerWithKit.offerNumber,
+          offerWithKit.kit.kitNumber,
+          customerName,
+        ).catch(err => console.error('Failed to send offer declined admin email:', err));
+      }
     }
 
     return {
@@ -638,6 +673,82 @@ export async function getMyReturns(): Promise<ActionResult> {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get returns';
     console.error('Error getting returns:', error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Create a kit from the logged-in customer dashboard
+ */
+export async function createKitFromAccount(data: {
+  kitType: 'PHYSICAL' | 'DIGITAL';
+  estimatedValue?: number;
+  notes?: string;
+  shippingAddress: {
+    type: 'shipping' | 'billing';
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country?: string;
+    isDefault?: boolean;
+  };
+}): Promise<ActionResult> {
+  try {
+    const session = await requireCustomer();
+
+    const customer = await CustomerService.getById(session.id);
+    if (!customer) {
+      return { success: false, error: 'Customer not found' };
+    }
+
+    // Add address if customer has none, or use the provided one
+    const existingShipping = customer.addresses.find(
+      (a) => a.type === 'shipping'
+    );
+    if (!existingShipping && data.shippingAddress) {
+      await CustomerService.addAddress(session.id, {
+        type: data.shippingAddress.type,
+        street1: data.shippingAddress.street1,
+        street2: data.shippingAddress.street2,
+        city: data.shippingAddress.city,
+        state: data.shippingAddress.state,
+        zipCode: data.shippingAddress.zipCode,
+        country: data.shippingAddress.country || 'US',
+        isDefault: true,
+      });
+    }
+
+    const kit = await KitService.create({
+      customerId: session.id,
+      type: data.kitType,
+      estimatedValue: data.estimatedValue,
+      notes: data.notes,
+      shippingAddress: {
+        street1: data.shippingAddress.street1,
+        street2: data.shippingAddress.street2,
+        city: data.shippingAddress.city,
+        state: data.shippingAddress.state,
+        zipCode: data.shippingAddress.zipCode,
+        country: data.shippingAddress.country || 'US',
+      },
+    });
+
+    // Send confirmation email
+    if (customer.email) {
+      sendKitCreatedEmail(customer.email, kit.kitNumber, data.kitType).catch(err =>
+        console.error('Failed to send kit created email:', err)
+      );
+    }
+
+    return {
+      success: true,
+      data: serializePrismaData(kit),
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create kit';
+    console.error('Error creating kit from account:', error);
     return { success: false, error: message };
   }
 }
