@@ -32,11 +32,13 @@ interface CustomerView {
 interface SettingsClientProps {
   customer: CustomerView;
   defaultPaymentMethod: PaymentMethod;
+  savedAccountInfo?: Record<string, string>;
 }
 
 export default function SettingsClient({
   customer,
   defaultPaymentMethod,
+  savedAccountInfo = {},
 }: SettingsClientProps) {
   const router = useRouter();
 
@@ -63,10 +65,10 @@ export default function SettingsClient({
   // Payment preferences state
   const [selectedMethod, setSelectedMethod] =
     useState<PaymentMethod>(defaultPaymentMethod);
-  const [paypalEmail, setPaypalEmail] = useState("");
-  const [zellePhone, setZellePhone] = useState("");
-  const [bankRouting, setBankRouting] = useState("");
-  const [bankAccount, setBankAccount] = useState("");
+  const [paypalEmail, setPaypalEmail] = useState(savedAccountInfo.paypalEmail || "");
+  const [zellePhone, setZellePhone] = useState(savedAccountInfo.zellePhone || "");
+  const [bankRouting, setBankRouting] = useState(savedAccountInfo.bankRouting || "");
+  const [bankAccount, setBankAccount] = useState(savedAccountInfo.bankAccount || "");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"success" | "error" | null>(null);
@@ -191,6 +193,7 @@ export default function SettingsClient({
       if (result.success) {
         setSaveMessage("Payment preferences saved!");
         setSaveStatus("success");
+        router.refresh();
       } else {
         setSaveMessage(result.error || "Failed to save payment preferences.");
         setSaveStatus("error");

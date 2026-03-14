@@ -28,21 +28,31 @@ export default async function SettingsPage() {
     customer.addresses.find((address) => address.type === "shipping") ||
     customer.addresses[0];
 
-  const lastPayment = await prisma.payment.findFirst({
-    where: { customerId: customer.id },
-    orderBy: { createdAt: "desc" },
-    select: { method: true },
-  });
+  // Read saved preferences from customer record first, fall back to last payment
+  const allowedMethods = new Set<PaymentMethod>(["CHECK", "PAYPAL", "ZELLE", "ACH"]);
+  const savedPrefs = customer.paymentPreferences as {
+    method?: string;
+    accountInfo?: Record<string, string>;
+  } | null;
 
-  const allowedMethods = new Set<PaymentMethod>([
-    "CHECK",
-    "PAYPAL",
-    "ZELLE",
-    "ACH",
-  ]);
-  const lastMethod = lastPayment?.method as PaymentMethod | undefined;
-  const defaultPaymentMethod =
-    lastMethod && allowedMethods.has(lastMethod) ? lastMethod : "CHECK";
+  let defaultPaymentMethod: PaymentMethod = "CHECK";
+  let savedAccountInfo: Record<string, string> = {};
+
+  if (savedPrefs?.method && allowedMethods.has(savedPrefs.method as PaymentMethod)) {
+    defaultPaymentMethod = savedPrefs.method as PaymentMethod;
+    savedAccountInfo = savedPrefs.accountInfo || {};
+  } else {
+    // Fall back to last payment method if no saved preferences
+    const lastPayment = await prisma.payment.findFirst({
+      where: { customerId: customer.id },
+      orderBy: { createdAt: "desc" },
+      select: { method: true },
+    });
+    const lastMethod = lastPayment?.method as PaymentMethod | undefined;
+    if (lastMethod && allowedMethods.has(lastMethod)) {
+      defaultPaymentMethod = lastMethod;
+    }
+  }
 
   return (
     <SettingsClient
@@ -63,6 +73,7 @@ export default async function SettingsPage() {
           : undefined,
       }}
       defaultPaymentMethod={defaultPaymentMethod}
+      savedAccountInfo={savedAccountInfo}
     />
   );
 }
