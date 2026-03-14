@@ -16,6 +16,10 @@ interface Customer {
   lastName: string;
   phone: string | null;
   createdAt: Date | string;
+  paymentPreferences?: {
+    method?: string;
+    accountInfo?: Record<string, string>;
+  } | null;
   addresses: Array<{
     id: string;
     street1: string;
@@ -43,6 +47,14 @@ interface Customer {
     offer: { kit: { kitNumber: string } };
   }>;
 }
+
+const METHOD_LABELS: Record<string, string> = {
+  CHECK: "Check",
+  ACH: "Bank Transfer",
+  ZELLE: "Zelle",
+  PAYPAL: "PayPal",
+  VENMO: "Venmo",
+};
 
 export default function CustomerDetailClient({ customer }: { customer: Customer }) {
   const router = useRouter();
@@ -376,6 +388,49 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
             </div>
           </div>
         </div>
+
+        {/* Payment Preferences */}
+        {customer.paymentPreferences?.method && (
+          <div className="admin-section">
+            <div className="admin-section-title">Payment Preferences</div>
+            <div className="admin-info-grid">
+              <div>
+                <div className="admin-info-label">Preferred Method</div>
+                <div className="admin-info-value">
+                  {METHOD_LABELS[customer.paymentPreferences.method] || customer.paymentPreferences.method}
+                </div>
+              </div>
+              {customer.paymentPreferences.accountInfo?.paypalEmail && (
+                <div>
+                  <div className="admin-info-label">PayPal Email</div>
+                  <div className="admin-info-value">{customer.paymentPreferences.accountInfo.paypalEmail}</div>
+                </div>
+              )}
+              {customer.paymentPreferences.accountInfo?.zellePhone && (
+                <div>
+                  <div className="admin-info-label">Zelle Phone/Email</div>
+                  <div className="admin-info-value">{customer.paymentPreferences.accountInfo.zellePhone}</div>
+                </div>
+              )}
+              {customer.paymentPreferences.accountInfo?.bankRouting && (
+                <div>
+                  <div className="admin-info-label">Routing Number</div>
+                  <div className="admin-info-value" style={{ fontFamily: "monospace" }}>
+                    {customer.paymentPreferences.accountInfo.bankRouting}
+                  </div>
+                </div>
+              )}
+              {customer.paymentPreferences.accountInfo?.bankAccount && (
+                <div>
+                  <div className="admin-info-label">Account Number</div>
+                  <div className="admin-info-value" style={{ fontFamily: "monospace" }}>
+                    {customer.paymentPreferences.accountInfo.bankAccount}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Kits */}
         <div className="admin-section">
