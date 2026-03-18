@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Gold Geek is a precious metals and jewelry buying platform, converted from WordPress/Elementor to Next.js. The public site retains Elementor CSS classes; the dashboards use Tailwind CSS.
 
+**Key Documentation:**
+- [Kit Lifecycle](docs/kit-lifecycle.md) — Full appraisal kit lifecycle: actors, phases, diagrams, all test scenarios, and known gaps
+
 ## Three Products (CRITICAL — Read Before Any Change)
 
 This project contains 3 distinct products sharing one codebase:
