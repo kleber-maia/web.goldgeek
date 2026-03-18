@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { ConfirmDialog } from "@/components/shared";
 import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 import { updateReturnStatus, generateReturnFedExLabel } from "@/lib/actions/admin/shipping.actions";
 import { formatCurrency } from "@/lib/db/utils";
@@ -98,6 +99,7 @@ export default function ReturnDetailClient({
   const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState(returnData.trackingNumber || "");
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const [confirmType, setConfirmType] = useState<"status" | "label" | null>(null);
 
   const initials = `${returnData.kit.customer.firstName.charAt(0)}${returnData.kit.customer.lastName.charAt(0)}`;
   const nextStatus = STATUS_FLOW[returnData.status] || null;
@@ -110,11 +112,14 @@ export default function ReturnDetailClient({
     }
   };
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = () => {
     if (!nextStatus) return;
-    const label = STATUS_BUTTON_LABELS[nextStatus] || `Update to ${formatStatus(nextStatus)}`;
-    if (!confirm(`${label}?`)) return;
+    setConfirmType("status");
+  };
 
+  const executeUpdateStatus = async () => {
+    if (!nextStatus) return;
+    setConfirmType(null);
     setIsUpdating(true);
     try {
       const result = await updateReturnStatus(returnData.id, nextStatus as any);
@@ -131,9 +136,12 @@ export default function ReturnDetailClient({
     }
   };
 
-  const handleGenerateLabel = async () => {
-    if (!confirm("Generate a FedEx return label for this kit?")) return;
+  const handleGenerateLabel = () => {
+    setConfirmType("label");
+  };
 
+  const executeGenerateLabel = async () => {
+    setConfirmType(null);
     setIsGeneratingLabel(true);
     try {
       const result = await generateReturnFedExLabel(returnData.kit.id);
@@ -551,6 +559,24 @@ export default function ReturnDetailClient({
       </main>
 
       <AdminBottomNav />
+
+      <ConfirmDialog
+        isOpen={confirmType === "status"}
+        title="Update Return Status"
+        message={nextStatus ? `${STATUS_BUTTON_LABELS[nextStatus] || `Update to ${formatStatus(nextStatus)}`}?` : ""}
+        confirmLabel={nextStatus ? STATUS_BUTTON_LABELS[nextStatus] || "Confirm" : "Confirm"}
+        variant="warning"
+        onConfirm={executeUpdateStatus}
+        onCancel={() => setConfirmType(null)}
+      />
+      <ConfirmDialog
+        isOpen={confirmType === "label"}
+        title="Generate Return Label"
+        message="Generate a FedEx return label for this kit?"
+        confirmLabel="Generate Label"
+        onConfirm={executeGenerateLabel}
+        onCancel={() => setConfirmType(null)}
+      />
     </div>
   );
 }

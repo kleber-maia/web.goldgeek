@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { SettingsService } from '@/lib/services/settings.service';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -7,6 +8,27 @@ export interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
+  from?: string;
+}
+
+/**
+ * Load email configuration from company settings.
+ * Returns the sender address and website URL for links.
+ */
+async function getEmailConfig() {
+  try {
+    const settings = await SettingsService.getCompanySettings();
+    const fromEmail = settings?.email
+      ? `${settings.name || 'Gold Geek'} <${settings.email}>`
+      : process.env.EMAIL_FROM || 'Gold Geek <noreply@goldgeek.com>';
+    const websiteUrl = process.env.WEBSITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
+    return { fromEmail, websiteUrl };
+  } catch {
+    return {
+      fromEmail: process.env.EMAIL_FROM || 'Gold Geek <noreply@goldgeek.com>',
+      websiteUrl: process.env.WEBSITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com',
+    };
+  }
 }
 
 /**
@@ -14,8 +36,14 @@ export interface EmailOptions {
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
+    let from = options.from;
+    if (!from) {
+      const config = await getEmailConfig();
+      from = config.fromEmail;
+    }
+
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'noreply@goldgeek.com',
+      from,
       to: Array.isArray(options.to) ? options.to : [options.to],
       subject: options.subject,
       html: options.html,
@@ -37,8 +65,9 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
 // --- Template helpers ---
 
-function getEmailDefaults(baseUrl?: string) {
-  const appUrl = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
+async function getEmailDefaults(baseUrl?: string) {
+  const config = await getEmailConfig();
+  const appUrl = baseUrl || config.websiteUrl;
   const logoUrl = `${appUrl}/images/logos/GoldGeekLogo-horizontal.png`;
   const year = new Date().getFullYear();
   return { appUrl, logoUrl, year };
@@ -108,9 +137,9 @@ export async function sendMagicLinkEmail(
   magicLinkUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const appUrl = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
-  const logoUrl = `${appUrl}/images/logos/GoldGeekLogo-horizontal.png`;
-  const year = new Date().getFullYear();
+  const defaults = await getEmailDefaults(baseUrl);
+  const logoUrl = defaults.logoUrl;
+  const year = defaults.year;
 
   const html = `
     <!DOCTYPE html>
@@ -199,7 +228,7 @@ export async function sendOfferReadyEmail(
   offerUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = getEmailDefaults(baseUrl);
+  const { logoUrl, year } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer is Ready!</h1>
@@ -236,7 +265,7 @@ export async function sendPaymentSentEmail(
   trackingNumber?: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = getEmailDefaults(baseUrl);
+  const { logoUrl, year } = await getEmailDefaults(baseUrl);
 
   const trackingRow = trackingNumber
     ? `<tr>
@@ -289,7 +318,7 @@ export async function sendKitReceivedEmail(
   kitNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
   const kitUrl = `${appUrl}/account/kits`;
 
   const body = `
@@ -338,7 +367,7 @@ export async function sendKitShippedToCustomerEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = getEmailDefaults(baseUrl);
+  const { logoUrl, year } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -386,7 +415,7 @@ export async function sendPackageInTransitEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = getEmailDefaults(baseUrl);
+  const { logoUrl, year } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -435,7 +464,7 @@ export async function sendReturnShippedEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = getEmailDefaults(baseUrl);
+  const { logoUrl, year } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -485,7 +514,7 @@ export async function sendOfferExpiredEmail(
   kitUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = getEmailDefaults(baseUrl);
+  const { logoUrl, year } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer Has Expired</h1>
@@ -516,7 +545,7 @@ export async function sendKitCreatedEmail(
   kitType: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
   const accountUrl = `${appUrl}/account/kits`;
 
   const typeLabel = kitType === 'DIGITAL' ? 'Digital Kit' : 'Physical Kit';
@@ -564,7 +593,7 @@ export async function sendEvaluationStartedEmail(
   kitNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
   const kitUrl = `${appUrl}/account/kits`;
 
   const body = `
@@ -615,7 +644,7 @@ export async function sendOfferAcceptedAdminEmail(
   totalValue: number,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Accepted</h1>
@@ -663,7 +692,7 @@ export async function sendOfferDeclinedAdminEmail(
   customerName: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Declined</h1>
@@ -694,7 +723,7 @@ export async function sendReturnDeliveredEmail(
   returnNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
   const accountUrl = `${appUrl}/account/kits`;
 
   const body = `

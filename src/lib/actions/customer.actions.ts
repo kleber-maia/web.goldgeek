@@ -141,7 +141,9 @@ export async function acceptOffer(
       ? paymentMethod
       : 'CHECK';
 
-    const offer = await OfferService.accept(offerId, session.id);
+    // Pass undefined for userId — session.id is a Customer ID, not a User (admin) ID.
+    // TimelineEvent.userId is a FK to the User table (admins only).
+    const offer = await OfferService.accept(offerId, undefined);
 
     const existingPayment = await prisma.payment.findUnique({
       where: { offerId },
@@ -156,7 +158,7 @@ export async function acceptOffer(
           amount: parseFloat(offer.totalValue.toString()),
           method,
         },
-        session.id
+        undefined
       );
     }
 
@@ -200,7 +202,8 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
   try {
     const session = await requireCustomer();
 
-    const offer = await OfferService.decline(offerId, session.id);
+    // Pass undefined for userId — session.id is a Customer ID, not a User (admin) ID.
+    const offer = await OfferService.decline(offerId, undefined);
 
     // Create return for declined offer
     const offerWithKit = await OfferService.getById(offerId);
@@ -210,7 +213,7 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
           kitId: offerWithKit.kitId,
           reason: 'Customer declined offer',
         },
-        session.id
+        undefined
       );
 
       // Notify admins

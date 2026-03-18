@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
+import { ConfirmDialog } from "@/components/shared";
 import { formatCurrency } from "@/lib/db/utils";
 import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from "@/lib/admin-utils";
 import { sendOffer } from "@/lib/actions/admin/offer.actions";
@@ -117,6 +118,7 @@ export default function OfferDetailClient({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"send" | "resend" | null>(null);
 
   const totalValue = parseFloat(offer.totalValue.toString());
   const initials = `${offer.kit.customer.firstName.charAt(0)}${offer.kit.customer.lastName.charAt(0)}`;
@@ -129,14 +131,17 @@ export default function OfferDetailClient({
     }
   };
 
-  const handleSendOffer = async () => {
-    if (!confirm("Send this offer to the customer?")) return;
+  const handleSendOffer = () => setConfirmAction("send");
+  const handleResendOffer = () => setConfirmAction("resend");
 
+  const executeSendOffer = async () => {
+    const action = confirmAction;
+    setConfirmAction(null);
     setIsSubmitting(true);
     try {
       const result = await sendOffer(offer.id);
       if (result.success) {
-        showFeedback("success", "Offer sent to customer!");
+        showFeedback("success", action === "resend" ? "Offer resent to customer!" : "Offer sent to customer!");
         router.refresh();
       } else {
         showFeedback("error", result.error || "Failed to send offer");
@@ -144,26 +149,6 @@ export default function OfferDetailClient({
     } catch (error) {
       console.error("Error sending offer:", error);
       showFeedback("error", "Failed to send offer");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResendOffer = async () => {
-    if (!confirm("Resend this offer to the customer?")) return;
-
-    setIsSubmitting(true);
-    try {
-      const result = await sendOffer(offer.id);
-      if (result.success) {
-        showFeedback("success", "Offer resent to customer!");
-        router.refresh();
-      } else {
-        showFeedback("error", result.error || "Failed to resend offer");
-      }
-    } catch (error) {
-      console.error("Error resending offer:", error);
-      showFeedback("error", "Failed to resend offer");
     } finally {
       setIsSubmitting(false);
     }
@@ -534,6 +519,15 @@ export default function OfferDetailClient({
       </main>
 
       <AdminBottomNav />
+
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        title={confirmAction === "resend" ? "Resend Offer" : "Send Offer"}
+        message={confirmAction === "resend" ? "Resend this offer to the customer?" : "Send this offer to the customer?"}
+        confirmLabel={confirmAction === "resend" ? "Resend" : "Send"}
+        onConfirm={executeSendOffer}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

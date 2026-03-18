@@ -130,7 +130,7 @@ export class OfferService {
     // Send email to customer
     const customerEmail = offer.kit.customer?.email;
     if (customerEmail) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
+      const appUrl = process.env.WEBSITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
       const offerUrl = `${appUrl}/account/kits/${offer.kitId}`;
       const totalValue = parseFloat(offer.totalValue.toString());
       sendOfferReadyEmail(customerEmail, offer.offerNumber, totalValue, offerUrl).catch(err =>

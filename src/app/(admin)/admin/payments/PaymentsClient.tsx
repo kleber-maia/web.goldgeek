@@ -7,6 +7,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { formatCurrency } from "@/lib/db/utils";
+import { ConfirmDialog } from "@/components/shared";
 import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 import { updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
 
@@ -87,6 +88,7 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [pendingUpdate, setPendingUpdate] = useState<{ id: string; status: string } | null>(null);
 
   useEffect(() => {
     if (successMsg) {
@@ -107,12 +109,17 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
     return matchesFilter && matchesSearch;
   });
 
-  const handleUpdateStatus = async (paymentId: string, newStatus: string) => {
-    const statusLabel = STATUS_LABELS[newStatus] || newStatus;
+  const handleUpdateStatus = (paymentId: string, newStatus: string) => {
     if (newStatus === "SENT" || newStatus === "COMPLETED") {
-      if (!confirm(`Are you sure you want to ${statusLabel.toLowerCase()} this payment?`)) return;
+      setPendingUpdate({ id: paymentId, status: newStatus });
+      return;
     }
+    executeUpdateStatus(paymentId, newStatus);
+  };
 
+  const executeUpdateStatus = async (paymentId: string, newStatus: string) => {
+    setPendingUpdate(null);
+    const statusLabel = STATUS_LABELS[newStatus] || newStatus;
     setUpdatingId(paymentId);
     setErrorMsg("");
     try {
@@ -306,6 +313,16 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
       </main>
 
       <AdminBottomNav />
+
+      <ConfirmDialog
+        isOpen={!!pendingUpdate}
+        title="Confirm Payment Update"
+        message={pendingUpdate ? `Are you sure you want to ${(STATUS_LABELS[pendingUpdate.status] || pendingUpdate.status).toLowerCase()} this payment?` : ""}
+        confirmLabel={pendingUpdate ? STATUS_LABELS[pendingUpdate.status] || "Confirm" : "Confirm"}
+        variant="warning"
+        onConfirm={() => pendingUpdate && executeUpdateStatus(pendingUpdate.id, pendingUpdate.status)}
+        onCancel={() => setPendingUpdate(null)}
+      />
     </div>
   );
 }

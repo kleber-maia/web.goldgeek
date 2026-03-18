@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { ConfirmDialog } from "@/components/shared";
 import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 import { voidShippingLabel } from "@/lib/actions/admin/shipping.actions";
 
@@ -62,6 +63,7 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [confirmVoidId, setConfirmVoidId] = useState<string | null>(null);
 
   useEffect(() => {
     if (successMsg) {
@@ -103,15 +105,17 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
     return 0;
   };
 
-  const handleVoid = async (labelId: string) => {
-    if (!confirm("Are you sure you want to void this shipping label? This action cannot be undone.")) {
-      return;
-    }
+  const handleVoid = (labelId: string) => {
+    setConfirmVoidId(labelId);
+  };
 
-    setVoidingId(labelId);
+  const executeVoid = async () => {
+    if (!confirmVoidId) return;
+    setConfirmVoidId(null);
+    setVoidingId(confirmVoidId);
     setErrorMsg("");
     try {
-      const result = await voidShippingLabel(labelId);
+      const result = await voidShippingLabel(confirmVoidId);
       if (result.success) {
         setSuccessMsg("Shipping label voided successfully");
         router.refresh();
@@ -325,6 +329,16 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
       </main>
 
       <AdminBottomNav />
+
+      <ConfirmDialog
+        isOpen={!!confirmVoidId}
+        title="Void Shipping Label"
+        message="Are you sure you want to void this shipping label? This action cannot be undone."
+        confirmLabel="Void Label"
+        variant="danger"
+        onConfirm={executeVoid}
+        onCancel={() => setConfirmVoidId(null)}
+      />
     </div>
   );
 }

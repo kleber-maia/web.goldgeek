@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, PaymentOption } from "@/components/account";
+import { AlertDialog } from "@/components/shared";
 import {
   formatCurrency,
   PaymentMethod,
@@ -46,6 +47,7 @@ export default function AcceptOfferPage() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("CHECK");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorAlert, setErrorAlert] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -83,7 +85,7 @@ export default function AcceptOfferPage() {
       }
     } catch (error) {
       console.error("Error accepting offer:", error);
-      alert("Something went wrong. Please try again.");
+      setErrorAlert(true);
       setIsSubmitting(false);
     }
   };
@@ -190,6 +192,12 @@ export default function AcceptOfferPage() {
         </svg>
         {`Confirm & Accept - ${formatCurrency(summary.offerValue)}`}
       </button>
+      <AlertDialog
+        isOpen={errorAlert}
+        title="Error"
+        message="Something went wrong. Please try again."
+        onClose={() => setErrorAlert(false)}
+      />
     </AccountContainer>
   );
 }

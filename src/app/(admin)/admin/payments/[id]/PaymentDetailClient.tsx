@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { formatCurrency } from "@/lib/db/utils";
+import { ConfirmDialog } from "@/components/shared";
 import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 import {
   updatePaymentStatus,
@@ -117,6 +118,7 @@ export default function PaymentDetailClient({
     type: "error" | "success";
     message: string;
   } | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   const [trackingNumber, setTrackingNumber] = useState(
     payment.trackingNumber || ""
@@ -136,11 +138,14 @@ export default function PaymentDetailClient({
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    const statusLabel = STATUS_LABELS[newStatus] || newStatus;
-    if (!confirm(`Are you sure you want to ${statusLabel.toLowerCase()} this payment?`))
-      return;
+  const handleUpdateStatus = (newStatus: string) => {
+    setPendingStatus(newStatus);
+  };
 
+  const executeUpdateStatus = async () => {
+    if (!pendingStatus) return;
+    const newStatus = pendingStatus;
+    setPendingStatus(null);
     setIsSubmitting(true);
     try {
       const result = await updatePaymentStatus(payment.id, newStatus as any);
@@ -605,6 +610,16 @@ export default function PaymentDetailClient({
       </main>
 
       <AdminBottomNav />
+
+      <ConfirmDialog
+        isOpen={!!pendingStatus}
+        title="Confirm Payment Update"
+        message={pendingStatus ? `Are you sure you want to ${(STATUS_LABELS[pendingStatus] || pendingStatus).toLowerCase()} this payment?` : ""}
+        confirmLabel={pendingStatus ? STATUS_LABELS[pendingStatus] || "Confirm" : "Confirm"}
+        variant="warning"
+        onConfirm={executeUpdateStatus}
+        onCancel={() => setPendingStatus(null)}
+      />
     </div>
   );
 }

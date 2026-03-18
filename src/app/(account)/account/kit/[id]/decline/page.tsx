@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
+import { AlertDialog } from "@/components/shared";
 import {
   formatCurrency,
 } from "@/lib/account";
@@ -24,6 +25,7 @@ export default function DeclineOfferPage() {
   const [summary, setSummary] = useState<OfferSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorAlert, setErrorAlert] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,7 +67,7 @@ export default function DeclineOfferPage() {
       }
     } catch (error) {
       console.error("Error declining offer:", error);
-      alert("Something went wrong. Please try again.");
+      setErrorAlert(true);
       setIsSubmitting(false);
     }
   };
@@ -185,6 +187,12 @@ export default function DeclineOfferPage() {
         Your items will be shipped back to your registered address within 5-7
         business days.
       </p>
+      <AlertDialog
+        isOpen={errorAlert}
+        title="Error"
+        message="Something went wrong. Please try again."
+        onClose={() => setErrorAlert(false)}
+      />
     </AccountContainer>
   );
 }
