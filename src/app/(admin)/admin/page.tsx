@@ -5,21 +5,9 @@ import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
-import { prisma } from "@/lib/db";
 import { formatCurrency } from "@/lib/db/utils";
-import { ActivityService } from "@/lib/services/activity.service";
-import { formatDescription } from "@/lib/admin-utils";
-
-function getTimeAgo(date: Date): string {
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-  if (seconds < 172800) return "Yesterday";
-  return `${Math.floor(seconds / 86400)} days ago`;
-}
+import { getAnalytics } from "@/lib/actions/admin/analytics.actions";
+import { formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
 
 export default async function AdminDashboard() {
   const session = await getSession();
@@ -32,39 +20,8 @@ export default async function AdminDashboard() {
     return <AccessDenied userType={session.type} />;
   }
 
-  // Get stats
-  const [newRequests, inTransit, pendingOffers, thisMonthPayments] = await Promise.all([
-    prisma.kit.count({ where: { status: { in: ["PENDING", "KIT_SENT"] } } }),
-    prisma.kit.count({ where: { status: "IN_TRANSIT" } }),
-    prisma.offer.count({ where: { status: "SENT" } }),
-    prisma.payment.aggregate({
-      where: {
-        status: "COMPLETED",
-        completedAt: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        },
-      },
-      _sum: { amount: true },
-    }),
-  ]);
-
-  const monthlyRevenue = thisMonthPayments._sum.amount || 0;
-
-  // Get recent activity
-  const recentEvents = await ActivityService.getRecentEvents(6);
-
-  const stats = {
-    newRequests,
-    inTransit,
-    pendingOffers,
-    monthlyRevenue: formatCurrency(parseFloat(monthlyRevenue.toString())),
-  };
-
-  const recentActivity = recentEvents.map((event) => ({
-    id: event.id,
-    content: formatDescription(event.description || event.title),
-    time: getTimeAgo(event.createdAt),
-  }));
+  const analyticsResult = await getAnalytics();
+  const analytics = analyticsResult.success ? analyticsResult.data! : null;
 
   return (
     <div className="admin-container">
@@ -72,26 +29,6 @@ export default async function AdminDashboard() {
 
       <main className="admin-main">
         <AdminHeader title="Admin" />
-
-        {/* Stats Grid */}
-        <div className="admin-stats-grid">
-          <Link href="/admin/requests?status=pending" className="admin-stat-card" style={{ textDecoration: "none", display: "block" }}>
-            <div className="admin-stat-label">New Requests</div>
-            <div className="admin-stat-value">{stats.newRequests}</div>
-          </Link>
-          <Link href="/admin/requests?status=in_transit" className="admin-stat-card" style={{ textDecoration: "none", display: "block" }}>
-            <div className="admin-stat-label">In Transit</div>
-            <div className="admin-stat-value">{stats.inTransit}</div>
-          </Link>
-          <Link href="/admin/offers?status=sent" className="admin-stat-card" style={{ textDecoration: "none", display: "block" }}>
-            <div className="admin-stat-label">Pending Offers</div>
-            <div className="admin-stat-value">{stats.pendingOffers}</div>
-          </Link>
-          <Link href="/admin/payments?status=completed" className="admin-stat-card primary" style={{ textDecoration: "none", display: "block" }}>
-            <div className="admin-stat-label">This Month</div>
-            <div className="admin-stat-value">{stats.monthlyRevenue}</div>
-          </Link>
-        </div>
 
         {/* Quick Actions */}
         <div className="admin-quick-actions">
@@ -115,25 +52,116 @@ export default async function AdminDashboard() {
           </Link>
         </div>
 
-        {/* Recent Activity */}
-        <div className="admin-section-header">
-          <h2 className="admin-section-title">Recent Activity</h2>
-        </div>
-
-        <div className="admin-activity-list">
-          {recentActivity.length === 0 ? (
-            <div className="admin-activity-card">
-              <div className="admin-activity-content">No recent activity</div>
-            </div>
-          ) : (
-            recentActivity.map((activity) => (
-              <div key={activity.id} className="admin-activity-card">
-                <div className="admin-activity-content">{activity.content}</div>
-                <div className="admin-activity-time">{activity.time}</div>
+        {analytics ? (
+          <>
+            {/* Analytics Summary */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "24px" }}>
+              <div className="admin-section" style={{ marginBottom: 0, padding: "16px", textAlign: "center" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Kits</p>
+                <p style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#AD7B2A" }}>{analytics.summary.totalKits}</p>
+                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#9CA3AF" }}>{analytics.summary.activeKits} active</p>
               </div>
-            ))
-          )}
-        </div>
+              <div className="admin-section" style={{ marginBottom: 0, padding: "16px", textAlign: "center" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Revenue</p>
+                <p style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#AD7B2A" }}>{formatCurrency(analytics.summary.totalRevenue)}</p>
+              </div>
+              <div className="admin-section" style={{ marginBottom: 0, padding: "16px", textAlign: "center" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Conversion</p>
+                <p style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#AD7B2A" }}>{analytics.summary.conversionRate}%</p>
+                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#9CA3AF" }}>offers &rarr; paid</p>
+              </div>
+              <div className="admin-section" style={{ marginBottom: 0, padding: "16px", textAlign: "center" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Avg Processing</p>
+                <p style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#AD7B2A" }}>{analytics.summary.avgProcessingDays}d</p>
+                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#9CA3AF" }}>received &rarr; complete</p>
+              </div>
+            </div>
+
+            {/* Charts */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+              <div className="admin-section" style={{ marginBottom: 0, padding: "16px" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>Kit Volume (6 mo)</h3>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "120px" }}>
+                  {analytics.kitsByMonth.map((item, i) => {
+                    const max = Math.max(...analytics.kitsByMonth.map(d => d.count), 1);
+                    return (
+                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                        <span style={{ fontSize: "10px", color: "#6B7280" }}>{item.count}</span>
+                        <div style={{ width: "100%", maxWidth: "40px", height: `${Math.max((item.count / max) * 80, 4)}px`, background: "#AD7B2A", borderRadius: "4px 4px 0 0" }} />
+                        <span style={{ fontSize: "10px", color: "#9CA3AF" }}>{item.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="admin-section" style={{ marginBottom: 0, padding: "16px" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>Revenue (6 mo)</h3>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "120px" }}>
+                  {analytics.revenueByMonth.map((item, i) => {
+                    const max = Math.max(...analytics.revenueByMonth.map(d => d.revenue), 1);
+                    return (
+                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                        <span style={{ fontSize: "10px", color: "#6B7280" }}>${Math.round(item.revenue)}</span>
+                        <div style={{ width: "100%", maxWidth: "40px", height: `${Math.max((item.revenue / max) * 80, 4)}px`, background: "#10B981", borderRadius: "4px 4px 0 0" }} />
+                        <span style={{ fontSize: "10px", color: "#9CA3AF" }}>{item.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Kits by Status */}
+            <div className="admin-section" style={{ padding: "16px", marginBottom: "24px" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>Kits by Status</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {analytics.kitsByStatus.map((item) => (
+                  <div key={item.status} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className={`admin-badge ${getStatusBadgeClass(item.status)}`}>
+                      {formatStatus(item.status)}
+                    </span>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>{item.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Customers */}
+            <div className="admin-section" style={{ padding: "16px" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>Top Customers</h3>
+              <div style={{ overflowX: "auto" }}>
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Kits</th>
+                      <th>Total Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics.topCustomers.map((c, i) => (
+                      <tr key={i}>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{c.name}</div>
+                          <div style={{ fontSize: "12px", color: "#6B7280" }}>{c.email}</div>
+                        </td>
+                        <td>{c.kitCount}</td>
+                        <td style={{ color: "#AD7B2A", fontWeight: 500 }}>{formatCurrency(c.totalValue)}</td>
+                      </tr>
+                    ))}
+                    {analytics.topCustomers.length === 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: "center", color: "#6B7280" }}>No data yet</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p style={{ textAlign: "center", color: "#6B7280", padding: "40px" }}>Failed to load analytics data.</p>
+        )}
       </main>
 
       <AdminBottomNav />
