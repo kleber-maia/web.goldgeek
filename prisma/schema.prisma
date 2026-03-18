@@ -374,14 +374,18 @@ model TimelineEvent {
 
 // Singleton company/shipper settings (always id = "singleton")
 model CompanySettings {
-  id        String   @id @default("singleton")
-  name      String   @default("Gold Geek")
-  street1   String   @default("")
-  street2   String?
-  city      String   @default("")
-  state     String   @default("")
-  zipCode   String   @default("")
-  phone     String   @default("")
-  email     String?
-  updatedAt DateTime @updatedAt
+  id           String   @id @default("singleton")
+  name         String   @default("Gold Geek")
+  street1      String   @default("")
+  street2      String?
+  city         String   @default("")
+  state        String   @default("")
+  zipCode      String   @default("")
+  phone        String   @default("")
+  email        String?
+  supportEmail String?
+  websiteUrl   String?
+  instagramUrl String?
+  facebookUrl  String?
+  updatedAt    DateTime @updatedAt
 }

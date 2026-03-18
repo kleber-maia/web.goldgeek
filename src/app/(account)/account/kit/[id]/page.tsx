@@ -6,6 +6,7 @@ import AccessDenied from "@/components/AccessDenied";
 import { getKitDetails } from "@/lib/actions/customer.actions";
 import { formatCurrency, formatWeight } from "@/lib/db/utils";
 import { formatDate } from "@/lib/account";
+import { SettingsService } from "@/lib/services/settings.service";
 
 type OfferLike = {
   id: string;
@@ -59,10 +60,10 @@ function formatMetalInfo(metalType: string | null, purity: string | null): strin
   return metal || purity || "";
 }
 
-function formatLabelType(type: string): string {
+function formatLabelType(type: string, companyName: string): string {
   switch (type) {
     case "INBOUND":
-      return "Shipping to Gold Geek";
+      return `Shipping to ${companyName}`;
     case "KIT_DELIVERY":
       return "Kit Delivery";
     case "RETURN":
@@ -133,6 +134,7 @@ export default async function KitDetailPage({
   }
 
   const kit = result.data as any;
+  const company = await SettingsService.getCompanyInfo();
 
   const offers = (kit.offers || []) as OfferLike[];
   const sortedOffers = [...offers].sort(
@@ -237,7 +239,7 @@ export default async function KitDetailPage({
           </p>
           <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF" }}>
             The offer of {formatCurrency(parseFloat(activeOffer.totalValue.toString()))} has expired.
-            Contact us at support@goldgeek.com to discuss your items.
+            {company.supportEmail ? <>Contact us at {company.supportEmail} to discuss your items.</> : <>Contact us to discuss your items.</>}
           </p>
         </div>
       )}
@@ -414,7 +416,7 @@ export default async function KitDetailPage({
                         color: "var(--brand-secondary)",
                       }}
                     >
-                      {formatLabelType(label.type)}
+                      {formatLabelType(label.type, company.name)}
                     </span>
                     <span
                       className={`account-badge ${statusInfo.badgeClass}`}

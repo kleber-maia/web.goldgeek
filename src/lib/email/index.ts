@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { SettingsService } from '@/lib/services/settings.service';
+import { SettingsService, type CompanyInfo } from '@/lib/services/settings.service';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -13,20 +13,25 @@ export interface EmailOptions {
 
 /**
  * Load email configuration from company settings.
- * Returns the sender address and website URL for links.
+ * Returns the sender address, website URL, and full company info.
  */
 async function getEmailConfig() {
   try {
-    const settings = await SettingsService.getCompanySettings();
-    const fromEmail = settings?.email
-      ? `${settings.name || 'Gold Geek'} <${settings.email}>`
-      : process.env.EMAIL_FROM || 'Gold Geek <noreply@goldgeek.com>';
-    const websiteUrl = process.env.WEBSITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
-    return { fromEmail, websiteUrl };
+    const info = await SettingsService.getCompanyInfo();
+    const senderEmail = info.email || process.env.EMAIL_FROM || '';
+    const fromEmail = senderEmail.includes('<')
+      ? senderEmail
+      : senderEmail
+        ? `${info.name} <${senderEmail}>`
+        : `${info.name} <noreply@example.com>`;
+    const websiteUrl = info.websiteUrl || process.env.NEXT_PUBLIC_APP_URL || '';
+    return { fromEmail, websiteUrl, company: info };
   } catch {
+    const name = 'Gold Geek';
     return {
-      fromEmail: process.env.EMAIL_FROM || 'Gold Geek <noreply@goldgeek.com>',
-      websiteUrl: process.env.WEBSITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com',
+      fromEmail: process.env.EMAIL_FROM || `${name} <noreply@example.com>`,
+      websiteUrl: process.env.NEXT_PUBLIC_APP_URL || '',
+      company: { name } as CompanyInfo,
     };
   }
 }
@@ -70,10 +75,11 @@ async function getEmailDefaults(baseUrl?: string) {
   const appUrl = baseUrl || config.websiteUrl;
   const logoUrl = `${appUrl}/images/logos/GoldGeekLogo-horizontal.png`;
   const year = new Date().getFullYear();
-  return { appUrl, logoUrl, year };
+  const companyName = config.company.name;
+  return { appUrl, logoUrl, year, companyName, company: config.company };
 }
 
-function emailShell(title: string, logoUrl: string, year: number, body: string, footerNote?: string): string {
+function emailShell(title: string, logoUrl: string, year: number, companyName: string, body: string, footerNote?: string): string {
   return `<!DOCTYPE html>
     <html>
       <head>
@@ -88,7 +94,7 @@ function emailShell(title: string, logoUrl: string, year: number, body: string, 
               <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width: 560px; width: 100%;">
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
-                    <img src="${logoUrl}" alt="Gold Geek" width="180" style="display: block; max-width: 180px; height: auto;" />
+                    <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; max-width: 180px; height: auto;" />
                   </td>
                 </tr>
                 <tr>
@@ -102,7 +108,7 @@ function emailShell(title: string, logoUrl: string, year: number, body: string, 
                 <tr>
                   <td align="center" style="padding: 28px 20px 0 20px;">
                     ${footerNote ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #A09488; line-height: 1.5;">${footerNote}</p>` : ''}
-                    <p style="margin: 0; font-size: 12px; color: #A09488;">&copy; ${year} Gold Geek. All rights reserved.</p>
+                    <p style="margin: 0; font-size: 12px; color: #A09488;">&copy; ${year} ${companyName}. All rights reserved.</p>
                   </td>
                 </tr>
               </table>
@@ -137,9 +143,7 @@ export async function sendMagicLinkEmail(
   magicLinkUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const defaults = await getEmailDefaults(baseUrl);
-  const logoUrl = defaults.logoUrl;
-  const year = defaults.year;
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
 
   const html = `
     <!DOCTYPE html>
@@ -147,7 +151,7 @@ export async function sendMagicLinkEmail(
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign in to Gold Geek</title>
+        <title>Sign in to ${companyName}</title>
       </head>
       <body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB; padding: 40px 20px;">
@@ -157,7 +161,7 @@ export async function sendMagicLinkEmail(
                 <!-- Header with logo -->
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
-                    <img src="${logoUrl}" alt="Gold Geek" width="180" style="display: block; max-width: 180px; height: auto;" />
+                    <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; max-width: 180px; height: auto;" />
                   </td>
                 </tr>
                 <!-- Main card -->
@@ -175,7 +179,7 @@ export async function sendMagicLinkEmail(
                         <tr>
                           <td align="center" style="padding: 4px 0 28px 0;">
                             <a href="${magicLinkUrl}" style="display: inline-block; background-color: #AD7B2A; color: #FFFFFF; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 40px; border-radius: 8px; letter-spacing: 0.3px;">
-                              Sign In to Gold Geek
+                              Sign In to ${companyName}
                             </a>
                           </td>
                         </tr>
@@ -198,7 +202,7 @@ export async function sendMagicLinkEmail(
                       If you didn't request this email, you can safely ignore it.
                     </p>
                     <p style="margin: 0; font-size: 12px; color: #A09488;">
-                      &copy; ${year} Gold Geek. All rights reserved.
+                      &copy; ${year} ${companyName}. All rights reserved.
                     </p>
                   </td>
                 </tr>
@@ -212,9 +216,9 @@ export async function sendMagicLinkEmail(
 
   return sendEmail({
     to: email,
-    subject: 'Sign in to Gold Geek',
+    subject: `Sign in to ${companyName}`,
     html,
-    text: `Sign in to Gold Geek\n\nClick this link to sign in: ${magicLinkUrl}\n\nThis link will expire in 15 minutes.`,
+    text: `Sign in to ${companyName}\n\nClick this link to sign in: ${magicLinkUrl}\n\nThis link will expire in 15 minutes.`,
   });
 }
 
@@ -228,7 +232,7 @@ export async function sendOfferReadyEmail(
   offerUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer is Ready!</h1>
@@ -244,13 +248,13 @@ export async function sendOfferReadyEmail(
     </p>
     ${ctaButton(offerUrl, 'View Offer')}`;
 
-  const html = emailShell('Your Gold Geek Offer is Ready', logoUrl, year, body);
+  const html = emailShell(`Your ${companyName} Offer is Ready`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Your Gold Geek Offer is Ready - $${totalValue.toFixed(2)}`,
+    subject: `Your ${companyName} Offer is Ready - $${totalValue.toFixed(2)}`,
     html,
-    text: `Your Gold Geek Offer is Ready\n\nOffer ${offerNumber}: $${totalValue.toFixed(2)}\n\nView your offer: ${offerUrl}\n\nThis offer is valid for 7 days.`,
+    text: `Your ${companyName} Offer is Ready\n\nOffer ${offerNumber}: $${totalValue.toFixed(2)}\n\nView your offer: ${offerUrl}\n\nThis offer is valid for 7 days.`,
   });
 }
 
@@ -265,7 +269,7 @@ export async function sendPaymentSentEmail(
   trackingNumber?: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
 
   const trackingRow = trackingNumber
     ? `<tr>
@@ -297,16 +301,16 @@ export async function sendPaymentSentEmail(
       </table>
     </div>
     <p style="margin: 0; font-size: 14px; color: #7A6B5D; text-align: center; line-height: 1.5;">
-      Thank you for choosing Gold Geek!
+      Thank you for choosing ${companyName}!
     </p>`;
 
-  const html = emailShell('Payment Sent - Gold Geek', logoUrl, year, body);
+  const html = emailShell(`Payment Sent - ${companyName}`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: 'Payment Sent - Gold Geek',
+    subject: `Payment Sent - ${companyName}`,
     html,
-    text: `Payment Sent\n\nPayment ${paymentNumber}\nAmount: $${amount.toFixed(2)}\nMethod: ${method}${trackingNumber ? `\nTracking: ${trackingNumber}` : ''}\n\nThank you for choosing Gold Geek!`,
+    text: `Payment Sent\n\nPayment ${paymentNumber}\nAmount: $${amount.toFixed(2)}\nMethod: ${method}${trackingNumber ? `\nTracking: ${trackingNumber}` : ''}\n\nThank you for choosing ${companyName}!`,
   });
 }
 
@@ -318,7 +322,7 @@ export async function sendKitReceivedEmail(
   kitNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const kitUrl = `${appUrl}/account/kits`;
 
   const body = `
@@ -348,11 +352,11 @@ export async function sendKitReceivedEmail(
     </div>
     ${ctaButton(kitUrl, 'View Kit Status')}`;
 
-  const html = emailShell('Kit Received - Gold Geek', logoUrl, year, body);
+  const html = emailShell(`Kit Received - ${companyName}`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Kit Received - ${kitNumber} - Gold Geek`,
+    subject: `Kit Received - ${kitNumber} - ${companyName}`,
     html,
     text: `We've Received Your Kit!\n\nKit ${kitNumber} has arrived at our facility.\n\nOur expert evaluators will carefully assess your items and send you an offer within 24-48 hours.\n\nView status: ${kitUrl}`,
   });
@@ -367,11 +371,11 @@ export async function sendKitShippedToCustomerEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
-    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Gold Geek Kit is On Its Way!</h1>
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your ${companyName} Kit is On Its Way!</h1>
     <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
       Your appraisal kit for <strong style="color: #2E1F0C;">${kitNumber}</strong> has been shipped and is headed your way.
     </p>
@@ -396,18 +400,18 @@ export async function sendKitShippedToCustomerEmail(
     </p>
     ${ctaButton(trackUrl, 'Track Package')}`;
 
-  const html = emailShell('Your Gold Geek Kit is On Its Way!', logoUrl, year, body);
+  const html = emailShell(`Your ${companyName} Kit is On Its Way!`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Your Gold Geek Kit is On Its Way! - ${kitNumber}`,
+    subject: `Your ${companyName} Kit is On Its Way! - ${kitNumber}`,
     html,
-    text: `Your Gold Geek Kit is On Its Way!\n\nKit ${kitNumber} has been shipped.\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}\n\nOnce your kit arrives, place your items inside and use the prepaid return label to send them back.`,
+    text: `Your ${companyName} Kit is On Its Way!\n\nKit ${kitNumber} has been shipped.\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}\n\nOnce your kit arrives, place your items inside and use the prepaid return label to send them back.`,
   });
 }
 
 /**
- * Send package in transit email (customer's package heading to Gold Geek)
+ * Send package in transit email (customer's package heading to company)
  */
 export async function sendPackageInTransitEmail(
   email: string,
@@ -415,11 +419,11 @@ export async function sendPackageInTransitEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
-    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Package is On Its Way to Gold Geek</h1>
+    <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Package is On Its Way to ${companyName}</h1>
     <p style="margin: 0 0 24px 0; font-size: 15px; color: #7A6B5D; text-align: center; line-height: 1.5;">
       We've detected that your package for kit <strong style="color: #2E1F0C;">${kitNumber}</strong> is in transit to our facility.
     </p>
@@ -444,13 +448,13 @@ export async function sendPackageInTransitEmail(
     </p>
     ${ctaButton(trackUrl, 'Track Package')}`;
 
-  const html = emailShell('Your Package is On Its Way to Gold Geek', logoUrl, year, body);
+  const html = emailShell(`Your Package is On Its Way to ${companyName}`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Package In Transit - ${kitNumber} - Gold Geek`,
+    subject: `Package In Transit - ${kitNumber} - ${companyName}`,
     html,
-    text: `Your Package is On Its Way to Gold Geek\n\nKit ${kitNumber} is in transit.\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}\n\nWe'll notify you as soon as we receive it.`,
+    text: `Your Package is On Its Way to ${companyName}\n\nKit ${kitNumber} is in transit.\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}\n\nWe'll notify you as soon as we receive it.`,
   });
 }
 
@@ -464,7 +468,7 @@ export async function sendReturnShippedEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -494,11 +498,11 @@ export async function sendReturnShippedEmail(
     </div>
     ${ctaButton(trackUrl, 'Track Package')}`;
 
-  const html = emailShell('Your Items Are Being Returned', logoUrl, year, body);
+  const html = emailShell('Your Items Are Being Returned', logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Return Shipped - ${kitNumber} - Gold Geek`,
+    subject: `Return Shipped - ${kitNumber} - ${companyName}`,
     html,
     text: `Your Items Are Being Returned\n\nKit: ${kitNumber}\nReturn: ${returnNumber}\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}`,
   });
@@ -514,7 +518,7 @@ export async function sendOfferExpiredEmail(
   kitUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer Has Expired</h1>
@@ -526,11 +530,11 @@ export async function sendOfferExpiredEmail(
     </div>
     ${ctaButton(kitUrl, 'View Kit Details')}`;
 
-  const html = emailShell('Offer Expired - Gold Geek', logoUrl, year, body);
+  const html = emailShell(`Offer Expired - ${companyName}`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Offer Expired - ${kitNumber} - Gold Geek`,
+    subject: `Offer Expired - ${kitNumber} - ${companyName}`,
     html,
     text: `Your Offer Has Expired\n\nOffer ${offerNumber} for kit ${kitNumber} has expired.\n\nContact us to discuss your items or request a new evaluation.\n\nView details: ${kitUrl}`,
   });
@@ -545,7 +549,7 @@ export async function sendKitCreatedEmail(
   kitType: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const accountUrl = `${appUrl}/account/kits`;
 
   const typeLabel = kitType === 'DIGITAL' ? 'Digital Kit' : 'Physical Kit';
@@ -575,11 +579,11 @@ export async function sendKitCreatedEmail(
     </p>
     ${ctaButton(accountUrl, 'View My Kits')}`;
 
-  const html = emailShell('Kit Request Confirmed - Gold Geek', logoUrl, year, body);
+  const html = emailShell(`Kit Request Confirmed - ${companyName}`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Kit Request Confirmed - ${kitNumber} - Gold Geek`,
+    subject: `Kit Request Confirmed - ${kitNumber} - ${companyName}`,
     html,
     text: `Kit Request Confirmed\n\nKit ${kitNumber} (${typeLabel}) has been created.\n\nNext step: ${nextStep}\n\nView your kits: ${accountUrl}`,
   });
@@ -593,7 +597,7 @@ export async function sendEvaluationStartedEmail(
   kitNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const kitUrl = `${appUrl}/account/kits`;
 
   const body = `
@@ -623,11 +627,11 @@ export async function sendEvaluationStartedEmail(
     </div>
     ${ctaButton(kitUrl, 'View Kit Status')}`;
 
-  const html = emailShell('Evaluation Started - Gold Geek', logoUrl, year, body);
+  const html = emailShell(`Evaluation Started - ${companyName}`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Evaluation Started - ${kitNumber} - Gold Geek`,
+    subject: `Evaluation Started - ${kitNumber} - ${companyName}`,
     html,
     text: `Evaluation Has Started!\n\nOur team has started evaluating the items in kit ${kitNumber}.\n\nWe'll prepare a detailed offer within 24-48 hours.\n\nView status: ${kitUrl}`,
   });
@@ -644,7 +648,7 @@ export async function sendOfferAcceptedAdminEmail(
   totalValue: number,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Accepted</h1>
@@ -672,7 +676,7 @@ export async function sendOfferAcceptedAdminEmail(
     </p>
     ${ctaButton(`${appUrl}/admin/payments`, 'Go to Payments')}`;
 
-  const html = emailShell('Offer Accepted - Gold Geek Admin', logoUrl, year, body);
+  const html = emailShell(`Offer Accepted - ${companyName} Admin`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: adminEmails,
@@ -692,7 +696,7 @@ export async function sendOfferDeclinedAdminEmail(
   customerName: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Declined</h1>
@@ -704,7 +708,7 @@ export async function sendOfferDeclinedAdminEmail(
     </div>
     ${ctaButton(`${appUrl}/admin/returns`, 'Go to Returns')}`;
 
-  const html = emailShell('Offer Declined - Gold Geek Admin', logoUrl, year, body);
+  const html = emailShell(`Offer Declined - ${companyName} Admin`, logoUrl, year, companyName, body);
 
   return sendEmail({
     to: adminEmails,
@@ -723,7 +727,7 @@ export async function sendReturnDeliveredEmail(
   returnNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
   const accountUrl = `${appUrl}/account/kits`;
 
   const body = `
@@ -748,16 +752,16 @@ export async function sendReturnDeliveredEmail(
       </table>
     </div>
     <p style="margin: 0 0 24px 0; font-size: 14px; color: #7A6B5D; text-align: center; line-height: 1.5;">
-      Thank you for giving Gold Geek the opportunity to evaluate your items. We hope to serve you again in the future!
+      Thank you for giving ${companyName} the opportunity to evaluate your items. We hope to serve you again in the future!
     </p>
     ${ctaButton(accountUrl, 'View Account')}`;
 
-  const html = emailShell('Your Items Have Been Delivered', logoUrl, year, body);
+  const html = emailShell('Your Items Have Been Delivered', logoUrl, year, companyName, body);
 
   return sendEmail({
     to: email,
-    subject: `Return Delivered - ${kitNumber} - Gold Geek`,
+    subject: `Return Delivered - ${kitNumber} - ${companyName}`,
     html,
-    text: `Your Items Have Been Delivered\n\nKit: ${kitNumber}\nReturn: ${returnNumber}\n\nYour returned items have been delivered successfully.\n\nThank you for giving Gold Geek the opportunity to evaluate your items!`,
+    text: `Your Items Have Been Delivered\n\nKit: ${kitNumber}\nReturn: ${returnNumber}\n\nYour returned items have been delivered successfully.\n\nThank you for giving ${companyName} the opportunity to evaluate your items!`,
   });
 }

@@ -3,6 +3,7 @@ import { OfferService } from '@/lib/services/offer.service';
 import { prisma } from '@/lib/db';
 import { sendOfferExpiredEmail } from '@/lib/email';
 import { ActivityService } from '@/lib/services/activity.service';
+import { SettingsService } from '@/lib/services/settings.service';
 
 /**
  * Cron endpoint to expire overdue offers.
@@ -54,7 +55,8 @@ export async function POST(request: NextRequest) {
       // Send email to customer
       const email = offer.kit.customer?.email;
       if (email) {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://goldgeek.com';
+        const companyInfo = await SettingsService.getCompanyInfo();
+        const appUrl = companyInfo.websiteUrl || process.env.NEXT_PUBLIC_APP_URL || '';
         const kitUrl = `${appUrl}/account/kit/${offer.kitId}`;
         sendOfferExpiredEmail(
           email,

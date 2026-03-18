@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
 import { LogoutButton } from "@/components/account/LogoutButton";
+import { SettingsService } from "@/lib/services/settings.service";
 
 const ACTIVE_KIT_STATUSES = ["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING"] as const;
 
@@ -15,38 +16,47 @@ interface Shortcut {
   highlight?: boolean;
 }
 
-const defaultShortcuts: Shortcut[] = [
-  {
-    href: "/account/settings",
-    title: "Edit My Account",
-    description: "Update your personal information and payment preferences.",
-  },
-  {
-    href: "/account/kits",
-    title: "Manage My Kits",
-    description: "View order history and track kits in transit.",
-  },
-  {
-    href: "/account/payments",
-    title: "My Payments",
-    description: "Track payment status and history.",
-  },
-  {
-    href: "#refer",
-    title: "Refer Friends",
-    description: "Get $25 when friends sell to us.",
-  },
-  {
-    href: "mailto:support@goldgeek.com",
-    title: "Get Help",
-    description: "Contact support or call 877-465-3165.",
-  },
-  {
-    href: "/account/request-kit",
-    title: "Request Another Kit",
-    description: "Have more items? Get another kit!",
-  },
-];
+function buildShortcuts(supportEmail: string, phone: string): Shortcut[] {
+  const contactParts: string[] = [];
+  if (supportEmail) contactParts.push(`email ${supportEmail}`);
+  if (phone) contactParts.push(`call ${phone}`);
+  const contactDesc = contactParts.length
+    ? `Contact support: ${contactParts.join(" or ")}.`
+    : "Contact support for help.";
+
+  return [
+    {
+      href: "/account/settings",
+      title: "Edit My Account",
+      description: "Update your personal information and payment preferences.",
+    },
+    {
+      href: "/account/kits",
+      title: "Manage My Kits",
+      description: "View order history and track kits in transit.",
+    },
+    {
+      href: "/account/payments",
+      title: "My Payments",
+      description: "Track payment status and history.",
+    },
+    {
+      href: "#refer",
+      title: "Refer Friends",
+      description: "Get $25 when friends sell to us.",
+    },
+    {
+      href: supportEmail ? `mailto:${supportEmail}` : "#",
+      title: "Get Help",
+      description: contactDesc,
+    },
+    {
+      href: "/account/request-kit",
+      title: "Request Another Kit",
+      description: "Have more items? Get another kit!",
+    },
+  ];
+}
 
 // Icons as simple components
 const icons = [
@@ -83,6 +93,7 @@ export default async function AccountDashboardPage() {
   }
 
   const firstName = customer.firstName || customer.email.split("@")[0];
+  const company = await SettingsService.getCompanyInfo();
 
   const kits = await CustomerService.getKits(session.id);
   const activeKitCount = kits.filter((k) =>
@@ -97,6 +108,7 @@ export default async function AccountDashboardPage() {
       (k.shippingLabels?.length ?? 0) === 0
   );
 
+  const defaultShortcuts = buildShortcuts(company.supportEmail, company.phone);
   const shortcuts = defaultShortcuts.map((s, i) => {
     if (i === 1 && activeKitCount > 0) {
       return {
@@ -214,7 +226,7 @@ export default async function AccountDashboardPage() {
       <div style={styles.banner}>
         <h1 style={styles.bannerTitle}>
           <span style={styles.bannerName}>Hi, {firstName}.</span>{" "}
-          Welcome to your Gold Geek Dashboard
+          Welcome to your {company.name} Dashboard
         </h1>
       </div>
 

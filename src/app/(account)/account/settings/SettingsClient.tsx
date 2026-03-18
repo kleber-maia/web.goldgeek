@@ -33,12 +33,14 @@ interface SettingsClientProps {
   customer: CustomerView;
   defaultPaymentMethod: PaymentMethod;
   savedAccountInfo?: Record<string, string>;
+  supportEmail?: string;
 }
 
 export default function SettingsClient({
   customer,
   defaultPaymentMethod,
   savedAccountInfo = {},
+  supportEmail,
 }: SettingsClientProps) {
   const router = useRouter();
 
@@ -696,7 +698,7 @@ export default function SettingsClient({
           Questions about your appraisal or payment?
         </p>
         <Link
-          href="mailto:support@goldgeek.com"
+          href={supportEmail ? `mailto:${supportEmail}` : "#"}
           className="account-btn account-btn-secondary account-btn-full"
         >
           <svg

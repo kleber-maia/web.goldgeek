@@ -114,7 +114,7 @@ function AdminLoginPageInner() {
                 type="email"
                 id="email"
                 className="account-form-input"
-                placeholder="admin@goldgeek.com"
+                placeholder="admin@example.com"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { SettingsService } from "@/lib/services/settings.service";
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const company = await SettingsService.getCompanyInfo();
   return (
     <div
       data-elementor-type="wp-page"
@@ -46,8 +48,7 @@ export default function PrivacyPolicyPage() {
           >
             <div className="elementor-widget-container">
               <p>
-                We are pleased that you are visiting our website at
-                www.goldgeek.com. Data protection and data security when using
+                We are pleased that you are visiting our website{company.websiteUrl ? <> at {company.websiteUrl.replace(/^https?:\/\//, '')}</> : ''}. Data protection and data security when using
                 our website are very important to us. We would therefore like to
                 inform you which of your Personal Information we collect when
                 you visit our website and for what purposes it is used.
@@ -59,9 +60,8 @@ export default function PrivacyPolicyPage() {
               <p>
                 The person responsible in the sense of the New York&apos;s Privacy
                 Act (&quot;NYPA&quot;) and the EU&apos;s General Data Protection Regulation
-                (&quot;GDPR&quot;) is Gold Geek Inc of 48 W 48th St Ste 1303 New York, NY
-                10036. Please direct any questions you may have to
-                support@goldgeek.com, or call us at +1 833-446-5343.
+                (&quot;GDPR&quot;) is {company.name}{company.street1 ? <> of {company.street1}{company.street2 ? ` ${company.street2}` : ''} {company.city}, {company.state} {company.zipCode}</> : ''}.
+                {company.supportEmail || company.phone ? <> Please direct any questions you may have to{company.supportEmail ? <> {company.supportEmail}</> : ''}{company.supportEmail && company.phone ? ',' : ''}{company.phone ? <> or call us at {company.phone}</> : ''}.</> : ''}
               </p>
 
               <p>
@@ -547,8 +547,7 @@ export default function PrivacyPolicyPage() {
                 This Privacy Policy was last updated on Thursday, November 2nd,
                 2023, and is the current and valid version. However, from time
                 to time changes or a revision to this policy may be necessary.
-                Please direct any questions you may have to support@goldgeek.com,
-                or call us at +1 833-446-5343.
+                {company.supportEmail || company.phone ? <>Please direct any questions you may have to{company.supportEmail ? <> {company.supportEmail}</> : ''}{company.supportEmail && company.phone ? ',' : ''}{company.phone ? <> or call us at {company.phone}</> : ''}.</> : ''}
               </p>
             </div>
           </div>

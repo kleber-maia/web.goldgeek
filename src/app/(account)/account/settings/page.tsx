@@ -4,6 +4,7 @@ import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
 import { prisma } from "@/lib/db";
 import { PaymentMethod } from "@/lib/account";
+import { SettingsService } from "@/lib/services/settings.service";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage() {
@@ -54,8 +55,11 @@ export default async function SettingsPage() {
     }
   }
 
+  const company = await SettingsService.getCompanyInfo();
+
   return (
     <SettingsClient
+      supportEmail={company.supportEmail}
       customer={{
         firstName: customer.firstName,
         lastName: customer.lastName,

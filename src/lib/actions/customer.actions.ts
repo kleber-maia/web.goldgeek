@@ -542,25 +542,16 @@ export async function getShippingLabelData(
       kit.trackingNumber ||
       '';
 
-    // Use saved company settings for the "To" address; fall back to placeholder
-    const companySettings = await SettingsService.getCompanySettings();
-    const toAddress = companySettings && companySettings.street1
-      ? {
-          name: companySettings.name,
-          street1: companySettings.street1,
-          street2: companySettings.street2 ?? null,
-          city: companySettings.city,
-          state: companySettings.state,
-          zip: companySettings.zipCode,
-        }
-      : {
-          name: 'Gold Geek',
-          street1: '1234 Gold Avenue',
-          street2: null,
-          city: 'Dallas',
-          state: 'TX',
-          zip: '75201',
-        };
+    // Use saved company settings for the "To" address
+    const companyInfo = await SettingsService.getCompanyInfo();
+    const toAddress = {
+      name: companyInfo.name,
+      street1: companyInfo.street1,
+      street2: companyInfo.street2,
+      city: companyInfo.city,
+      state: companyInfo.state,
+      zip: companyInfo.zipCode,
+    };
 
     return {
       success: true,
@@ -809,28 +800,17 @@ export async function getDigitalKitData(
     const trackingNumber = inboundLabel?.trackingNumber || kit.trackingNumber || '';
 
     // Company settings
-    const companySettings = await SettingsService.getCompanySettings();
-    const company = companySettings && companySettings.street1
-      ? {
-          name: companySettings.name,
-          phone: companySettings.phone,
-          email: companySettings.email ?? 'support@goldgeek.com',
-          street1: companySettings.street1,
-          street2: companySettings.street2 ?? null,
-          city: companySettings.city,
-          state: companySettings.state,
-          zip: companySettings.zipCode,
-        }
-      : {
-          name: 'Gold Geek',
-          phone: '877-465-3165',
-          email: 'support@goldgeek.com',
-          street1: '1234 Gold Avenue',
-          street2: null,
-          city: 'Dallas',
-          state: 'TX',
-          zip: '75201',
-        };
+    const companyInfo = await SettingsService.getCompanyInfo();
+    const company = {
+      name: companyInfo.name,
+      phone: companyInfo.phone,
+      email: companyInfo.supportEmail || companyInfo.email,
+      street1: companyInfo.street1,
+      street2: companyInfo.street2,
+      city: companyInfo.city,
+      state: companyInfo.state,
+      zip: companyInfo.zipCode,
+    };
 
     // Fetch nearby FedEx locations (non-blocking)
     let fedexLocations: NearbyFedExLocation[] = [];

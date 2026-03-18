@@ -15,14 +15,52 @@ interface CompanySettings {
   zipCode: string;
   phone: string;
   email?: string | null;
+  supportEmail?: string | null;
+  websiteUrl?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
   updatedAt?: string | Date;
+}
+
+interface IntegrationStatus {
+  fedex: {
+    clientId: boolean;
+    clientSecret: boolean;
+    accountNumber: boolean;
+    sandboxMode: boolean;
+  };
+  resend: {
+    apiKey: boolean;
+    emailFrom: string;
+  };
 }
 
 interface Props {
   initialSettings: CompanySettings | null;
+  integrations: IntegrationStatus;
 }
 
-export default function SettingsClient({ initialSettings }: Props) {
+function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "8px 12px",
+        background: ok ? "#F0FDF4" : "#FEF2F2",
+        border: `1px solid ${ok ? "#BBF7D0" : "#FECACA"}`,
+        borderRadius: "6px",
+        fontSize: "13px",
+      }}
+    >
+      <span style={{ fontSize: "16px" }}>{ok ? "✓" : "✗"}</span>
+      <span style={{ color: ok ? "#166534" : "#991B1B" }}>{label}</span>
+    </div>
+  );
+}
+
+export default function SettingsClient({ initialSettings, integrations }: Props) {
   const [settings, setSettings] = useState<CompanySettings>(
     initialSettings ?? {
       name: "Gold Geek",
@@ -33,6 +71,10 @@ export default function SettingsClient({ initialSettings }: Props) {
       zipCode: "",
       phone: "",
       email: "",
+      supportEmail: "",
+      websiteUrl: "",
+      instagramUrl: "",
+      facebookUrl: "",
     }
   );
   const [isSaving, setIsSaving] = useState(false);
@@ -59,6 +101,10 @@ export default function SettingsClient({ initialSettings }: Props) {
       zipCode: settings.zipCode,
       phone: settings.phone,
       email: settings.email || undefined,
+      supportEmail: settings.supportEmail || undefined,
+      websiteUrl: settings.websiteUrl || undefined,
+      instagramUrl: settings.instagramUrl || undefined,
+      facebookUrl: settings.facebookUrl || undefined,
     });
 
     setIsSaving(false);
@@ -78,71 +124,62 @@ export default function SettingsClient({ initialSettings }: Props) {
         <AdminHeader title="Settings" />
 
         <div className="admin-content">
-          {/* FedEx Configuration notice */}
-          <div className="admin-section" style={{ marginBottom: "24px" }}>
-            <div className="admin-section-title" style={{ marginBottom: "12px" }}>
-              FedEx Integration Status
+          {/* Integration Status */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+            {/* FedEx */}
+            <div className="admin-section" style={{ marginBottom: 0 }}>
+              <div className="admin-section-title" style={{ marginBottom: "12px" }}>
+                FedEx Shipping
+              </div>
+              {(() => {
+                const { clientId, clientSecret, accountNumber, sandboxMode } = integrations.fedex;
+                const allSet = clientId && clientSecret && accountNumber;
+                return (
+                  <>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <StatusBadge ok={clientId} label="Client ID" />
+                      <StatusBadge ok={clientSecret} label="Client Secret" />
+                      <StatusBadge ok={accountNumber} label="Account Number" />
+                    </div>
+                    <div style={{ marginTop: "12px", fontSize: "13px", color: "#6B7280", lineHeight: "1.6" }}>
+                      {allSet ? (
+                        <span style={{ color: "#166534" }}>
+                          {sandboxMode ? "Running in sandbox mode." : "Connected to production."}
+                        </span>
+                      ) : (
+                        "Configure missing variables in your .env file to enable shipping labels."
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: "12px",
-              }}
-            >
-              {[
-                { label: "Client ID", envVar: "FEDEX_CLIENT_ID" },
-                { label: "Account Number", envVar: "FEDEX_ACCOUNT_NUMBER" },
-                { label: "Sandbox Mode", envVar: "FEDEX_SANDBOX_MODE" },
-                { label: "Webhook Secret", envVar: "FEDEX_WEBHOOK_SECRET" },
-              ].map(({ label, envVar }) => (
-                <div
-                  key={envVar}
-                  style={{
-                    padding: "12px 16px",
-                    background: "#FFFDF7",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                  }}
-                >
-                  <div style={{ color: "#6B7280", marginBottom: "4px" }}>{label}</div>
-                  <div
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: "12px",
-                      color: "#2E1F0C",
-                    }}
-                  >
-                    {envVar}
-                  </div>
-                  <div style={{ marginTop: "4px" }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        fontSize: "11px",
-                        background: "#FEF3C7",
-                        color: "#92400E",
-                      }}
-                    >
-                      Configure in .env
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div
-              style={{
-                marginTop: "12px",
-                fontSize: "13px",
-                color: "#6B7280",
-                lineHeight: "1.5",
-              }}
-            >
-              Set the env variables above in your <code>.env</code> file.
-              Webhook endpoint: <code style={{ color: "#AD7B2A" }}>/api/webhooks/fedex</code>
+
+            {/* Resend */}
+            <div className="admin-section" style={{ marginBottom: 0 }}>
+              <div className="admin-section-title" style={{ marginBottom: "12px" }}>
+                Email (Resend)
+              </div>
+              {(() => {
+                const { apiKey, emailFrom } = integrations.resend;
+                return (
+                  <>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <StatusBadge ok={apiKey} label="API Key" />
+                      <StatusBadge ok={!!emailFrom} label={emailFrom ? `Sender: ${emailFrom}` : "Sender Email (EMAIL_FROM)"} />
+                    </div>
+                    <div style={{ marginTop: "12px", fontSize: "13px", color: "#6B7280", lineHeight: "1.6" }}>
+                      {apiKey && emailFrom ? (
+                        <span style={{ color: "#166534" }}>
+                          Emails will be sent from {emailFrom}.
+                        </span>
+                      ) : (
+                        "Configure missing variables in your .env file to enable transactional emails."
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -246,18 +283,63 @@ export default function SettingsClient({ initialSettings }: Props) {
                     className="admin-form-input"
                     value={settings.phone}
                     onChange={(e) => handleChange("phone", e.target.value)}
-                    placeholder="5551234567"
+                    placeholder="(833) 446-5343"
                     required
                   />
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Email (optional)</label>
+                  <label className="admin-form-label">Sender Email (for outgoing emails)</label>
                   <input
                     type="email"
                     className="admin-form-input"
                     value={settings.email ?? ""}
                     onChange={(e) => handleChange("email", e.target.value)}
-                    placeholder="ops@goldgeek.com"
+                    placeholder="noreply@example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-form-label">Support Email (shown to customers)</label>
+                <input
+                  type="email"
+                  className="admin-form-input"
+                  value={settings.supportEmail ?? ""}
+                  onChange={(e) => handleChange("supportEmail", e.target.value)}
+                  placeholder="support@example.com"
+                />
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-form-label">Website URL</label>
+                <input
+                  type="url"
+                  className="admin-form-input"
+                  value={settings.websiteUrl ?? ""}
+                  onChange={(e) => handleChange("websiteUrl", e.target.value)}
+                  placeholder="https://example.com"
+                />
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Instagram URL</label>
+                  <input
+                    type="url"
+                    className="admin-form-input"
+                    value={settings.instagramUrl ?? ""}
+                    onChange={(e) => handleChange("instagramUrl", e.target.value)}
+                    placeholder="https://www.instagram.com/yourpage"
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Facebook URL</label>
+                  <input
+                    type="url"
+                    className="admin-form-input"
+                    value={settings.facebookUrl ?? ""}
+                    onChange={(e) => handleChange("facebookUrl", e.target.value)}
+                    placeholder="https://www.facebook.com/yourpage"
                   />
                 </div>
               </div>
@@ -274,7 +356,7 @@ export default function SettingsClient({ initialSettings }: Props) {
                 className="admin-btn admin-btn-primary"
                 disabled={isSaving}
               >
-                {isSaving ? "Saving…" : "Save Settings"}
+                {isSaving ? "Saving\u2026" : "Save Settings"}
               </button>
             </form>
           </div>

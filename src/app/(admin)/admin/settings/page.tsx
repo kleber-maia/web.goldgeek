@@ -18,5 +18,18 @@ export default async function AdminSettingsPage() {
   const result = await getCompanySettings();
   const settings = result.data ?? null;
 
-  return <SettingsClient initialSettings={settings} />;
+  const integrations = {
+    fedex: {
+      clientId: !!process.env.FEDEX_CLIENT_ID,
+      clientSecret: !!process.env.FEDEX_CLIENT_SECRET,
+      accountNumber: !!process.env.FEDEX_ACCOUNT_NUMBER,
+      sandboxMode: process.env.FEDEX_SANDBOX_MODE === "true",
+    },
+    resend: {
+      apiKey: !!process.env.RESEND_API_KEY,
+      emailFrom: process.env.EMAIL_FROM || "",
+    },
+  };
+
+  return <SettingsClient initialSettings={settings} integrations={integrations} />;
 }
