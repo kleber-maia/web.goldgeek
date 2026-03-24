@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { formatCurrency } from "@/lib/db/utils";
 import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from "@/lib/admin-utils";
 import { addItemToKit, updateItem, deleteItem } from "@/lib/actions/admin/item.actions";
 import { generateOffer, sendOffer } from "@/lib/actions/admin/offer.actions";
 import { updateKitStatus, updateKitNotes, updateKitType } from "@/lib/actions/admin/kit.actions";
-import { createShippingLabel, generatePhysicalKitFedExLabels, generateReturnFedExLabel, validateAddressWithFedEx } from "@/lib/actions/admin/shipping.actions";
-import type { KitStatus, ItemType, MetalType, ShippingLabelType, ShippingCarrier } from "@prisma/client";
+import { createShippingLabel, generatePhysicalKitFedExLabels, generateReturnFedExLabel, validateAddressWithFedEx, updateReturnStatus } from "@/lib/actions/admin/shipping.actions";
+import { processPayment, updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
+import type { KitStatus, ItemType, MetalType, ShippingLabelType, ShippingCarrier, PaymentMethod, PaymentStatus, ReturnStatus } from "@prisma/client";
 
 interface Kit {
   id: string;
@@ -21,6 +23,10 @@ interface Kit {
   trackingNumber: string | null;
   notes: string | null;
   createdAt: Date | string;
+  kitSentAt: string | null;
+  receivedAt: string | null;
+  evaluationStartAt: string | null;
+  completedAt: string | null;
   customer: {
     id: string;
     firstName: string;
@@ -51,6 +57,20 @@ interface Kit {
     offerNumber: string;
     status: string;
     totalValue: { toString(): string };
+    expiresAt: string | null;
+    sentAt: string | null;
+    respondedAt: string | null;
+    createdAt: string;
+    itemBreakdown: Array<{ itemId: string; description: string; value: string }> | null;
+    payment: {
+      id: string;
+      paymentNumber: string;
+      amount: { toString(): string };
+      method: string;
+      status: string;
+      trackingNumber: string | null;
+      checkNumber: string | null;
+    } | null;
   }>;
   shippingLabels: Array<{
     id: string;
@@ -61,6 +81,16 @@ interface Kit {
     labelUrl: string | null;
     labelData: string | null;
     createdAt: Date | string;
+  }>;
+  returns: Array<{
+    id: string;
+    returnNumber: string;
+    status: string;
+    reason: string | null;
+    trackingNumber: string | null;
+    createdAt: string;
+    shippedAt: string | null;
+    deliveredAt: string | null;
   }>;
   timeline: Array<{
     id: string;
@@ -109,6 +139,39 @@ const TERMINAL_STATUSES = ["ACCEPTED", "PAID", "DECLINED", "RETURNED", "CANCELLE
 
 const ITEM_EDITABLE_STATUSES = ["RECEIVED", "EVALUATING"];
 
+// Payment status flow
+const PAYMENT_NEXT_STATUS: Record<string, { next: string; label: string }> = {
+  PENDING: { next: "PROCESSING", label: "Mark Processing" },
+  PROCESSING: { next: "SENT", label: "Mark Sent" },
+  SENT: { next: "COMPLETED", label: "Mark Completed" },
+};
+
+// Return status flow
+const RETURN_NEXT_STATUS: Record<string, { next: string; label: string }> = {
+  PENDING: { next: "LABEL_CREATED", label: "Mark Label Created" },
+  LABEL_CREATED: { next: "IN_TRANSIT", label: "Mark In Transit" },
+  IN_TRANSIT: { next: "DELIVERED", label: "Mark Delivered" },
+};
+
+// Offer expiration helper
+function getExpirationDisplay(expiresAt: string | null): { text: string; isExpired: boolean; urgency: "normal" | "warning" | "expired" } {
+  if (!expiresAt) return { text: "", isExpired: false, urgency: "normal" };
+  const now = new Date();
+  const expires = new Date(expiresAt);
+  const diffMs = expires.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    const agoDays = Math.floor(Math.abs(diffMs) / 86400000);
+    return { text: `Expired ${agoDays > 0 ? `${agoDays}d ago` : "today"}`, isExpired: true, urgency: "expired" };
+  }
+
+  const days = Math.floor(diffMs / 86400000);
+  const hours = Math.floor((diffMs % 86400000) / 3600000);
+
+  if (days <= 1) return { text: `Expires in ${hours}h`, isExpired: false, urgency: "warning" };
+  return { text: `Expires in ${days}d ${hours}h`, isExpired: false, urgency: "normal" };
+}
+
 // Inline alert component
 function Alert({ type, message, onDismiss }: { type: "error" | "success"; message: string; onDismiss?: () => void }) {
   const styles: Record<string, { bg: string; color: string }> = {
@@ -138,6 +201,16 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const [showOfferHistory, setShowOfferHistory] = useState(false);
+
+  // Confirm dialog state
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    variant: "danger" | "warning" | "default";
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Add item form state
   const [itemType, setItemType] = useState("JEWELRY");
@@ -171,6 +244,9 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   // Notes state
   const [notesValue, setNotesValue] = useState(kit.notes || "");
 
+  // Payment form state
+  const [paymentMethod, setPaymentMethod] = useState<string>("CHECK");
+
   // Sync notes when kit prop changes (after router.refresh)
   useEffect(() => {
     setNotesValue(kit.notes || "");
@@ -184,18 +260,45 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const canEditItems = ITEM_EDITABLE_STATUSES.includes(kit.status);
   const nextStatus = STATUS_FLOW[kit.status];
   const shippingAddress = kit.shippingAddress || kit.customer.addresses[0];
+  const isTerminal = TERMINAL_STATUSES.includes(kit.status);
 
-  // Active offer = latest non-declined, non-expired offer
-  const activeOffer = kit.offers?.find((o) => o.status !== "DECLINED" && o.status !== "EXPIRED") || null;
-  // Can generate a new offer when evaluating and no active offer exists (declined/expired don't block)
-  const canGenerateOffer = kit.items.length > 0 && kit.status === "EVALUATING" && !activeOffer;
+  // Current offer = latest DRAFT, SENT, or ACCEPTED offer
+  const currentOffer = kit.offers?.find((o) => ["DRAFT", "SENT", "ACCEPTED"].includes(o.status)) || null;
+  // Past offers = everything else (declined, expired)
+  const pastOffers = kit.offers?.filter((o) => o.id !== currentOffer?.id) || [];
+
+  // Can generate a new offer when evaluating and no active draft/sent offer exists
+  const canGenerateOffer = kit.items.length > 0 && kit.status === "EVALUATING" && !currentOffer;
+
+  // Items total
+  const itemsTotal = kit.items.reduce((sum, item) => {
+    const val = item.finalValue ? parseFloat(item.finalValue.toString()) : item.estimatedValue ? parseFloat(item.estimatedValue.toString()) : 0;
+    return sum + val;
+  }, 0);
+
+  // Shipping label checks
+  const hasKitDeliveryLabel = kit.shippingLabels.some((l) => l.type === "KIT_DELIVERY");
+  const hasInboundLabel = kit.shippingLabels.some((l) => l.type === "INBOUND");
+  const hasReturnLabel = kit.shippingLabels.some((l) => l.type === "RETURN");
+
+  // Kit type toggle guards
+  const canChangeType = kit.status === "PENDING";
+  const hasLabels = kit.shippingLabels.length > 0;
+
+  // Return record
+  const activeReturn = kit.returns?.[0] || null;
+
+  // Payment from accepted offer
+  const acceptedOffer = kit.offers?.find((o) => o.status === "ACCEPTED") || null;
+  const existingPayment = acceptedOffer?.payment || currentOffer?.payment || null;
 
   const showFeedback = (type: "error" | "success", message: string) => {
     setFeedback({ type, message });
     if (type === "success") setTimeout(() => setFeedback(null), 3000);
   };
 
-  const handleStatusChange = async () => {
+  // ─── Status Change ────────────────────────────────────────────────────────
+  const executeStatusChange = async () => {
     if (!nextStatus) return;
     setIsSubmitting(true);
     try {
@@ -212,6 +315,44 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
     }
   };
 
+  const handleStatusChange = () => {
+    if (!nextStatus) return;
+    setConfirmAction({
+      title: nextStatus.label,
+      message: `Change kit status from "${formatStatus(kit.status)}" to "${formatStatus(nextStatus.next)}". ${nextStatus.description}.`,
+      variant: "warning",
+      confirmLabel: nextStatus.label,
+      onConfirm: executeStatusChange,
+    });
+  };
+
+  // ─── Cancel Kit ───────────────────────────────────────────────────────────
+  const handleCancelKit = () => {
+    setConfirmAction({
+      title: "Cancel Kit",
+      message: `This will cancel kit ${kit.kitNumber}. The customer will not be automatically notified. This action is difficult to reverse.`,
+      variant: "danger",
+      confirmLabel: "Cancel Kit",
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await updateKitStatus(kit.id, "CANCELLED" as KitStatus);
+          if (result.success) {
+            showFeedback("success", "Kit cancelled");
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to cancel kit");
+          }
+        } catch {
+          showFeedback("error", "Failed to cancel kit");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  // ─── Items ────────────────────────────────────────────────────────────────
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appraisedValue || parseFloat(appraisedValue) <= 0) {
@@ -286,56 +427,83 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    setIsSubmitting(true);
-    try {
-      const result = await deleteItem(itemId);
-      if (result.success) {
-        router.refresh();
-      } else {
-        showFeedback("error", result.error || "Failed to delete item");
-      }
-    } catch {
-      showFeedback("error", "Failed to delete item");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleDeleteItem = (itemId: string, description: string) => {
+    setConfirmAction({
+      title: "Delete Item",
+      message: `Permanently remove "${description}" from this kit? This cannot be undone.`,
+      variant: "danger",
+      confirmLabel: "Delete Item",
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await deleteItem(itemId);
+          if (result.success) {
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to delete item");
+          }
+        } catch {
+          showFeedback("error", "Failed to delete item");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
-  const handleGenerateOffer = async () => {
-    setIsSubmitting(true);
-    try {
-      const result = await generateOffer(kit.id);
-      if (result.success) {
-        showFeedback("success", "Offer generated successfully!");
-        router.refresh();
-      } else {
-        showFeedback("error", result.error || "Failed to generate offer");
-      }
-    } catch {
-      showFeedback("error", "Failed to generate offer");
-    } finally {
-      setIsSubmitting(false);
-    }
+  // ─── Offer ────────────────────────────────────────────────────────────────
+  const handleGenerateOffer = () => {
+    const total = formatCurrency(itemsTotal);
+    setConfirmAction({
+      title: "Generate Offer",
+      message: `Create an offer based on ${kit.items.length} item(s) totaling ${total}. The offer will be a draft until you send it.`,
+      variant: "warning",
+      confirmLabel: "Generate Offer",
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await generateOffer(kit.id);
+          if (result.success) {
+            showFeedback("success", "Offer generated successfully!");
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to generate offer");
+          }
+        } catch {
+          showFeedback("error", "Failed to generate offer");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
-  const handleSendOffer = async (offerId: string) => {
-    setIsSubmitting(true);
-    try {
-      const result = await sendOffer(offerId);
-      if (result.success) {
-        showFeedback("success", "Offer sent to customer!");
-        router.refresh();
-      } else {
-        showFeedback("error", result.error || "Failed to send offer");
-      }
-    } catch {
-      showFeedback("error", "Failed to send offer");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSendOffer = (offerId: string, amount: string) => {
+    setConfirmAction({
+      title: "Send Offer to Customer",
+      message: `This will email the customer an offer of ${amount} with a 7-day expiration. The kit status will change to "Offer Sent".`,
+      variant: "warning",
+      confirmLabel: "Send Offer",
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await sendOffer(offerId);
+          if (result.success) {
+            showFeedback("success", "Offer sent to customer!");
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to send offer");
+          }
+        } catch {
+          showFeedback("error", "Failed to send offer");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
+  // ─── Shipping Labels ──────────────────────────────────────────────────────
   const handleCreateLabel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!labelTracking.trim()) {
@@ -427,6 +595,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
     }
   };
 
+  // ─── Notes ────────────────────────────────────────────────────────────────
   const handleSaveNotes = async () => {
     setIsSubmitting(true);
     try {
@@ -445,8 +614,126 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
     }
   };
 
+  // ─── Payment ──────────────────────────────────────────────────────────────
+  const handleProcessPayment = () => {
+    const offer = acceptedOffer || currentOffer;
+    if (!offer) return;
+    const amount = formatCurrency(parseFloat(offer.totalValue.toString()));
+    const methodLabel = formatStatus(paymentMethod);
+    setConfirmAction({
+      title: "Process Payment",
+      message: `Initiate a payment of ${amount} via ${methodLabel} to ${kit.customer.firstName} ${kit.customer.lastName}.`,
+      variant: "warning",
+      confirmLabel: "Process Payment",
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await processPayment({
+            offerId: offer.id,
+            customerId: kit.customer.id,
+            amount: parseFloat(offer.totalValue.toString()),
+            method: paymentMethod as PaymentMethod,
+          });
+          if (result.success) {
+            showFeedback("success", "Payment created successfully!");
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to process payment");
+          }
+        } catch {
+          showFeedback("error", "Failed to process payment");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  const handleAdvancePayment = (paymentId: string, nextPaymentStatus: string, label: string) => {
+    setConfirmAction({
+      title: label,
+      message: `Advance payment status to "${formatStatus(nextPaymentStatus)}".${nextPaymentStatus === "SENT" ? " This will notify the customer and mark the kit as Paid." : ""}`,
+      variant: "warning",
+      confirmLabel: label,
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await updatePaymentStatus(paymentId, nextPaymentStatus as PaymentStatus);
+          if (result.success) {
+            showFeedback("success", `Payment status updated to ${formatStatus(nextPaymentStatus)}`);
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to update payment status");
+          }
+        } catch {
+          showFeedback("error", "Failed to update payment status");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  // ─── Return ───────────────────────────────────────────────────────────────
+  const handleAdvanceReturn = (returnId: string, nextReturnStatus: string, label: string) => {
+    setConfirmAction({
+      title: label,
+      message: `Advance return status to "${formatStatus(nextReturnStatus)}".${nextReturnStatus === "DELIVERED" ? " This will mark the kit as Returned." : ""}`,
+      variant: "warning",
+      confirmLabel: label,
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await updateReturnStatus(returnId, nextReturnStatus as ReturnStatus);
+          if (result.success) {
+            showFeedback("success", `Return status updated to ${formatStatus(nextReturnStatus)}`);
+            router.refresh();
+          } else {
+            showFeedback("error", result.error || "Failed to update return status");
+          }
+        } catch {
+          showFeedback("error", "Failed to update return status");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  // ─── Kit Type ─────────────────────────────────────────────────────────────
+  const handleTypeChange = (newType: string) => {
+    if (newType === kit.type) return;
+    const doChange = async () => {
+      setIsSubmitting(true);
+      try {
+        const result = await updateKitType(kit.id, newType as "PHYSICAL" | "DIGITAL");
+        if (result.success) {
+          showFeedback("success", `Kit type changed to ${newType.toLowerCase()}`);
+          router.refresh();
+        } else {
+          showFeedback("error", result.error || "Failed to update kit type");
+        }
+      } catch {
+        showFeedback("error", "Failed to update kit type");
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    if (hasLabels) {
+      setConfirmAction({
+        title: "Change Kit Type",
+        message: "Shipping labels already exist for this kit. Changing the type may cause label mismatch. Are you sure?",
+        variant: "warning",
+        confirmLabel: "Change Type",
+        onConfirm: doChange,
+      });
+    } else {
+      doChange();
+    }
+  };
+
   // Determine progress bar state
-  const isTerminal = TERMINAL_STATUSES.includes(kit.status);
   const currentStepIdx = WORKFLOW_STEPS.indexOf(kit.status);
 
   return (
@@ -512,46 +799,45 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
             {kit.trackingNumber && <> &bull; Tracking: <code style={{ fontSize: "12px" }}>{kit.trackingNumber}</code></>}
           </div>
 
+          {/* Lifecycle timestamps */}
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", fontSize: "12px", color: "#9CA3AF", marginBottom: "12px" }}>
+            <span>Created {formatDate(kit.createdAt)}</span>
+            {kit.kitSentAt && <span>&bull; Sent {formatDate(kit.kitSentAt)}</span>}
+            {kit.receivedAt && <span>&bull; Received {formatDate(kit.receivedAt)}</span>}
+            {kit.evaluationStartAt && <span>&bull; Evaluation {formatDate(kit.evaluationStartAt)}</span>}
+            {kit.completedAt && <span>&bull; Completed {formatDate(kit.completedAt)}</span>}
+          </div>
+
           {/* Kit Type Toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px", padding: "10px 12px", background: "#F9FAFB", borderRadius: "8px" }}>
             <span style={{ fontSize: "13px", color: "#6B7280", minWidth: "60px" }}>Kit Type:</span>
-            <div style={{ display: "flex", gap: "4px" }}>
-              {(["PHYSICAL", "DIGITAL"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={async () => {
-                    if (t === kit.type) return;
-                    setIsSubmitting(true);
-                    try {
-                      const result = await updateKitType(kit.id, t);
-                      if (result.success) {
-                        showFeedback("success", `Kit type changed to ${t.toLowerCase()}`);
-                        router.refresh();
-                      } else {
-                        showFeedback("error", result.error || "Failed to update kit type");
-                      }
-                    } catch {
-                      showFeedback("error", "Failed to update kit type");
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: "6px 14px",
-                    fontSize: "13px",
-                    fontWeight: t === kit.type ? 600 : 400,
-                    border: t === kit.type ? "1px solid #AD7B2A" : "1px solid #E5E7EB",
-                    borderRadius: "6px",
-                    background: t === kit.type ? "#AD7B2A" : "#FFFFFF",
-                    color: t === kit.type ? "#FFFFFF" : "#6B7280",
-                    cursor: isSubmitting ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {t.charAt(0) + t.slice(1).toLowerCase()}
-                </button>
-              ))}
-            </div>
+            {canChangeType ? (
+              <div style={{ display: "flex", gap: "4px" }}>
+                {(["PHYSICAL", "DIGITAL"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => handleTypeChange(t)}
+                    disabled={isSubmitting}
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: "13px",
+                      fontWeight: t === kit.type ? 600 : 400,
+                      border: t === kit.type ? "1px solid #AD7B2A" : "1px solid #E5E7EB",
+                      borderRadius: "6px",
+                      background: t === kit.type ? "#AD7B2A" : "#FFFFFF",
+                      color: t === kit.type ? "#FFFFFF" : "#6B7280",
+                      cursor: isSubmitting ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {t.charAt(0) + t.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "#2E1F0C" }}>
+                {kit.type.charAt(0) + kit.type.slice(1).toLowerCase()}
+              </span>
+            )}
           </div>
 
           {/* Next status button */}
@@ -572,19 +858,34 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
             </div>
           )}
 
-          {kit.status === "OFFER_SENT" && (
+          {/* Status-specific info banners */}
+          {kit.status === "EVALUATING" && !currentOffer && kit.items.length === 0 && (
             <div style={{ padding: "12px", background: "#FEF3C7", borderRadius: "8px", fontSize: "14px", color: "#92400E" }}>
-              Waiting for customer to respond to the offer.
+              Add items and generate an offer to proceed.
             </div>
           )}
+          {kit.status === "OFFER_SENT" && (() => {
+            const sentOffer = kit.offers?.find((o) => o.status === "SENT");
+            const expiry = sentOffer ? getExpirationDisplay(sentOffer.expiresAt) : null;
+            return (
+              <div style={{ padding: "12px", background: "#FEF3C7", borderRadius: "8px", fontSize: "14px", color: "#92400E" }}>
+                Waiting for customer to respond to the offer.
+                {expiry?.text && (
+                  <span style={{ marginLeft: "8px", fontWeight: 600, color: expiry.urgency === "expired" ? "#DC2626" : expiry.urgency === "warning" ? "#D97706" : "#92400E" }}>
+                    {expiry.text}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           {kit.status === "ACCEPTED" && (
             <div style={{ padding: "12px", background: "#D1FAE5", borderRadius: "8px", fontSize: "14px", color: "#065F46" }}>
-              Customer accepted. Process payment from the <Link href="/admin/payments" style={{ color: "#065F46", fontWeight: 600 }}>Payments</Link> page.
+              Customer accepted the offer. Process payment below.
             </div>
           )}
           {kit.status === "DECLINED" && (
             <div style={{ padding: "12px", background: "#FEE2E2", borderRadius: "8px", fontSize: "14px", color: "#991B1B" }}>
-              Customer declined. Process return from the <Link href="/admin/returns" style={{ color: "#991B1B", fontWeight: 600 }}>Returns</Link> page.
+              Customer declined. Manage the return below.
             </div>
           )}
           {kit.status === "PAID" && (
@@ -602,6 +903,28 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
               This kit has been cancelled.
             </div>
           )}
+
+          {/* Cancel Kit button — available for all non-terminal statuses */}
+          {!isTerminal && (
+            <button
+              onClick={handleCancelKit}
+              disabled={isSubmitting}
+              style={{
+                marginTop: "12px",
+                width: "100%",
+                padding: "10px 16px",
+                fontSize: "13px",
+                fontWeight: 500,
+                border: "1px solid #FCA5A5",
+                borderRadius: "8px",
+                background: "#FFFFFF",
+                color: "#DC2626",
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+              }}
+            >
+              Cancel Kit
+            </button>
+          )}
         </div>
 
         {/* ============================================================ */}
@@ -616,7 +939,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
               {/* FedEx auto-generate buttons — only when customer has an address */}
               {shippingAddress && (
                 <>
-                  {kit.type === "PHYSICAL" && (
+                  {kit.type === "PHYSICAL" && !hasKitDeliveryLabel && !hasInboundLabel && (
                     <button
                       onClick={handleGeneratePhysicalKitLabels}
                       className="admin-btn admin-btn-primary"
@@ -624,18 +947,18 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                       disabled={isGeneratingFedEx}
                       title="Generate Kit Delivery + Inbound prepaid labels via FedEx API"
                     >
-                      {isGeneratingFedEx ? "Generating…" : "Generate FedEx Labels"}
+                      {isGeneratingFedEx ? "Generating..." : "Generate FedEx Labels"}
                     </button>
                   )}
-                  {(kit.status === "DECLINED" || kit.status === "RETURNED") && (
+                  {kit.status === "DECLINED" && !hasReturnLabel && (
                     <button
                       onClick={handleGenerateReturnLabel}
                       className="admin-btn admin-btn-secondary"
                       style={{ fontSize: "13px", padding: "6px 12px" }}
                       disabled={isGeneratingFedEx}
-                      title="Generate a return label (Gold Geek → Customer) via FedEx API"
+                      title="Generate a return label (Gold Geek -> Customer) via FedEx API"
                     >
-                      {isGeneratingFedEx ? "Generating…" : "Generate Return Label"}
+                      {isGeneratingFedEx ? "Generating..." : "Generate Return Label"}
                     </button>
                   )}
                 </>
@@ -987,7 +1310,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDeleteItem(item.id)}
+                              onClick={() => handleDeleteItem(item.id, item.description)}
                               style={{ color: "#DC2626", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}
                               disabled={isSubmitting}
                             >
@@ -1002,6 +1325,14 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
               ))
             )}
           </div>
+
+          {/* Items total */}
+          {kit.items.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", marginTop: "8px", background: "#F9FAFB", borderRadius: "8px", borderTop: "2px solid #E5E7EB" }}>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>Total Appraised Value</span>
+              <span style={{ fontSize: "16px", fontWeight: 700, color: "#AD7B2A" }}>{formatCurrency(itemsTotal)}</span>
+            </div>
+          )}
 
           {/* Generate Offer Button */}
           {canGenerateOffer && (
@@ -1019,56 +1350,275 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
         {/* ============================================================ */}
         {/* OFFER                                                        */}
         {/* ============================================================ */}
-        {activeOffer && (
+        {(currentOffer || pastOffers.length > 0) && (
           <div className="admin-section">
-            <div className="admin-section-title">Current Offer</div>
-            <div className="admin-offer-card">
-              <div className="admin-offer-header">
-                <div>
-                  <Link href={`/admin/offers/${activeOffer.id}`} style={{ textDecoration: "none" }}>
-                    <div className="admin-offer-number">{activeOffer.offerNumber}</div>
-                  </Link>
-                  <div className="admin-offer-status">
-                    <span className={`admin-badge ${getStatusBadgeClass(activeOffer.status)}`}>
-                      {formatStatus(activeOffer.status)}
-                    </span>
+            <div className="admin-section-title">
+              {currentOffer ? "Current Offer" : "Offers"}
+            </div>
+
+            {/* Current offer card */}
+            {currentOffer && (
+              <div className="admin-offer-card">
+                <div className="admin-offer-header">
+                  <div>
+                    <Link href={`/admin/offers/${currentOffer.id}`} style={{ textDecoration: "none" }}>
+                      <div className="admin-offer-number">{currentOffer.offerNumber}</div>
+                    </Link>
+                    <div className="admin-offer-status" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                      <span className={`admin-badge ${getStatusBadgeClass(currentOffer.status)}`}>
+                        {formatStatus(currentOffer.status)}
+                      </span>
+                      {/* Expiration display for SENT offers */}
+                      {currentOffer.status === "SENT" && (() => {
+                        const expiry = getExpirationDisplay(currentOffer.expiresAt);
+                        return expiry.text ? (
+                          <span style={{
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            color: expiry.urgency === "expired" ? "#DC2626" : expiry.urgency === "warning" ? "#D97706" : "#065F46",
+                          }}>
+                            {expiry.text}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="admin-offer-amount">
+                    {formatCurrency(parseFloat(currentOffer.totalValue.toString()))}
                   </div>
                 </div>
-                <div className="admin-offer-amount">
-                  {formatCurrency(parseFloat(activeOffer.totalValue.toString()))}
-                </div>
+
+                {/* Item breakdown */}
+                {currentOffer.itemBreakdown && currentOffer.itemBreakdown.length > 0 && (
+                  <div style={{ marginTop: "12px", borderTop: "1px solid #E5E7EB", paddingTop: "10px" }}>
+                    {currentOffer.itemBreakdown.map((item, idx) => (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "#6B7280", padding: "2px 0" }}>
+                        <span>{item.description}</span>
+                        <span>{formatCurrency(parseFloat(item.value))}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {currentOffer.status === "DRAFT" && (
+                  <button
+                    onClick={() => handleSendOffer(currentOffer.id, formatCurrency(parseFloat(currentOffer.totalValue.toString())))}
+                    className="admin-btn admin-btn-primary"
+                    style={{ marginTop: "12px", width: "100%" }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Sending..." : "Send Offer to Customer"}
+                  </button>
+                )}
               </div>
-              {activeOffer.status === "DRAFT" && (
+            )}
+
+            {/* Declined/expired offers — allow generating a new one */}
+            {kit.status === "EVALUATING" && !currentOffer && kit.offers.length > 0 && (
+              <div style={{ marginTop: "8px" }}>
+                <div style={{ fontSize: "14px", color: "#6B7280", marginBottom: "8px" }}>
+                  Previous offers were declined or expired. You can generate a new offer.
+                </div>
+                {kit.items.length > 0 ? (
+                  <button
+                    onClick={handleGenerateOffer}
+                    className="admin-btn admin-btn-primary"
+                    style={{ width: "100%" }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Generating..." : "Generate New Offer"}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: "13px", color: "#6B7280" }}>Add items before generating an offer.</div>
+                )}
+              </div>
+            )}
+
+            {/* Offer history (collapsible) */}
+            {pastOffers.length > 0 && (
+              <div style={{ marginTop: "12px" }}>
                 <button
-                  onClick={() => handleSendOffer(activeOffer.id)}
-                  className="admin-btn admin-btn-primary"
-                  style={{ marginTop: "12px", width: "100%" }}
-                  disabled={isSubmitting}
+                  onClick={() => setShowOfferHistory(!showOfferHistory)}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "13px", color: "#6B7280", padding: "4px 0", display: "flex", alignItems: "center", gap: "4px" }}
                 >
-                  {isSubmitting ? "Sending..." : "Send Offer to Customer"}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: showOfferHistory ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                  Past Offers ({pastOffers.length})
                 </button>
-              )}
-            </div>
+                {showOfferHistory && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
+                    {pastOffers.map((offer) => (
+                      <div key={offer.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#F9FAFB", borderRadius: "6px", fontSize: "13px" }}>
+                        <div>
+                          <Link href={`/admin/offers/${offer.id}`} style={{ color: "#AD7B2A", textDecoration: "none", fontWeight: 500 }}>
+                            {offer.offerNumber}
+                          </Link>
+                          <span className={`admin-badge ${getStatusBadgeClass(offer.status)}`} style={{ marginLeft: "8px", fontSize: "11px" }}>
+                            {formatStatus(offer.status)}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontWeight: 600, color: "#2E1F0C" }}>{formatCurrency(parseFloat(offer.totalValue.toString()))}</div>
+                          <div style={{ fontSize: "11px", color: "#9CA3AF" }}>{formatDate(offer.createdAt)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Declined/expired offers — allow generating a new one */}
-        {kit.status === "EVALUATING" && !activeOffer && kit.offers.length > 0 && (
+        {/* ============================================================ */}
+        {/* PAYMENT (inline)                                             */}
+        {/* ============================================================ */}
+        {(kit.status === "ACCEPTED" || kit.status === "PAID") && (
           <div className="admin-section">
-            <div style={{ fontSize: "14px", color: "#6B7280", marginBottom: "8px" }}>
-              Previous offers were declined or expired. You can generate a new offer.
-            </div>
-            {kit.items.length > 0 ? (
-              <button
-                onClick={handleGenerateOffer}
-                className="admin-btn admin-btn-primary"
-                style={{ width: "100%" }}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Generating..." : "Generate New Offer"}
-              </button>
+            <div className="admin-section-title">Payment</div>
+
+            {existingPayment ? (
+              /* Payment exists — show status card */
+              <div style={{ padding: "16px", background: "#FFFDF7", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>{existingPayment.paymentNumber}</div>
+                    <div style={{ fontSize: "13px", color: "#6B7280", marginTop: "2px" }}>
+                      {formatStatus(existingPayment.method)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#AD7B2A" }}>
+                      {formatCurrency(parseFloat(existingPayment.amount.toString()))}
+                    </div>
+                    <span className={`admin-badge ${getStatusBadgeClass(existingPayment.status)}`} style={{ fontSize: "11px", marginTop: "4px" }}>
+                      {formatStatus(existingPayment.status)}
+                    </span>
+                  </div>
+                </div>
+
+                {existingPayment.trackingNumber && (
+                  <div style={{ fontSize: "12px", color: "#6B7280" }}>
+                    Tracking: <code style={{ fontSize: "12px" }}>{existingPayment.trackingNumber}</code>
+                  </div>
+                )}
+                {existingPayment.checkNumber && (
+                  <div style={{ fontSize: "12px", color: "#6B7280" }}>
+                    Check #: <code style={{ fontSize: "12px" }}>{existingPayment.checkNumber}</code>
+                  </div>
+                )}
+
+                {/* Advance payment status */}
+                {PAYMENT_NEXT_STATUS[existingPayment.status] && (
+                  <button
+                    onClick={() => handleAdvancePayment(
+                      existingPayment.id,
+                      PAYMENT_NEXT_STATUS[existingPayment.status].next,
+                      PAYMENT_NEXT_STATUS[existingPayment.status].label
+                    )}
+                    className="admin-btn admin-btn-primary"
+                    style={{ marginTop: "12px", width: "100%", fontSize: "13px" }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Updating..." : PAYMENT_NEXT_STATUS[existingPayment.status].label}
+                  </button>
+                )}
+              </div>
             ) : (
-              <div style={{ fontSize: "13px", color: "#6B7280" }}>Add items before generating an offer.</div>
+              /* No payment yet — show payment form */
+              <div>
+                <div style={{ fontSize: "13px", color: "#6B7280", marginBottom: "12px" }}>
+                  Select a payment method and process payment for {acceptedOffer ? formatCurrency(parseFloat(acceptedOffer.totalValue.toString())) : "the accepted offer"}.
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Payment Method</label>
+                  <select className="admin-form-input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                    <option value="CHECK">Check</option>
+                    <option value="ACH">ACH / Bank Transfer</option>
+                    <option value="ZELLE">Zelle</option>
+                    <option value="PAYPAL">PayPal</option>
+                    <option value="VENMO">Venmo</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleProcessPayment}
+                  className="admin-btn admin-btn-primary"
+                  style={{ width: "100%", marginTop: "8px" }}
+                  disabled={isSubmitting || !acceptedOffer}
+                >
+                  {isSubmitting ? "Processing..." : "Process Payment"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* RETURN (inline)                                              */}
+        {/* ============================================================ */}
+        {(kit.status === "DECLINED" || kit.status === "RETURNED") && (
+          <div className="admin-section">
+            <div className="admin-section-title">Return</div>
+
+            {activeReturn ? (
+              <div style={{ padding: "16px", background: "#FFFDF7", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#2E1F0C" }}>{activeReturn.returnNumber}</div>
+                    {activeReturn.reason && (
+                      <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "2px" }}>{activeReturn.reason}</div>
+                    )}
+                  </div>
+                  <span className={`admin-badge ${getStatusBadgeClass(activeReturn.status)}`} style={{ fontSize: "11px" }}>
+                    {formatStatus(activeReturn.status)}
+                  </span>
+                </div>
+
+                {activeReturn.trackingNumber && (
+                  <div style={{ fontSize: "12px", color: "#6B7280", marginBottom: "8px" }}>
+                    Tracking: <code style={{ fontSize: "12px" }}>{activeReturn.trackingNumber}</code>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "12px", color: "#9CA3AF", marginBottom: "12px" }}>
+                  <span>Created {formatDate(activeReturn.createdAt)}</span>
+                  {activeReturn.shippedAt && <span>&bull; Shipped {formatDate(activeReturn.shippedAt)}</span>}
+                  {activeReturn.deliveredAt && <span>&bull; Delivered {formatDate(activeReturn.deliveredAt)}</span>}
+                </div>
+
+                {/* Generate return label if needed */}
+                {shippingAddress && !hasReturnLabel && activeReturn.status === "PENDING" && (
+                  <button
+                    onClick={handleGenerateReturnLabel}
+                    className="admin-btn admin-btn-secondary"
+                    style={{ width: "100%", fontSize: "13px", marginBottom: "8px" }}
+                    disabled={isGeneratingFedEx}
+                  >
+                    {isGeneratingFedEx ? "Generating..." : "Generate Return FedEx Label"}
+                  </button>
+                )}
+
+                {/* Advance return status */}
+                {RETURN_NEXT_STATUS[activeReturn.status] && (
+                  <button
+                    onClick={() => handleAdvanceReturn(
+                      activeReturn.id,
+                      RETURN_NEXT_STATUS[activeReturn.status].next,
+                      RETURN_NEXT_STATUS[activeReturn.status].label
+                    )}
+                    className="admin-btn admin-btn-primary"
+                    style={{ width: "100%", fontSize: "13px" }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Updating..." : RETURN_NEXT_STATUS[activeReturn.status].label}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ padding: "16px", textAlign: "center", color: "#6B7280", fontSize: "14px" }}>
+                No return record found. The return is typically created automatically when the customer declines an offer.
+              </div>
             )}
           </div>
         )}
@@ -1143,6 +1693,20 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
       </main>
 
       <AdminBottomNav />
+
+      {/* Global Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        title={confirmAction?.title || ""}
+        message={confirmAction?.message || ""}
+        variant={confirmAction?.variant || "default"}
+        confirmLabel={confirmAction?.confirmLabel || "Confirm"}
+        onConfirm={() => {
+          confirmAction?.onConfirm();
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }
