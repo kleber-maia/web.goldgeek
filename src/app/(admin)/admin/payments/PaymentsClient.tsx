@@ -35,6 +35,8 @@ interface Payment {
 
 const filterTabs = ["all", "pending", "processing", "sent", "completed"];
 
+const ATTENTION_TABS = new Set(["pending", "processing"]);
+
 const STATUS_LABELS: Record<string, string> = {
   PROCESSING: "Process",
   SENT: "Mark Sent",
@@ -158,7 +160,11 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 {count > 0 && tab !== "all" && (
-                  <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  ATTENTION_TABS.has(tab) ? (
+                    <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", background: "#AD7B2A", color: "#FFFFFF", padding: "0 5px" }}>{count}</span>
+                  ) : (
+                    <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  )
                 )}
               </button>
             );
@@ -204,14 +210,10 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
               const nextStatus = getNextStatus(payment.status);
               const isThisUpdating = updatingId === payment.id;
               return (
-                <div key={payment.id} className="admin-card">
+                <Link key={payment.id} href={`/admin/requests/${payment.offer.kit.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
                   <div className="admin-card-header">
                     <div>
-                      <div className="admin-card-id">
-                        <Link href={`/admin/payments/${payment.id}`} style={{ color: "#AD7B2A", textDecoration: "none" }}>
-                          {payment.paymentNumber}
-                        </Link>
-                      </div>
+                      <div className="admin-card-id">{payment.offer.kit.kitNumber}</div>
                       <div className="admin-card-name">
                         {payment.customer.firstName} {payment.customer.lastName}
                       </div>
@@ -221,10 +223,7 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                     </span>
                   </div>
                   <div className="admin-card-meta">
-                    {payment.method} &bull; {formatDate(payment.createdAt)} &bull;{" "}
-                    <Link href={`/admin/requests/${payment.offer.kit.id}`} style={{ color: "#AD7B2A" }}>
-                      {payment.offer.kit.kitNumber}
-                    </Link>
+                    {payment.paymentNumber} &bull; {payment.method} &bull; {formatDate(payment.createdAt)}
                   </div>
                   <div className="admin-card-footer">
                     <span style={{ fontSize: "14px", color: "#AD7B2A", fontWeight: 500 }}>
@@ -238,7 +237,7 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                       />
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })
           )}
@@ -249,9 +248,9 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Payment ID</th>
-                <th>Customer</th>
                 <th>Kit</th>
+                <th>Payment</th>
+                <th>Customer</th>
                 <th>Amount</th>
                 <th>Method</th>
                 <th>Status</th>
@@ -273,16 +272,12 @@ export default function PaymentsClient({ payments }: { payments: Payment[] }) {
                   return (
                     <tr key={payment.id}>
                       <td>
-                        <Link href={`/admin/payments/${payment.id}`} className="admin-table-link">
-                          {payment.paymentNumber}
-                        </Link>
-                      </td>
-                      <td>{payment.customer.firstName} {payment.customer.lastName}</td>
-                      <td>
                         <Link href={`/admin/requests/${payment.offer.kit.id}`} className="admin-table-link">
                           {payment.offer.kit.kitNumber}
                         </Link>
                       </td>
+                      <td>{payment.paymentNumber}</td>
+                      <td>{payment.customer.firstName} {payment.customer.lastName}</td>
                       <td>{formatCurrency(parseFloat(payment.amount.toString()))}</td>
                       <td>{payment.method}</td>
                       <td>

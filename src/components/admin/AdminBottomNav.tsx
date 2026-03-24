@@ -2,7 +2,48 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getAdminBadgeCounts, type BadgeCounts } from "@/lib/actions/admin/badge.actions";
+
+const badgeStyle: React.CSSProperties = {
+  fontSize: "10px",
+  fontWeight: 600,
+  minWidth: "16px",
+  height: "16px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "8px",
+  background: "#AD7B2A",
+  color: "#FFFFFF",
+  padding: "0 4px",
+  position: "absolute",
+  top: "-4px",
+  right: "-8px",
+};
+
+const moreBadgeStyle: React.CSSProperties = {
+  marginLeft: "auto",
+  fontSize: "11px",
+  fontWeight: 600,
+  minWidth: "18px",
+  height: "18px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "9px",
+  background: "#AD7B2A",
+  color: "#FFFFFF",
+  padding: "0 5px",
+};
+
+// Map nav hrefs to badge count keys
+const BADGE_MAP: Record<string, keyof BadgeCounts> = {
+  "/admin/requests": "requests",
+  "/admin/offers": "offers",
+  "/admin/payments": "payments",
+  "/admin/returns": "returns",
+};
 
 const mainNavItems = [
   {
@@ -107,6 +148,14 @@ export default function AdminBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [showMore, setShowMore] = useState(false);
+  const [badges, setBadges] = useState<BadgeCounts | null>(null);
+
+  useEffect(() => {
+    const fetchBadges = () => getAdminBadgeCounts().then(setBadges).catch(() => {});
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30_000);
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) {
@@ -116,6 +165,9 @@ export default function AdminBottomNav() {
   };
 
   const isMoreActive = moreNavItems.some((item) => isActive(item.href));
+
+  // Total badge count for items in the "More" menu
+  const moreBadgeTotal = badges ? badges.returns : 0;
 
   return (
     <>
@@ -148,27 +200,32 @@ export default function AdminBottomNav() {
             boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.15)",
           }}
         >
-          {moreNavItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setShowMore(false)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "14px 20px",
-                textDecoration: "none",
-                color: isActive(item.href) ? "#AD7B2A" : "#2E1F0C",
-                fontWeight: isActive(item.href) ? 600 : 400,
-                fontSize: "15px",
-                background: isActive(item.href) ? "#FFFDF7" : "transparent",
-              }}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
+          {moreNavItems.map((item) => {
+            const badgeKey = BADGE_MAP[item.href];
+            const count = badgeKey && badges ? badges[badgeKey] : 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setShowMore(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "14px 20px",
+                  textDecoration: "none",
+                  color: isActive(item.href) ? "#AD7B2A" : "#2E1F0C",
+                  fontWeight: isActive(item.href) ? 600 : 400,
+                  fontSize: "15px",
+                  background: isActive(item.href) ? "#FFFDF7" : "transparent",
+                }}
+              >
+                {item.icon}
+                {item.label}
+                {count > 0 && <span style={moreBadgeStyle}>{count}</span>}
+              </Link>
+            );
+          })}
           <div style={{ borderTop: "1px solid #E5E7EB", margin: "4px 0" }} />
           <button
             onClick={async () => {
@@ -201,16 +258,24 @@ export default function AdminBottomNav() {
       )}
 
       <nav className="admin-bottom-nav">
-        {mainNavItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`admin-bottom-nav-item ${isActive(item.href, item.exact) ? "active" : ""}`}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
+        {mainNavItems.map((item) => {
+          const badgeKey = BADGE_MAP[item.href];
+          const count = badgeKey && badges ? badges[badgeKey] : 0;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`admin-bottom-nav-item ${isActive(item.href, item.exact) ? "active" : ""}`}
+              style={{ position: "relative" }}
+            >
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                {item.icon}
+                {count > 0 && <span style={badgeStyle}>{count}</span>}
+              </span>
+              {item.label}
+            </Link>
+          );
+        })}
         <button
           onClick={() => setShowMore(!showMore)}
           className={`admin-bottom-nav-item ${isMoreActive ? "active" : ""}`}
@@ -219,11 +284,15 @@ export default function AdminBottomNav() {
             border: "none",
             cursor: "pointer",
             fontFamily: "inherit",
+            position: "relative",
           }}
         >
-          <svg className="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-          </svg>
+          <span style={{ position: "relative", display: "inline-flex" }}>
+            <svg className="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
+            {moreBadgeTotal > 0 && <span style={badgeStyle}>{moreBadgeTotal}</span>}
+          </span>
           More
         </button>
       </nav>

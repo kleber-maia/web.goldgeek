@@ -18,6 +18,7 @@ interface Offer {
   expiresAt: Date | string;
   respondedAt: Date | string | null;
   kit: {
+    id: string;
     kitNumber: string;
     customer: {
       firstName: string;
@@ -30,6 +31,9 @@ interface Offer {
 }
 
 const filterTabs = ["all", "draft", "sent", "accepted", "declined", "expired"];
+
+// Tabs where admin must act (gold badge); others get gray count
+const ATTENTION_TABS = new Set(["draft", "accepted"]);
 
 export default function OffersClient({ offers }: { offers: Offer[] }) {
   const searchParams = useSearchParams();
@@ -71,7 +75,11 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 {count > 0 && tab !== "all" && (
-                  <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  ATTENTION_TABS.has(tab) ? (
+                    <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", background: "#AD7B2A", color: "#FFFFFF", padding: "0 5px" }}>{count}</span>
+                  ) : (
+                    <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  )
                 )}
               </button>
             );
@@ -104,12 +112,12 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
             filteredOffers.map((offer) => (
               <Link
                 key={offer.id}
-                href={`/admin/offers/${offer.id}`}
+                href={`/admin/requests/${offer.kit.id}`}
                 className="admin-card"
               >
                 <div className="admin-card-header">
                   <div>
-                    <div className="admin-card-id">{offer.offerNumber}</div>
+                    <div className="admin-card-id">{offer.kit.kitNumber}</div>
                     <div className="admin-card-name">
                       {offer.kit.customer.firstName} {offer.kit.customer.lastName}
                     </div>
@@ -119,7 +127,7 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
                   </span>
                 </div>
                 <div className="admin-card-meta">
-                  Kit {offer.kit.kitNumber} &bull;{" "}
+                  {offer.offerNumber} &bull;{" "}
                   {offer.sentAt ? `Sent ${formatDate(offer.sentAt)}` : "Not yet sent"}
                 </div>
                 <div className="admin-card-footer">
@@ -140,20 +148,19 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Offer ID</th>
-                <th>Customer</th>
                 <th>Kit</th>
+                <th>Offer</th>
+                <th>Customer</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>Sent</th>
                 <th>Expires</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {filteredOffers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "20px" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "20px" }}>
                     No offers found
                   </td>
                 </tr>
@@ -161,12 +168,12 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
                 filteredOffers.map((offer) => (
                   <tr key={offer.id}>
                     <td>
-                      <Link href={`/admin/offers/${offer.id}`} className="admin-table-link">
-                        {offer.offerNumber}
+                      <Link href={`/admin/requests/${offer.kit.id}`} className="admin-table-link">
+                        {offer.kit.kitNumber}
                       </Link>
                     </td>
+                    <td>{offer.offerNumber}</td>
                     <td>{offer.kit.customer.firstName} {offer.kit.customer.lastName}</td>
-                    <td>{offer.kit.kitNumber}</td>
                     <td>{formatCurrency(parseFloat(offer.totalValue.toString()))}</td>
                     <td>
                       <span className={`admin-badge ${getStatusBadgeClass(offer.status)}`}>
@@ -175,11 +182,6 @@ export default function OffersClient({ offers }: { offers: Offer[] }) {
                     </td>
                     <td>{offer.sentAt ? formatDate(offer.sentAt) : "—"}</td>
                     <td>{offer.status === "DRAFT" ? "—" : formatDate(offer.expiresAt)}</td>
-                    <td>
-                      <Link href={`/admin/offers/${offer.id}`} className="admin-table-link">
-                        View
-                      </Link>
-                    </td>
                   </tr>
                 ))
               )}

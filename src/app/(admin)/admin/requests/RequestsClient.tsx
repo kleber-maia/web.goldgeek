@@ -38,7 +38,31 @@ function getKitValue(kit: Kit): number | null {
   return total > 0 ? total : null;
 }
 
-const filterTabs = ["all", "digital", "physical", "pending", "received"];
+// Workflow-oriented filter tabs
+const filterTabs = ["all", "pending", "in_progress", "needs_action", "completed"];
+
+const FILTER_LABELS: Record<string, string> = {
+  all: "All",
+  pending: "Pending",
+  in_progress: "In Progress",
+  needs_action: "Needs Action",
+  completed: "Completed",
+};
+
+const IN_PROGRESS_STATUSES = new Set(["KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING"]);
+const NEEDS_ACTION_STATUSES = new Set(["OFFER_SENT", "ACCEPTED", "DECLINED"]);
+const COMPLETED_STATUSES = new Set(["PAID", "RETURNED", "CANCELLED"]);
+
+// Tabs where admin must act
+const ATTENTION_TABS = new Set(["pending", "needs_action"]);
+
+function getFilterGroup(status: string): string {
+  if (status === "PENDING") return "pending";
+  if (IN_PROGRESS_STATUSES.has(status)) return "in_progress";
+  if (NEEDS_ACTION_STATUSES.has(status)) return "needs_action";
+  if (COMPLETED_STATUSES.has(status)) return "completed";
+  return "all";
+}
 
 export default function RequestsClient({ kits }: { kits: Kit[] }) {
   const searchParams = useSearchParams();
@@ -47,13 +71,11 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredKits = kits.filter((kit) => {
-    const kitTypeLower = kit.type.toLowerCase();
-    const statusLower = kit.status.toLowerCase();
+    const filterGroup = getFilterGroup(kit.status);
 
     const matchesFilter =
       activeFilter === "all" ||
-      kitTypeLower === activeFilter ||
-      statusLower === activeFilter;
+      filterGroup === activeFilter;
 
     const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.toLowerCase();
     const matchesSearch =
@@ -126,16 +148,20 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
           {filterTabs.map((tab) => {
             const count = tab === "all"
               ? kits.length
-              : kits.filter((k) => k.type.toLowerCase() === tab || k.status.toLowerCase() === tab).length;
+              : kits.filter((k) => getFilterGroup(k.status) === tab).length;
             return (
               <button
                 key={tab}
                 className={`admin-filter-tab ${activeFilter === tab ? "active" : ""}`}
                 onClick={() => setActiveFilter(tab)}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {FILTER_LABELS[tab] || tab}
                 {count > 0 && tab !== "all" && (
-                  <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  ATTENTION_TABS.has(tab) ? (
+                    <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", background: "#AD7B2A", color: "#FFFFFF", padding: "0 5px" }}>{count}</span>
+                  ) : (
+                    <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  )
                 )}
               </button>
             );
@@ -212,7 +238,6 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                 <th>Status</th>
                 <th>Date</th>
                 <th>Value</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -243,11 +268,6 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                         const value = getKitValue(kit);
                         return value ? formatCurrency(value) : "-";
                       })()}
-                    </td>
-                    <td>
-                      <Link href={`/admin/requests/${kit.id}`} className="admin-table-link">
-                        View
-                      </Link>
                     </td>
                   </tr>
                 ))

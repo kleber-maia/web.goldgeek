@@ -30,6 +30,8 @@ interface Return {
 
 const filterTabs = ["all", "pending", "label_created", "in_transit", "delivered"];
 
+const ATTENTION_TABS = new Set(["pending", "label_created"]);
+
 const STATUS_LABELS: Record<string, string> = {
   LABEL_CREATED: "Label Created",
   IN_TRANSIT: "Mark Shipped",
@@ -143,7 +145,11 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
               >
                 {formatStatus(tab)}
                 {count > 0 && tab !== "all" && (
-                  <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  ATTENTION_TABS.has(tab) ? (
+                    <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", background: "#AD7B2A", color: "#FFFFFF", padding: "0 5px" }}>{count}</span>
+                  ) : (
+                    <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
+                  )
                 )}
               </button>
             );
@@ -189,12 +195,10 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
               const nextStatus = getNextStatus(returnItem.status);
               const isThisUpdating = updatingId === returnItem.id;
               return (
-                <div key={returnItem.id} className="admin-card">
+                <Link key={returnItem.id} href={`/admin/requests/${returnItem.kit.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
                   <div className="admin-card-header">
                     <div>
-                      <Link href={`/admin/returns/${returnItem.id}`} style={{ color: "#AD7B2A", textDecoration: "none", fontWeight: 600 }}>
-                        <div className="admin-card-id">{returnItem.returnNumber}</div>
-                      </Link>
+                      <div className="admin-card-id">{returnItem.kit.kitNumber}</div>
                       <div className="admin-card-name">
                         {returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}
                       </div>
@@ -204,10 +208,7 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                     </span>
                   </div>
                   <div className="admin-card-meta">
-                    <Link href={`/admin/requests/${returnItem.kit.id}`} style={{ color: "#AD7B2A" }}>
-                      {returnItem.kit.kitNumber}
-                    </Link>{" "}
-                    &bull; {returnItem.kit.items.length} items
+                    {returnItem.returnNumber} &bull; {returnItem.kit.items.length} items
                     {returnItem.trackingNumber && ` \u2022 ${returnItem.trackingNumber}`}
                   </div>
                   <div className="admin-card-footer">
@@ -222,7 +223,7 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                       />
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })
           )}
@@ -233,9 +234,9 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Return ID</th>
-                <th>Customer</th>
                 <th>Kit</th>
+                <th>Return</th>
+                <th>Customer</th>
                 <th>Items</th>
                 <th>Status</th>
                 <th>Tracking</th>
@@ -256,16 +257,12 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
                   return (
                     <tr key={returnItem.id}>
                       <td>
-                        <Link href={`/admin/returns/${returnItem.id}`} className="admin-table-link">
-                          {returnItem.returnNumber}
-                        </Link>
-                      </td>
-                      <td>{returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}</td>
-                      <td>
                         <Link href={`/admin/requests/${returnItem.kit.id}`} className="admin-table-link">
                           {returnItem.kit.kitNumber}
                         </Link>
                       </td>
+                      <td>{returnItem.returnNumber}</td>
+                      <td>{returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}</td>
                       <td>{returnItem.kit.items.length} items</td>
                       <td>
                         <span className={`admin-badge ${getStatusBadgeClass(returnItem.status)}`}>

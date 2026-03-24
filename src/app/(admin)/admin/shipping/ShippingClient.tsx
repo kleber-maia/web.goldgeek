@@ -194,12 +194,10 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
               const isVoiding = voidingId === label.id;
               const isVoided = label.status === "VOIDED";
               return (
-                <div key={label.id} className="admin-card">
+                <Link key={label.id} href={`/admin/requests/${label.kit.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
                   <div className="admin-card-header">
                     <div>
-                      <div className="admin-card-id" style={{ fontFamily: "monospace", fontSize: "13px" }}>
-                        {label.trackingNumber}
-                      </div>
+                      <div className="admin-card-id">{label.kit.kitNumber}</div>
                       <div className="admin-card-name">
                         {label.kit.customer.firstName} {label.kit.customer.lastName}
                       </div>
@@ -212,10 +210,7 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
                     <span className={`admin-badge ${getStatusBadgeClass(label.type === "RETURN" ? "RETURNED" : label.type === "INBOUND" ? "IN_TRANSIT" : "PENDING")}`} style={{ marginRight: "6px" }}>
                       {formatType(label.type)}
                     </span>
-                    {label.carrier} &bull;{" "}
-                    <Link href={`/admin/requests/${label.kit.id}`} style={{ color: "#AD7B2A" }}>
-                      {label.kit.kitNumber}
-                    </Link>
+                    {label.carrier} &bull; {label.kit.kitNumber}
                     {label.cost !== null && label.cost !== undefined && ` \u2022 ${formatCost(label.cost)}`}
                   </div>
                   <div className="admin-card-footer">
@@ -241,7 +236,7 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
                       </button>
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })
           )}
@@ -252,9 +247,9 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Tracking Number</th>
-                <th>Customer</th>
                 <th>Kit</th>
+                <th>Tracking</th>
+                <th>Customer</th>
                 <th>Type</th>
                 <th>Carrier</th>
                 <th>Status</th>
@@ -276,16 +271,16 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
                   const isVoided = label.status === "VOIDED";
                   return (
                     <tr key={label.id}>
+                      <td>
+                        <Link href={`/admin/requests/${label.kit.id}`} className="admin-table-link">
+                          {label.kit.kitNumber}
+                        </Link>
+                      </td>
                       <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                         {label.trackingNumber}
                       </td>
                       <td>
                         {label.kit.customer.firstName} {label.kit.customer.lastName}
-                      </td>
-                      <td>
-                        <Link href={`/admin/requests/${label.kit.id}`} className="admin-table-link">
-                          {label.kit.kitNumber}
-                        </Link>
                       </td>
                       <td>
                         <span className={`admin-badge ${getStatusBadgeClass(label.type === "RETURN" ? "RETURNED" : label.type === "INBOUND" ? "IN_TRANSIT" : "PENDING")}`}>

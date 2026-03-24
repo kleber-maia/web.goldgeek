@@ -3,6 +3,31 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { getAdminBadgeCounts, type BadgeCounts } from "@/lib/actions/admin/badge.actions";
+
+const badgeStyle: React.CSSProperties = {
+  marginLeft: "auto",
+  fontSize: "11px",
+  fontWeight: 600,
+  minWidth: "18px",
+  height: "18px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "9px",
+  background: "#AD7B2A",
+  color: "#FFFFFF",
+  padding: "0 5px",
+};
+
+// Map nav hrefs to badge count keys
+const BADGE_MAP: Record<string, keyof BadgeCounts> = {
+  "/admin/requests": "requests",
+  "/admin/offers": "offers",
+  "/admin/payments": "payments",
+  "/admin/returns": "returns",
+};
 
 const navItems = [
   {
@@ -104,6 +129,14 @@ const navItems = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [badges, setBadges] = useState<BadgeCounts | null>(null);
+
+  useEffect(() => {
+    const fetchBadges = () => getAdminBadgeCounts().then(setBadges).catch(() => {});
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30_000);
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) {
@@ -132,17 +165,22 @@ export default function AdminSidebar() {
       </div>
       <nav style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <ul className="admin-sidebar-nav" style={{ flex: 1 }}>
-          {navItems.map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={`admin-sidebar-item ${isActive(item.href, item.exact) ? "active" : ""}`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            </li>
-          ))}
+          {navItems.map((item) => {
+            const badgeKey = BADGE_MAP[item.href];
+            const count = badgeKey && badges ? badges[badgeKey] : 0;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={`admin-sidebar-item ${isActive(item.href, item.exact) ? "active" : ""}`}
+                >
+                  {item.icon}
+                  {item.label}
+                  {count > 0 && <span style={badgeStyle}>{count}</span>}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
         <div style={{ padding: "16px 12px", borderTop: "1px solid #E5E7EB" }}>
           <button

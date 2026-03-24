@@ -1361,9 +1361,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
               <div className="admin-offer-card">
                 <div className="admin-offer-header">
                   <div>
-                    <Link href={`/admin/offers/${currentOffer.id}`} style={{ textDecoration: "none" }}>
-                      <div className="admin-offer-number">{currentOffer.offerNumber}</div>
-                    </Link>
+                    <div className="admin-offer-number">{currentOffer.offerNumber}</div>
                     <div className="admin-offer-status" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
                       <span className={`admin-badge ${getStatusBadgeClass(currentOffer.status)}`}>
                         {formatStatus(currentOffer.status)}
@@ -1451,9 +1449,9 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                     {pastOffers.map((offer) => (
                       <div key={offer.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#F9FAFB", borderRadius: "6px", fontSize: "13px" }}>
                         <div>
-                          <Link href={`/admin/offers/${offer.id}`} style={{ color: "#AD7B2A", textDecoration: "none", fontWeight: 500 }}>
+                          <span style={{ color: "#AD7B2A", fontWeight: 500 }}>
                             {offer.offerNumber}
-                          </Link>
+                          </span>
                           <span className={`admin-badge ${getStatusBadgeClass(offer.status)}`} style={{ marginLeft: "8px", fontSize: "11px" }}>
                             {formatStatus(offer.status)}
                           </span>
