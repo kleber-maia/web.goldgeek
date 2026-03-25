@@ -147,7 +147,7 @@ export class ShippingService {
       if (status === 'IN_TRANSIT') {
         await prisma.kit.update({
           where: { id: label.kitId },
-          data: { status: 'KIT_SENT', kitSentAt: new Date() },
+          data: { status: 'SHIPPED', kitSentAt: new Date() },
         });
         await ActivityService.logEvent({
           kitId: label.kitId,
@@ -176,11 +176,7 @@ export class ShippingService {
       }
     } else if (label.type === 'INBOUND') {
       if (status === 'IN_TRANSIT') {
-        await prisma.kit.update({
-          where: { id: label.kitId },
-          data: { status: 'IN_TRANSIT' },
-        });
-
+        // Package in transit — kit stays at SHIPPED (already there from kit delivery)
         await ActivityService.logEvent({
           kitId: label.kitId,
           userId,
@@ -196,11 +192,13 @@ export class ShippingService {
           );
         }
       } else if (status === 'DELIVERED') {
+        // Package arrived — auto-start evaluation
         await prisma.kit.update({
           where: { id: label.kitId },
           data: {
-            status: 'RECEIVED',
+            status: 'EVALUATING',
             receivedAt: new Date(),
+            evaluationStartAt: new Date(),
           },
         });
 
@@ -208,7 +206,7 @@ export class ShippingService {
           kitId: label.kitId,
           userId,
           type: 'PACKAGE_DELIVERED',
-          title: 'Package Delivered',
+          title: 'Package Received — Evaluation Started',
           description: `Package delivered: ${label.trackingNumber}`,
           metadata: { labelId: label.id },
         });

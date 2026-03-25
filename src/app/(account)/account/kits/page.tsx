@@ -50,7 +50,7 @@ export default async function ManageKitsPage() {
     const hasOffer = kit.status === "OFFER_SENT" && Boolean(activeOffer);
     const needsShippingLabel =
       normalizeKitType(kit.type) === "digital" &&
-      ["PENDING", "KIT_SENT"].includes(kit.status);
+      ["PENDING", "SHIPPED"].includes(kit.status);
 
     return {
       id: kit.id,

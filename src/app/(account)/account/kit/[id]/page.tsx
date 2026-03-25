@@ -149,11 +149,11 @@ export default async function KitDetailPage({
   const showOfferBanner =
     kit.status === "OFFER_SENT" && activeOffer?.status === "SENT";
   const hasLabels = (kit.shippingLabels || []).length > 0;
-  const canChangeType = ["PENDING", "KIT_SENT"].includes(kit.status) && !hasLabels;
+  const canChangeType = ["PENDING", "SHIPPED"].includes(kit.status) && !hasLabels;
   const showShippingLabel =
-    kit.type === "DIGITAL" && ["PENDING", "KIT_SENT"].includes(kit.status);
+    kit.type === "DIGITAL" && ["PENDING", "SHIPPED"].includes(kit.status);
   const showPhysicalKitMessage =
-    kit.type === "PHYSICAL" && kit.status === "KIT_SENT";
+    kit.type === "PHYSICAL" && kit.status === "SHIPPED";
 
   const timelineEvents =
     (kit.timeline as TimelineLike[] | undefined)?.map((event) => ({

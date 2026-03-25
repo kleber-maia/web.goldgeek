@@ -159,6 +159,34 @@ export async function getAllOffers(filters?: {
 }
 
 /**
+ * Get accepted offers without payment (for Payments funnel page).
+ */
+export async function getAcceptedOffersWithoutPayment(): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const offers = await OfferService.getAcceptedWithoutPayment();
+    return { success: true, data: serializePrismaData(offers) };
+  } catch (error: any) {
+    console.error('Error getting unpaid offers:', error);
+    return { success: false, error: error.message || 'Failed to get unpaid offers' };
+  }
+}
+
+/**
+ * Get declined offers without return record (for Returns funnel page).
+ */
+export async function getDeclinedOffersWithoutReturn(): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const offers = await OfferService.getDeclinedWithoutReturn();
+    return { success: true, data: serializePrismaData(offers) };
+  } catch (error: any) {
+    console.error('Error getting unreturned offers:', error);
+    return { success: false, error: error.message || 'Failed to get unreturned offers' };
+  }
+}
+
+/**
  * Get offer details (admin only)
  */
 export async function getOfferDetails(offerId: string): Promise<ActionResult> {

@@ -45,7 +45,7 @@ export async function getAnalytics(): Promise<ActionResult<AnalyticsData>> {
     ] = await Promise.all([
       prisma.kit.count(),
       prisma.kit.count({
-        where: { status: { in: ['PENDING', 'KIT_SENT', 'IN_TRANSIT', 'RECEIVED', 'EVALUATING', 'OFFER_SENT'] } },
+        where: { status: { in: ['PENDING', 'SHIPPED', 'EVALUATING', 'OFFER_SENT'] } },
       }),
       prisma.kit.count({
         where: { status: { in: ['PAID', 'RETURNED'] } },

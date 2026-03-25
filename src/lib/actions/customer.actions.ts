@@ -304,7 +304,7 @@ export async function updateKitType(
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!['PENDING', 'KIT_SENT'].includes(kit.status)) {
+    if (!['PENDING', 'SHIPPED'].includes(kit.status)) {
       return { success: false, error: 'Kit type can only be changed before shipping' };
     }
 
@@ -520,7 +520,7 @@ export async function getShippingLabelData(
     let inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
 
     // Auto-generate FedEx inbound label for digital kits when none exists
-    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'KIT_SENT'].includes(kit.status)) {
+    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status)) {
       const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.trim();
       const addr = shippingSnapshot || defaultAddress;
       if (addr) {
@@ -781,7 +781,7 @@ export async function getDigitalKitData(
     let inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
 
     // Auto-generate FedEx inbound label for digital kits when none exists
-    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'KIT_SENT'].includes(kit.status)) {
+    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status)) {
       const addr = shippingSnapshot || defaultAddress;
       if (addr) {
         const generated = await ShippingService.generateFedExLabel(kitId, 'INBOUND', {

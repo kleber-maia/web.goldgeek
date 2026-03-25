@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getAdminBadgeCounts, type BadgeCounts } from "@/lib/actions/admin/badge.actions";
 
@@ -129,8 +129,20 @@ const navItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [badges, setBadges] = useState<BadgeCounts | null>(null);
+
+  // On kit detail pages, highlight the referring page instead of Kit Requests
+  const fromParam = searchParams.get("from");
+  const FROM_TO_HREF: Record<string, string> = {
+    offers: "/admin/offers",
+    payments: "/admin/payments",
+    returns: "/admin/returns",
+  };
+  const overrideHref = pathname.startsWith("/admin/requests/") && fromParam
+    ? FROM_TO_HREF[fromParam]
+    : null;
 
   useEffect(() => {
     const fetchBadges = () => getAdminBadgeCounts().then(setBadges).catch(() => {});
@@ -140,6 +152,9 @@ export default function AdminSidebar() {
   }, [pathname]);
 
   const isActive = (href: string, exact?: boolean) => {
+    if (overrideHref) {
+      return href === overrideHref;
+    }
     if (exact) {
       return pathname === href;
     }

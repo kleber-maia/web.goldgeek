@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { getAllReturns } from "@/lib/actions/admin/shipping.actions";
+import { getDeclinedOffersWithoutReturn } from "@/lib/actions/admin/offer.actions";
 import ReturnsClient from "./ReturnsClient";
 
 export default async function ReturnsPage() {
@@ -15,8 +16,13 @@ export default async function ReturnsPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const result = await getAllReturns();
-  const returns = result.data || [];
+  const [returnsResult, declinedResult] = await Promise.all([
+    getAllReturns(),
+    getDeclinedOffersWithoutReturn(),
+  ]);
 
-  return <ReturnsClient returns={returns} />;
+  const returns = returnsResult.data || [];
+  const declinedOffers = declinedResult.data || [];
+
+  return <ReturnsClient returns={returns} declinedOffers={declinedOffers} />;
 }

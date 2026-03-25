@@ -23,8 +23,8 @@ export default function KitsClient({ kits }: { kits: KitData[] }) {
   const [search, setSearch] = useState("");
 
   const activeStatuses = [
-    "PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED",
-    "EVALUATING", "OFFER_SENT", "ACCEPTED", "DECLINED",
+    "PENDING", "SHIPPED", "EVALUATING",
+    "OFFER_SENT", "ACCEPTED", "DECLINED",
   ];
   const completedStatuses = ["PAID", "RETURNED", "CANCELLED"];
 

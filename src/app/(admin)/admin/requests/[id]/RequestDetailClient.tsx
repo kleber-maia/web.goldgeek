@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -120,10 +120,8 @@ const estimatePricePerGram: Record<string, number> = {
 
 // Status workflow: what comes next for linear progression
 const STATUS_FLOW: Record<string, { next: string; label: string; description: string } | null> = {
-  PENDING: { next: "KIT_SENT", label: "Mark Kit Sent", description: "Kit/label has been mailed to customer" },
-  KIT_SENT: { next: "IN_TRANSIT", label: "Mark In Transit", description: "Customer shipped their package" },
-  IN_TRANSIT: { next: "RECEIVED", label: "Mark Received", description: "Package arrived at Gold Geek" },
-  RECEIVED: { next: "EVALUATING", label: "Start Evaluation", description: "Begin evaluating items" },
+  PENDING: { next: "SHIPPED", label: "Mark Shipped", description: "Kit/label has been mailed to customer" },
+  SHIPPED: null, // Waiting for package arrival (auto-advances to EVALUATING on delivery)
   EVALUATING: null,
   OFFER_SENT: null,
   ACCEPTED: null,
@@ -134,10 +132,10 @@ const STATUS_FLOW: Record<string, { next: string; label: string; description: st
 };
 
 // Full ordered workflow for the progress bar
-const WORKFLOW_STEPS = ["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING", "OFFER_SENT"];
+const WORKFLOW_STEPS = ["PENDING", "SHIPPED", "EVALUATING", "OFFER_SENT"];
 const TERMINAL_STATUSES = ["ACCEPTED", "PAID", "DECLINED", "RETURNED", "CANCELLED"];
 
-const ITEM_EDITABLE_STATUSES = ["RECEIVED", "EVALUATING"];
+const ITEM_EDITABLE_STATUSES = ["EVALUATING"];
 
 // Payment status flow
 const PAYMENT_NEXT_STATUS: Record<string, { next: string; label: string }> = {
@@ -191,8 +189,17 @@ function Alert({ type, message, onDismiss }: { type: "error" | "success"; messag
   );
 }
 
+const VALID_BACK_PAGES: Record<string, string> = {
+  offers: "/admin/offers",
+  payments: "/admin/payments",
+  returns: "/admin/returns",
+};
+
 export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
+  const backHref = (fromParam && VALID_BACK_PAGES[fromParam]) || "/admin/requests";
 
   // UI state
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -743,7 +750,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
       <main className="admin-main" style={{ paddingBottom: "100px" }}>
         {/* Header */}
         <div className="admin-detail-header">
-          <Link href="/admin/requests" className="admin-back-btn">
+          <Link href={backHref} className="admin-back-btn">
             <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>

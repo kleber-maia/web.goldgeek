@@ -39,6 +39,21 @@ export async function getAllKits(filters?: {
 }
 
 /**
+ * Get kits awaiting evaluation (EVALUATING with no offers).
+ * Used by the Offers funnel page.
+ */
+export async function getKitsForEvaluation(): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const kits = await KitService.getAwaitingEvaluation();
+    return { success: true, data: serializePrismaData(kits) };
+  } catch (error: any) {
+    console.error('Error getting evaluation kits:', error);
+    return { success: false, error: error.message || 'Failed to get evaluation kits' };
+  }
+}
+
+/**
  * Get kit details (admin only)
  */
 export async function getKitDetails(kitId: string): Promise<ActionResult> {

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { getAllOffers } from "@/lib/actions/admin/offer.actions";
+import { getKitsForEvaluation } from "@/lib/actions/admin/kit.actions";
 import OffersClient from "./OffersClient";
 
 export default async function OffersPage() {
@@ -15,8 +16,13 @@ export default async function OffersPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const result = await getAllOffers();
-  const offers = result.data || [];
+  const [offersResult, evalKitsResult] = await Promise.all([
+    getAllOffers(),
+    getKitsForEvaluation(),
+  ]);
 
-  return <OffersClient offers={offers} />;
+  const offers = offersResult.data || [];
+  const evaluationKits = evalKitsResult.data || [];
+
+  return <OffersClient offers={offers} evaluationKits={evaluationKits} />;
 }

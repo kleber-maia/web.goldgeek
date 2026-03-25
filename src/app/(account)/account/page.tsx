@@ -7,7 +7,7 @@ import { CustomerService } from "@/lib/services/customer.service";
 import { LogoutButton } from "@/components/account/LogoutButton";
 import { SettingsService } from "@/lib/services/settings.service";
 
-const ACTIVE_KIT_STATUSES = ["PENDING", "KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING"] as const;
+const ACTIVE_KIT_STATUSES = ["PENDING", "SHIPPED", "EVALUATING"] as const;
 
 interface Shortcut {
   href: string;
@@ -104,7 +104,7 @@ export default async function AccountDashboardPage() {
   const kitsNeedingLabel = kits.filter(
     (k) =>
       k.type === "DIGITAL" &&
-      ["PENDING", "KIT_SENT"].includes(k.status) &&
+      ["PENDING", "SHIPPED"].includes(k.status) &&
       (k.shippingLabels?.length ?? 0) === 0
   );
 

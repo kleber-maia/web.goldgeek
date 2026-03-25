@@ -2,7 +2,6 @@ import { prisma } from '@/lib/db';
 import { generateKitNumber } from '@/lib/db/utils';
 import type { Kit, KitStatus, KitType } from '@prisma/client';
 import { ActivityService } from './activity.service';
-import { sendEvaluationStartedEmail } from '@/lib/email';
 
 export interface CreateKitInput {
   customerId: string;
@@ -107,13 +106,11 @@ export class KitService {
 
     // Set timestamps based on status
     switch (status) {
-      case 'KIT_SENT':
+      case 'SHIPPED':
         updates.kitSentAt = new Date();
         break;
-      case 'RECEIVED':
-        updates.receivedAt = new Date();
-        break;
       case 'EVALUATING':
+        updates.receivedAt = new Date();
         updates.evaluationStartAt = new Date();
         break;
       case 'PAID':
@@ -137,19 +134,6 @@ export class KitService {
       description: `Kit status changed to ${status}`,
       metadata: { oldStatus: kit.status, newStatus: status },
     });
-
-    // Send evaluation started email when status changes to EVALUATING
-    if (status === 'EVALUATING') {
-      const fullKit = await prisma.kit.findUnique({
-        where: { id: kitId },
-        include: { customer: true },
-      });
-      if (fullKit?.customer?.email) {
-        sendEvaluationStartedEmail(fullKit.customer.email, fullKit.kitNumber).catch(err =>
-          console.error('Failed to send evaluation started email:', err)
-        );
-      }
-    }
 
     return kit;
   }
@@ -241,6 +225,26 @@ export class KitService {
     });
 
     return kit;
+  }
+
+  /**
+   * Get kits awaiting evaluation (EVALUATING with no offers yet).
+   * Used by the Offers funnel page to show "Ready for Eval" items.
+   */
+  static async getAwaitingEvaluation() {
+    return prisma.kit.findMany({
+      where: {
+        status: 'EVALUATING',
+        offers: { none: {} },
+      },
+      include: {
+        customer: true,
+        items: true,
+      },
+      orderBy: {
+        receivedAt: 'asc', // oldest first = FIFO
+      },
+    });
   }
 
   /**

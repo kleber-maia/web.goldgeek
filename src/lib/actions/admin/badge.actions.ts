@@ -12,24 +12,48 @@ export interface BadgeCounts {
 
 /**
  * Get attention-needed counts for admin navigation badges.
- * Only counts items waiting for admin action.
+ * Each actionable item appears in exactly ONE badge (no double-counting).
+ *
+ * - requests: PENDING kits (admin needs to send kit/label)
+ * - offers: kits needing evaluation + draft offers not yet sent
+ * - payments: accepted offers without payment + active payments (PENDING/PROCESSING)
+ * - returns: declined offers without return record + active returns (PENDING/LABEL_CREATED)
  */
 export async function getAdminBadgeCounts(): Promise<BadgeCounts> {
   try {
     await requireAdmin();
 
-    const [requests, offers, payments, returns] = await Promise.all([
-      // Kits in PENDING — admin hasn't sent kit/label yet
+    const [
+      pendingKits,
+      evalKits,
+      draftOffers,
+      unpaidOffers,
+      activePayments,
+      unreturned,
+      activeReturns,
+    ] = await Promise.all([
+      // Requests: PENDING kits
       prisma.kit.count({ where: { status: 'PENDING' } }),
-      // Offers in DRAFT — admin created but hasn't sent to customer
+      // Offers: kits in EVALUATING with no offers yet
+      prisma.kit.count({ where: { status: 'EVALUATING', offers: { none: {} } } }),
+      // Offers: draft offers not sent
       prisma.offer.count({ where: { status: 'DRAFT' } }),
-      // Payments in PENDING or PROCESSING — admin needs to process & send
+      // Payments: accepted offers without payment record
+      prisma.offer.count({ where: { status: 'ACCEPTED', payment: null } }),
+      // Payments: active payments needing admin processing
       prisma.payment.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } }),
-      // Returns in PENDING or LABEL_CREATED — admin needs to create label & ship
+      // Returns: declined offers without return record
+      prisma.offer.count({ where: { status: 'DECLINED', kit: { returns: { none: {} } } } }),
+      // Returns: active returns needing admin action
       prisma.return.count({ where: { status: { in: ['PENDING', 'LABEL_CREATED'] } } }),
     ]);
 
-    return { requests, offers, payments, returns };
+    return {
+      requests: pendingKits,
+      offers: evalKits + draftOffers,
+      payments: unpaidOffers + activePayments,
+      returns: unreturned + activeReturns,
+    };
   } catch {
     return { requests: 0, offers: 0, payments: 0, returns: 0 };
   }

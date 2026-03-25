@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { getAllPayments } from "@/lib/actions/admin/payment.actions";
+import { getAcceptedOffersWithoutPayment } from "@/lib/actions/admin/offer.actions";
 import PaymentsClient from "./PaymentsClient";
 
 export default async function PaymentsPage() {
@@ -15,8 +16,13 @@ export default async function PaymentsPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const result = await getAllPayments();
-  const payments = result.data || [];
+  const [paymentsResult, unpaidResult] = await Promise.all([
+    getAllPayments(),
+    getAcceptedOffersWithoutPayment(),
+  ]);
 
-  return <PaymentsClient payments={payments} />;
+  const payments = paymentsResult.data || [];
+  const unpaidOffers = unpaidResult.data || [];
+
+  return <PaymentsClient payments={payments} unpaidOffers={unpaidOffers} />;
 }

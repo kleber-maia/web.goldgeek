@@ -51,11 +51,10 @@ export function getStatusBadgeClass(status: string): string {
     case "OFFER_SENT":
     case "SENT":
       return "pending";
-    case "KIT_SENT":
+    case "SHIPPED":
     case "LABEL_CREATED":
       return "purple";
     case "IN_TRANSIT":
-    case "RECEIVED":
     case "EVALUATING":
     case "PROCESSING":
     case "CREATED":

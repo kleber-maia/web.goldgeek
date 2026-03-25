@@ -96,7 +96,7 @@ export default function NotificationsClient({ events }: { events: TimelineEvent[
                   }}>
                     {event.description
                       .replace(/_/g, " ")
-                      .replace(/\b(PENDING|KIT_SENT|IN_TRANSIT|RECEIVED|EVALUATING|OFFER_SENT|ACCEPTED|DECLINED|PAID|RETURNED|CANCELLED)\b/g,
+                      .replace(/\b(PENDING|SHIPPED|EVALUATING|OFFER_SENT|ACCEPTED|DECLINED|PAID|RETURNED|CANCELLED)\b/g,
                         (match) => match.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
                       )}
                   </p>

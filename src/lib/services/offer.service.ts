@@ -241,6 +241,44 @@ export class OfferService {
   }
 
   /**
+   * Get accepted offers that have no payment record yet.
+   * Used by the Payments funnel page "Awaiting Payment" tab.
+   */
+  static async getAcceptedWithoutPayment() {
+    return prisma.offer.findMany({
+      where: {
+        status: 'ACCEPTED',
+        payment: null,
+      },
+      include: {
+        kit: { include: { customer: true } },
+      },
+      orderBy: {
+        respondedAt: 'asc',
+      },
+    });
+  }
+
+  /**
+   * Get declined offers where the kit has no return record yet.
+   * Used by the Returns funnel page "Needs Return" tab.
+   */
+  static async getDeclinedWithoutReturn() {
+    return prisma.offer.findMany({
+      where: {
+        status: 'DECLINED',
+        kit: { returns: { none: {} } },
+      },
+      include: {
+        kit: { include: { customer: true, items: true } },
+      },
+      orderBy: {
+        respondedAt: 'asc',
+      },
+    });
+  }
+
+  /**
    * Get all offers with filters
    */
   static async getAll(filters?: {

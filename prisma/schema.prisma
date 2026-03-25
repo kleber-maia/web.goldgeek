@@ -20,10 +20,8 @@ enum KitType {
 
 enum KitStatus {
   PENDING      // Initial state
-  KIT_SENT     // Kit/label sent to customer
-  IN_TRANSIT   // Package in transit to Gold Geek
-  RECEIVED     // Package received by Gold Geek
-  EVALUATING   // Items being evaluated
+  SHIPPED      // Kit/label sent, items in transit to Gold Geek
+  EVALUATING   // Items received and being evaluated
   OFFER_SENT   // Offer sent to customer
   ACCEPTED     // Customer accepted offer
   DECLINED     // Customer declined offer

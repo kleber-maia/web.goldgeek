@@ -64,28 +64,19 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
       │ box to customer │                  │
       └────────┬────────┘                  │
                │                           │
-               ▼                           │
-        ┌────────────┐                     │
-        │  KIT_SENT  │                     │
-        └──────┬─────┘                     │
-               │                           │
                └─────────────┬─────────────┘
                              │
                              ▼
+                      ┌────────────┐
+                      │  SHIPPED   │  ← Kit/label sent, items in transit
+                      └──────┬─────┘
+                             │
+                             ▼
                   ┌─────────────────────┐
-                  │ Customer ships      │
-                  │ items to company    │
+                  │ Items arrive at     │
+                  │ Gold Geek           │
+                  │ (auto-start eval)   │
                   └──────────┬──────────┘
-                             │
-                             ▼
-                      ┌────────────┐
-                      │ IN_TRANSIT │
-                      └──────┬─────┘
-                             │
-                             ▼
-                      ┌────────────┐
-                      │  RECEIVED  │
-                      └──────┬─────┘
                              │
                              ▼
                      ┌──────────────┐
@@ -149,15 +140,15 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
   │    ① Kit Delivery label  (company → customer, ships empty box)   │
   │    ② Inbound label       (customer → company, prepaid return)    │
   │                                                                  │
-  │  Admin ships box  ──→  Kit status: KIT_SENT                      │
+  │  Admin ships box  ──→  Kit status: SHIPPED                      │
   │                        EMAIL → Customer: "Kit is on its way"     │
   │                                                                  │
   │  Customer receives box, packs items, ships back using ②          │
   │                                                                  │
-  │  Items in transit ──→  Kit status: IN_TRANSIT                    │
+  │  Items in transit ──→  Kit stays at SHIPPED                    │
   │                        EMAIL → Customer: "Package in transit"    │
   │                                                                  │
-  │  Items arrive     ──→  Kit status: RECEIVED                      │
+  │  Items arrive     ──→  Kit status: EVALUATING (auto)                      │
   │                        EMAIL → Customer: "We received your kit"  │
   └──────────────────────────────────────────────────────────────────┘
 
@@ -168,10 +159,10 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
   │                                                                  │
   │  Customer prints label from their dashboard, packs own box       │
   │                                                                  │
-  │  Items in transit ──→  Kit status: IN_TRANSIT                    │
+  │  Items in transit ──→  Kit stays at SHIPPED                    │
   │                        EMAIL → Customer: "Package in transit"    │
   │                                                                  │
-  │  Items arrive     ──→  Kit status: RECEIVED                      │
+  │  Items arrive     ──→  Kit status: EVALUATING (auto)                      │
   │                        EMAIL → Customer: "We received your kit"  │
   └──────────────────────────────────────────────────────────────────┘
 ```
@@ -180,9 +171,8 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 
 ```
   ┌──────────────────────────────────────────────────────────────────┐
-  │  Admin starts evaluation  ──→  Kit status: EVALUATING            │
-  │                                EMAIL → Customer: "Evaluation     │
-  │                                started"                          │
+  │  Evaluation starts automatically when items arrive (EVALUATING)   │
+  │  EMAIL → Customer: "We received your kit"                        │
   │                                                                  │
   │  Admin inspects each item:                                       │
   │    • Identifies type (jewelry, coins, bullion, scrap, watches)   │

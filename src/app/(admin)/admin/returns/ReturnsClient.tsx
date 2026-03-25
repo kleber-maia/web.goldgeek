@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
@@ -28,9 +28,34 @@ interface Return {
   };
 }
 
-const filterTabs = ["all", "pending", "label_created", "in_transit", "delivered"];
+interface DeclinedOffer {
+  id: string;
+  offerNumber: string;
+  totalValue: any;
+  respondedAt: Date | string | null;
+  kit: {
+    id: string;
+    kitNumber: string;
+    customer: {
+      firstName: string;
+      lastName: string;
+    };
+    items: any[];
+  };
+}
 
-const ATTENTION_TABS = new Set(["pending", "label_created"]);
+const FILTER_TABS = ["all", "needs_return", "label_created", "completed"] as const;
+type FilterTab = (typeof FILTER_TABS)[number];
+
+const FILTER_LABELS: Record<FilterTab, string> = {
+  all: "All",
+  needs_return: "Needs Return",
+  label_created: "Ready to Ship",
+  completed: "Completed",
+};
+
+// Only tabs where admin must act get a gold badge
+const ACTION_TABS = new Set<FilterTab>(["needs_return", "label_created"]);
 
 const STATUS_LABELS: Record<string, string> = {
   LABEL_CREATED: "Label Created",
@@ -76,11 +101,33 @@ function ActionButton({
   );
 }
 
-export default function ReturnsClient({ returns }: { returns: Return[] }) {
+export default function ReturnsClient({
+  returns,
+  declinedOffers,
+}: {
+  returns: Return[];
+  declinedOffers: DeclinedOffer[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialFilter = searchParams.get("status") || "all";
-  const [activeFilter, setActiveFilter] = useState(initialFilter);
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: declinedOffers.length + returns.length,
+      needs_return: declinedOffers.length,
+      label_created: 0, completed: 0,
+    };
+    for (const r of returns) {
+      if (["PENDING", "LABEL_CREATED"].includes(r.status)) counts.label_created++;
+      else if (["IN_TRANSIT", "DELIVERED"].includes(r.status)) counts.completed++;
+    }
+    return counts;
+  }, [returns, declinedOffers]);
+
+  const initialFilter = searchParams.get("status");
+  const [activeFilter, setActiveFilter] = useState<FilterTab>(
+    initialFilter && FILTER_TABS.includes(initialFilter as FilterTab) ? initialFilter as FilterTab : "all"
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -93,17 +140,27 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
     }
   }, [successMsg]);
 
+  const matchesSearch = (name: string, ...fields: string[]) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return name.toLowerCase().includes(q) || fields.some((f) => f.toLowerCase().includes(q));
+  };
+
+  // Filtered declined offers
+  const filteredDeclined = declinedOffers.filter((offer) => {
+    if (activeFilter !== "all" && activeFilter !== "needs_return") return false;
+    const name = `${offer.kit.customer.firstName} ${offer.kit.customer.lastName}`;
+    return matchesSearch(name, offer.kit.kitNumber, offer.offerNumber);
+  });
+
+  // Filtered returns — tabs group statuses, "All" shows everything
   const filteredReturns = returns.filter((returnItem) => {
-    const statusLower = returnItem.status.toLowerCase();
-    const matchesFilter = activeFilter === "all" || statusLower === activeFilter;
-
-    const customerName = `${returnItem.kit.customer.firstName} ${returnItem.kit.customer.lastName}`.toLowerCase();
-    const matchesSearch =
-      customerName.includes(searchQuery.toLowerCase()) ||
-      returnItem.returnNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      returnItem.kit.kitNumber.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesFilter && matchesSearch;
+    if (activeFilter === "needs_return") return false;
+    if (activeFilter === "label_created") return ["PENDING", "LABEL_CREATED"].includes(returnItem.status);
+    if (activeFilter === "completed") return ["IN_TRANSIT", "DELIVERED"].includes(returnItem.status);
+    if (activeFilter !== "all") return false;
+    const name = `${returnItem.kit.customer.firstName} ${returnItem.kit.customer.lastName}`;
+    return matchesSearch(name, returnItem.returnNumber, returnItem.kit.kitNumber);
   });
 
   const handleUpdateStatus = async (returnId: string, newStatus: string) => {
@@ -133,23 +190,17 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
 
         {/* Filter Tabs */}
         <div className="admin-filter-tabs">
-          {filterTabs.map((tab) => {
-            const count = tab === "all"
-              ? returns.length
-              : returns.filter((r) => r.status.toLowerCase() === tab).length;
+          {FILTER_TABS.map((tab) => {
+            const count = tabCounts[tab];
             return (
               <button
                 key={tab}
                 className={`admin-filter-tab ${activeFilter === tab ? "active" : ""}`}
                 onClick={() => setActiveFilter(tab)}
               >
-                {formatStatus(tab)}
-                {count > 0 && tab !== "all" && (
-                  ATTENTION_TABS.has(tab) ? (
-                    <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", background: "#AD7B2A", color: "#FFFFFF", padding: "0 5px" }}>{count}</span>
-                  ) : (
-                    <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
-                  )
+                {FILTER_LABELS[tab]}
+                {count > 0 && tab !== "all" && ACTION_TABS.has(tab) && (
+                  <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", padding: "0 5px", background: "#AD7B2A", color: "#FFFFFF" }}>{count}</span>
                 )}
               </button>
             );
@@ -184,48 +235,84 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
 
         {/* Mobile Card List */}
         <div className="admin-card-list">
-          {filteredReturns.length === 0 ? (
+          {filteredDeclined.length === 0 && filteredReturns.length === 0 ? (
             <div className="admin-card">
               <div className="admin-card-header">
                 <div className="admin-card-name">No returns found</div>
               </div>
             </div>
           ) : (
-            filteredReturns.map((returnItem) => {
-              const nextStatus = getNextStatus(returnItem.status);
-              const isThisUpdating = updatingId === returnItem.id;
-              return (
-                <Link key={returnItem.id} href={`/admin/requests/${returnItem.kit.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
+            <>
+              {/* Declined offer cards — needs return */}
+              {filteredDeclined.map((offer) => (
+                <Link
+                  key={`offer-${offer.id}`}
+                  href={`/admin/requests/${offer.kit.id}?from=returns`}
+                  className="admin-card"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
                   <div className="admin-card-header">
                     <div>
-                      <div className="admin-card-id">{returnItem.kit.kitNumber}</div>
+                      <div className="admin-card-id">{offer.kit.kitNumber}</div>
                       <div className="admin-card-name">
-                        {returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}
+                        {offer.kit.customer.firstName} {offer.kit.customer.lastName}
                       </div>
                     </div>
-                    <span className={`admin-badge ${getStatusBadgeClass(returnItem.status)}`}>
-                      {formatStatus(returnItem.status)}
+                    <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                      Needs Return
                     </span>
                   </div>
                   <div className="admin-card-meta">
-                    {returnItem.returnNumber} &bull; {returnItem.kit.items.length} items
-                    {returnItem.trackingNumber && ` \u2022 ${returnItem.trackingNumber}`}
+                    {offer.kit.items.length} item{offer.kit.items.length !== 1 ? "s" : ""} &bull; Declined {offer.respondedAt ? formatDate(offer.respondedAt) : ""}
                   </div>
                   <div className="admin-card-footer">
                     <span style={{ fontSize: "12px", color: "#6B7280" }}>
-                      {formatDate(returnItem.deliveredAt || returnItem.shippedAt || returnItem.createdAt)}
+                      {offer.offerNumber}
                     </span>
-                    {nextStatus && (
-                      <ActionButton
-                        label={STATUS_LABELS[nextStatus]}
-                        onClick={() => handleUpdateStatus(returnItem.id, nextStatus)}
-                        disabled={isThisUpdating}
-                      />
-                    )}
+                    <span style={{ fontSize: "12px", padding: "4px 8px", background: "#AD7B2A", color: "white", borderRadius: "4px", fontWeight: 500 }}>
+                      Create Return
+                    </span>
                   </div>
                 </Link>
-              );
-            })
+              ))}
+
+              {/* Return cards */}
+              {filteredReturns.map((returnItem) => {
+                const nextStatus = getNextStatus(returnItem.status);
+                const isThisUpdating = updatingId === returnItem.id;
+                return (
+                  <Link key={returnItem.id} href={`/admin/requests/${returnItem.kit.id}?from=returns`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
+                    <div className="admin-card-header">
+                      <div>
+                        <div className="admin-card-id">{returnItem.kit.kitNumber}</div>
+                        <div className="admin-card-name">
+                          {returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}
+                        </div>
+                      </div>
+                      <span className={`admin-badge ${getStatusBadgeClass(returnItem.status)}`}>
+                        {formatStatus(returnItem.status)}
+                      </span>
+                    </div>
+                    <div className="admin-card-meta">
+                      {returnItem.returnNumber} &bull; {returnItem.kit.items.length} items
+                      {returnItem.trackingNumber && ` \u2022 ${returnItem.trackingNumber}`}
+                    </div>
+                    <div className="admin-card-footer">
+                      <span style={{ fontSize: "12px", color: "#6B7280" }}>
+                        {formatDate(returnItem.deliveredAt || returnItem.shippedAt || returnItem.createdAt)}
+                      </span>
+                      {nextStatus && (
+                        <ActionButton
+                          label={STATUS_LABELS[nextStatus]}
+                          onClick={() => handleUpdateStatus(returnItem.id, nextStatus)}
+                          disabled={isThisUpdating}
+                        />
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </>
           )}
         </div>
 
@@ -244,49 +331,77 @@ export default function ReturnsClient({ returns }: { returns: Return[] }) {
               </tr>
             </thead>
             <tbody>
-              {filteredReturns.length === 0 ? (
+              {filteredDeclined.length === 0 && filteredReturns.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: "center", padding: "20px" }}>
                     No returns found
                   </td>
                 </tr>
               ) : (
-                filteredReturns.map((returnItem) => {
-                  const nextStatus = getNextStatus(returnItem.status);
-                  const isThisUpdating = updatingId === returnItem.id;
-                  return (
-                    <tr key={returnItem.id}>
+                <>
+                  {/* Declined offer rows */}
+                  {filteredDeclined.map((offer) => (
+                    <tr key={`offer-${offer.id}`}>
                       <td>
-                        <Link href={`/admin/requests/${returnItem.kit.id}`} className="admin-table-link">
-                          {returnItem.kit.kitNumber}
+                        <Link href={`/admin/requests/${offer.kit.id}?from=returns`} className="admin-table-link">
+                          {offer.kit.kitNumber}
                         </Link>
                       </td>
-                      <td>{returnItem.returnNumber}</td>
-                      <td>{returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}</td>
-                      <td>{returnItem.kit.items.length} items</td>
+                      <td style={{ color: "#6B7280", fontStyle: "italic" }}>—</td>
+                      <td>{offer.kit.customer.firstName} {offer.kit.customer.lastName}</td>
+                      <td>{offer.kit.items.length} items</td>
                       <td>
-                        <span className={`admin-badge ${getStatusBadgeClass(returnItem.status)}`}>
-                          {formatStatus(returnItem.status)}
+                        <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                          Needs Return
                         </span>
                       </td>
-                      <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                        {returnItem.trackingNumber || "-"}
-                      </td>
+                      <td>—</td>
                       <td>
-                        {nextStatus && (
-                          <button
-                            onClick={() => handleUpdateStatus(returnItem.id, nextStatus)}
-                            disabled={isThisUpdating}
-                            className="admin-table-link"
-                            style={{ cursor: isThisUpdating ? "default" : "pointer" }}
-                          >
-                            {isThisUpdating ? "..." : STATUS_LABELS[nextStatus]}
-                          </button>
-                        )}
+                        <Link href={`/admin/requests/${offer.kit.id}?from=returns`} className="admin-table-link" style={{ fontWeight: 500 }}>
+                          Create Return
+                        </Link>
                       </td>
                     </tr>
-                  );
-                })
+                  ))}
+
+                  {/* Return rows */}
+                  {filteredReturns.map((returnItem) => {
+                    const nextStatus = getNextStatus(returnItem.status);
+                    const isThisUpdating = updatingId === returnItem.id;
+                    return (
+                      <tr key={returnItem.id}>
+                        <td>
+                          <Link href={`/admin/requests/${returnItem.kit.id}?from=returns`} className="admin-table-link">
+                            {returnItem.kit.kitNumber}
+                          </Link>
+                        </td>
+                        <td>{returnItem.returnNumber}</td>
+                        <td>{returnItem.kit.customer.firstName} {returnItem.kit.customer.lastName}</td>
+                        <td>{returnItem.kit.items.length} items</td>
+                        <td>
+                          <span className={`admin-badge ${getStatusBadgeClass(returnItem.status)}`}>
+                            {formatStatus(returnItem.status)}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                          {returnItem.trackingNumber || "-"}
+                        </td>
+                        <td>
+                          {nextStatus && (
+                            <button
+                              onClick={() => handleUpdateStatus(returnItem.id, nextStatus)}
+                              disabled={isThisUpdating}
+                              className="admin-table-link"
+                              style={{ cursor: isThisUpdating ? "default" : "pointer" }}
+                            >
+                              {isThisUpdating ? "..." : STATUS_LABELS[nextStatus]}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </>
               )}
             </tbody>
           </table>

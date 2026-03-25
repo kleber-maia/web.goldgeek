@@ -325,12 +325,14 @@ Examples: `/admin/customers/page.tsx` -> `CustomersClient.tsx`, `/account/kits/p
 ### Kit Status Workflow
 
 ```
-PENDING -> KIT_SENT -> IN_TRANSIT -> RECEIVED -> EVALUATING -> OFFER_SENT
-                                                                   |
-                                                       ACCEPTED -> PAID
-                                                       DECLINED -> RETURNED
-                                                       (CANCELLED from any state)
+PENDING -> SHIPPED -> EVALUATING -> OFFER_SENT
+                                        |
+                                ACCEPTED -> PAID
+                                DECLINED -> RETURNED
+                                (CANCELLED from any state)
 ```
+
+**Compacted statuses:** KIT_SENT + IN_TRANSIT merged into SHIPPED; RECEIVED merged into EVALUATING (auto-starts on delivery).
 
 Each status change is logged to `TimelineEvent` via `ActivityService`.
 

@@ -16,9 +16,7 @@ interface StatusBadgeProps {
 const STATUS_LABELS: Record<string, string> = {
   // Kit statuses
   PENDING: "Pending",
-  KIT_SENT: "Kit Sent",
-  IN_TRANSIT: "In Transit",
-  RECEIVED: "Received",
+  SHIPPED: "Shipped",
   EVALUATING: "Evaluating",
   OFFER_SENT: "Offer Sent",
   ACCEPTED: "Accepted",
@@ -48,11 +46,10 @@ export function getSharedStatusBadgeClass(status: string): string {
     case "OFFER_SENT":
     case "SENT":
       return "pending";
-    case "KIT_SENT":
+    case "SHIPPED":
     case "LABEL_CREATED":
       return "purple";
     case "IN_TRANSIT":
-    case "RECEIVED":
     case "EVALUATING":
     case "PROCESSING":
     case "CREATED":

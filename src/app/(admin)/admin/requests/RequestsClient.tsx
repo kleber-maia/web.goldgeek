@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
@@ -38,44 +38,50 @@ function getKitValue(kit: Kit): number | null {
   return total > 0 ? total : null;
 }
 
-// Workflow-oriented filter tabs
-const filterTabs = ["all", "pending", "in_progress", "needs_action", "completed"];
+// Intake funnel tabs — kits only appear here during intake phase
+const FILTER_TABS = ["all", "new_requests", "shipped", "completed"] as const;
+type FilterTab = (typeof FILTER_TABS)[number];
 
-const FILTER_LABELS: Record<string, string> = {
+const FILTER_LABELS: Record<FilterTab, string> = {
   all: "All",
-  pending: "Pending",
-  in_progress: "In Progress",
-  needs_action: "Needs Action",
+  new_requests: "New Requests",
+  shipped: "Shipped",
   completed: "Completed",
 };
 
-const IN_PROGRESS_STATUSES = new Set(["KIT_SENT", "IN_TRANSIT", "RECEIVED", "EVALUATING"]);
-const NEEDS_ACTION_STATUSES = new Set(["OFFER_SENT", "ACCEPTED", "DECLINED"]);
-const COMPLETED_STATUSES = new Set(["PAID", "RETURNED", "CANCELLED"]);
+// Intake-phase statuses (everything else lives on Offers/Payments/Returns pages)
+const INTAKE_STATUSES = new Set(["PENDING", "SHIPPED"]);
 
-// Tabs where admin must act
-const ATTENTION_TABS = new Set(["pending", "needs_action"]);
+// Only tabs where admin must act get a gold badge
+const ACTION_TABS = new Set<FilterTab>(["new_requests"]);
 
-function getFilterGroup(status: string): string {
-  if (status === "PENDING") return "pending";
-  if (IN_PROGRESS_STATUSES.has(status)) return "in_progress";
-  if (NEEDS_ACTION_STATUSES.has(status)) return "needs_action";
-  if (COMPLETED_STATUSES.has(status)) return "completed";
-  return "all";
+function getFilterTab(status: string): FilterTab {
+  if (status === "PENDING") return "new_requests";
+  if (status === "SHIPPED") return "shipped";
+  return "completed";
 }
 
 export default function RequestsClient({ kits }: { kits: Kit[] }) {
   const searchParams = useSearchParams();
-  const initialFilter = searchParams.get("status") || "all";
-  const [activeFilter, setActiveFilter] = useState(initialFilter);
+  const initialFilter = searchParams.get("status");
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: kits.length, new_requests: 0, shipped: 0, completed: 0 };
+    for (const kit of kits) {
+      const tab = getFilterTab(kit.status);
+      if (tab) counts[tab]++;
+    }
+    return counts;
+  }, [kits]);
+
+  const [activeFilter, setActiveFilter] = useState<FilterTab>(
+    initialFilter && FILTER_TABS.includes(initialFilter as FilterTab) ? initialFilter as FilterTab : "all"
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredKits = kits.filter((kit) => {
-    const filterGroup = getFilterGroup(kit.status);
-
-    const matchesFilter =
-      activeFilter === "all" ||
-      filterGroup === activeFilter;
+    const tab = getFilterTab(kit.status);
+    const matchesFilter = activeFilter === "all" || tab === activeFilter;
 
     const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.toLowerCase();
     const matchesSearch =
@@ -99,23 +105,17 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
         {/* Filter Tabs + Action Buttons */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px", overflow: "hidden" }}>
           <div className="admin-filter-tabs" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-          {filterTabs.map((tab) => {
-            const count = tab === "all"
-              ? kits.length
-              : kits.filter((k) => getFilterGroup(k.status) === tab).length;
+          {FILTER_TABS.map((tab) => {
+            const count = tabCounts[tab];
             return (
               <button
                 key={tab}
                 className={`admin-filter-tab ${activeFilter === tab ? "active" : ""}`}
                 onClick={() => setActiveFilter(tab)}
               >
-                {FILTER_LABELS[tab] || tab}
-                {count > 0 && tab !== "all" && (
-                  ATTENTION_TABS.has(tab) ? (
-                    <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", background: "#AD7B2A", color: "#FFFFFF", padding: "0 5px" }}>{count}</span>
-                  ) : (
-                    <span style={{ marginLeft: "4px", fontSize: "11px", opacity: 0.7 }}>({count})</span>
-                  )
+                {FILTER_LABELS[tab]}
+                {count > 0 && tab !== "all" && ACTION_TABS.has(tab) && (
+                  <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", padding: "0 5px", background: "#AD7B2A", color: "#FFFFFF" }}>{count}</span>
                 )}
               </button>
             );
@@ -245,7 +245,7 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
             <tbody>
               {filteredKits.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "20px" }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "20px" }}>
                     No requests found
                   </td>
                 </tr>
