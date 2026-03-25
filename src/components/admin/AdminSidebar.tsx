@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -152,7 +153,7 @@ export default function AdminSidebar() {
 
   return (
     <aside className="admin-sidebar">
-      <div style={{ padding: "16px 20px", marginBottom: "20px" }}>
+      <div className="admin-sidebar-logo">
         <Link href="/">
           <Image
             src="/images/logos/GoldGeekLogo-horizontal.png"
@@ -163,44 +164,30 @@ export default function AdminSidebar() {
           />
         </Link>
       </div>
-      <nav style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        <ul className="admin-sidebar-nav" style={{ flex: 1 }}>
-          {navItems.map((item) => {
+      <nav className="admin-sidebar-nav-wrapper">
+        <ul className="admin-sidebar-nav">
+          {navItems.map((item, index) => {
             const badgeKey = BADGE_MAP[item.href];
             const count = badgeKey && badges ? badges[badgeKey] : 0;
             return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`admin-sidebar-item ${isActive(item.href, item.exact) ? "active" : ""}`}
-                >
-                  {item.icon}
-                  {item.label}
-                  {count > 0 && <span style={badgeStyle}>{count}</span>}
-                </Link>
-              </li>
+              <Fragment key={item.href}>
+                {index === 7 && <li className="admin-sidebar-divider" role="separator" />}
+                <li>
+                  <Link
+                    href={item.href}
+                    className={`admin-sidebar-item ${isActive(item.href, item.exact) ? "active" : ""}`}
+                  >
+                    {item.icon}
+                    {item.label}
+                    {count > 0 && <span style={badgeStyle}>{count}</span>}
+                  </Link>
+                </li>
+              </Fragment>
             );
           })}
         </ul>
-        <div style={{ padding: "16px 12px", borderTop: "1px solid #E5E7EB" }}>
-          <button
-            onClick={handleLogout}
-            className="admin-sidebar-item"
-            style={{
-              width: "100%",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              fontSize: "inherit",
-              color: "#6B7280",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "10px 12px",
-              borderRadius: "8px",
-            }}
-          >
+        <div className="admin-sidebar-footer">
+          <button onClick={handleLogout} className="admin-sidebar-logout">
             <svg className="admin-sidebar-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
             </svg>
