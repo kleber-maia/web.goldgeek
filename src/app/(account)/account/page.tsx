@@ -6,7 +6,14 @@ import { serializePrismaData } from "@/lib/db/utils";
 import DashboardClient from "@/components/account/DashboardClient";
 import type { DashboardData } from "@/components/account/DashboardClient";
 
+type CustomerKit = Awaited<ReturnType<typeof CustomerService.getKits>>[number];
+type CustomerPayment = Awaited<ReturnType<typeof CustomerService.getPayments>>[number];
+
 const ACTIVE_KIT_STATUSES = ["PENDING", "SHIPPED", "EVALUATING"] as const;
+
+function toNumber(value: { toString(): string }): number {
+  return parseFloat(value.toString());
+}
 
 export default async function AccountDashboardPage() {
   const session = await getSession();
@@ -28,56 +35,44 @@ export default async function AccountDashboardPage() {
   const firstName = customer.firstName || customer.email.split("@")[0];
   const customerInitial = firstName.charAt(0).toUpperCase();
 
-  // Fetch kits and payments
   const [kits, payments] = await Promise.all([
     CustomerService.getKits(session.id),
     CustomerService.getPayments(session.id),
   ]);
 
-  // Compute stats
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeKits = kits.filter((k: any) =>
+  const activeKits = kits.filter((k: CustomerKit) =>
     (ACTIVE_KIT_STATUSES as readonly string[]).includes(k.status)
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const kitsWithOffer = kits.filter((k: any) => k.status === "OFFER_SENT");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kitsWithOffer = kits.filter((k: CustomerKit) => k.status === "OFFER_SENT");
   const kitsNeedingLabel = kits.filter(
-    (k: any) =>
+    (k: CustomerKit) =>
       k.type === "DIGITAL" &&
       ["PENDING", "SHIPPED"].includes(k.status) &&
       (k.shippingLabels?.length ?? 0) === 0
   );
 
   const totalEarned = payments
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((p: any) => ["COMPLETED", "SENT"].includes(p.status))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .reduce((sum: number, p: any) => sum + parseFloat(p.amount.toString()), 0);
+    .filter((p: CustomerPayment) => ["COMPLETED", "SENT"].includes(p.status))
+    .reduce((sum: number, p: CustomerPayment) => sum + toNumber(p.amount), 0);
 
-  // Build action required items
   const actionRequired = [
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...kitsWithOffer.map((kit: any) => ({
+    ...kitsWithOffer.map((kit: CustomerKit) => ({
       type: "offer" as const,
       kitId: kit.id,
       kitNumber: kit.kitNumber,
       offerValue: kit.offers?.[0]
-        ? parseFloat(kit.offers[0].totalValue.toString())
+        ? toNumber(kit.offers[0].totalValue)
         : undefined,
       itemCount: kit.items?.length ?? 0,
     })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...kitsNeedingLabel.map((kit: any) => ({
+    ...kitsNeedingLabel.map((kit: CustomerKit) => ({
       type: "label" as const,
       kitId: kit.id,
       kitNumber: kit.kitNumber,
     })),
   ];
 
-  // Recent kits (up to 5, most recent first)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recentKits = kits.slice(0, 5).map((kit: any) => ({
+  const recentKits = kits.slice(0, 5).map((kit: CustomerKit) => ({
     id: kit.id,
     kitNumber: kit.kitNumber,
     status: kit.status,
@@ -85,16 +80,14 @@ export default async function AccountDashboardPage() {
     createdAt: kit.createdAt.toISOString ? kit.createdAt.toISOString() : String(kit.createdAt),
     itemCount: kit.items?.length ?? 0,
     offerValue: kit.offers?.[0]
-      ? parseFloat(kit.offers[0].totalValue.toString())
+      ? toNumber(kit.offers[0].totalValue)
       : undefined,
   }));
 
-  // Recent payments (up to 5)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recentPayments = payments.slice(0, 5).map((p: any) => ({
+  const recentPayments = payments.slice(0, 5).map((p: CustomerPayment) => ({
     id: p.id,
     paymentNumber: p.paymentNumber,
-    amount: parseFloat(p.amount.toString()),
+    amount: toNumber(p.amount),
     method: p.method,
     status: p.status,
     createdAt: p.createdAt.toISOString ? p.createdAt.toISOString() : String(p.createdAt),

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
 import { formatDate } from "@/lib/account";
+import { formatStatus } from "@/lib/format";
 
 interface ReturnItem {
   id: string;
@@ -31,12 +32,6 @@ const STATUS_BADGE_STYLES: Record<
   IN_TRANSIT: { background: "#DBEAFE", color: "#1D4ED8" },
   DELIVERED: { background: "#D1FAE5", color: "#065F46" },
 };
-
-function formatStatus(status: string): string {
-  return status
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function ReturnsClient({ returns }: ReturnsClientProps) {
   return (

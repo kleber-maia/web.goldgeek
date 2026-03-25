@@ -94,6 +94,26 @@ export function getRelativeTime(dateInput: string | Date): string {
   return formatDate(dateInput);
 }
 
+export function formatDateShort(dateInput: string | Date): string {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+}
+
+export function getRelativeTimeShort(dateInput: string | Date): string {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return formatDateShort(dateInput);
+}
+
 /** Format payment method enum to display label */
 export function formatPaymentMethod(method: string): string {
   const labels: Record<string, string> = {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AccountContainer } from "@/components/account/layout";
 import { LogoutButton } from "@/components/account/LogoutButton";
 import { formatCurrency } from "@/lib/db/utils";
+import { formatStatus, formatDateShort } from "@/lib/format";
 
 interface ActionItem {
   type: "offer" | "label";
@@ -45,17 +46,6 @@ export interface DashboardData {
   actionRequired: ActionItem[];
   recentKits: KitSummary[];
   recentPayments: PaymentSummary[];
-}
-
-function formatStatus(status: string) {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function statusColor(status: string): string {
@@ -260,7 +250,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                       </span>
                     </div>
                     <div className="text-xs text-[#9CA3AF] mt-1">
-                      {kit.itemCount} item{kit.itemCount !== 1 ? "s" : ""} &middot; {formatDate(kit.createdAt)}
+                      {kit.itemCount} item{kit.itemCount !== 1 ? "s" : ""} &middot; {formatDateShort(kit.createdAt)}
                       {kit.offerValue != null && (
                         <span className="text-[#AD7B2A] font-medium"> &middot; {formatCurrency(kit.offerValue)}</span>
                       )}
@@ -301,7 +291,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                       </span>
                     </div>
                     <div className="text-xs text-[#9CA3AF] mt-1">
-                      Kit #{payment.kitNumber} &middot; {formatDate(payment.createdAt)}
+                      Kit #{payment.kitNumber} &middot; {formatDateShort(payment.createdAt)}
                     </div>
                   </div>
                   <span className="text-xs text-[#9CA3AF] capitalize">{payment.method.toLowerCase()}</span>

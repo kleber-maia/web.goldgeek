@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
+import { getRelativeTimeShort } from "@/lib/format";
 
 interface TimelineEvent {
   id: string;
@@ -34,21 +35,6 @@ function getEventIcon(type: string): string {
     case "PACKAGE_DELIVERED": return "\u{1F69A}";
     default: return "\u{1F514}";
   }
-}
-
-function formatRelativeDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function NotificationsClient({ events }: { events: TimelineEvent[] }) {
@@ -84,7 +70,7 @@ export default function NotificationsClient({ events }: { events: TimelineEvent[
                     {event.title}
                   </span>
                   <span style={{ fontSize: "12px", color: "#9CA3AF", flexShrink: 0 }}>
-                    {formatRelativeDate(event.createdAt)}
+                    {getRelativeTimeShort(event.createdAt)}
                   </span>
                 </div>
                 {event.description && (
