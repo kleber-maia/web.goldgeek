@@ -169,17 +169,8 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
           />
         </div>
 
-        {successMsg && (
-          <div style={{ padding: "12px 16px", background: "#D1FAE5", color: "#065F46", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
-            {successMsg}
-          </div>
-        )}
-
-        {errorMsg && (
-          <div style={{ padding: "12px 16px", background: "#FEE2E2", color: "#DC2626", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
-            {errorMsg}
-          </div>
-        )}
+        {successMsg && <div className="admin-alert success">{successMsg}</div>}
+        {errorMsg && <div className="admin-alert error">{errorMsg}</div>}
 
         {/* Mobile Card List */}
         <div className="admin-card-list">
@@ -194,7 +185,7 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
               const isVoiding = voidingId === label.id;
               const isVoided = label.status === "VOIDED";
               return (
-                <Link key={label.id} href={`/admin/requests/${label.kit.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
+                <Link key={label.id} href={`/admin/requests/${label.kit.id}?from=shipping`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
                   <div className="admin-card-header">
                     <div>
                       <div className="admin-card-id">{label.kit.kitNumber}</div>
@@ -272,7 +263,7 @@ export default function ShippingClient({ labels }: { labels: ShippingLabel[] }) 
                   return (
                     <tr key={label.id}>
                       <td>
-                        <Link href={`/admin/requests/${label.kit.id}`} className="admin-table-link">
+                        <Link href={`/admin/requests/${label.kit.id}?from=shipping`} className="admin-table-link">
                           {label.kit.kitNumber}
                         </Link>
                       </td>

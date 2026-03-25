@@ -2,40 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { getAdminBadgeCounts, type BadgeCounts } from "@/lib/actions/admin/badge.actions";
+import { useState } from "react";
+import { FROM_TO_HREF } from "@/lib/admin-utils";
+import { useAdminBadges } from "./AdminBadgeProvider";
+import type { BadgeCounts } from "@/lib/actions/admin/badge.actions";
 
-const badgeStyle: React.CSSProperties = {
-  fontSize: "10px",
-  fontWeight: 600,
-  minWidth: "16px",
-  height: "16px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "8px",
-  background: "#AD7B2A",
-  color: "#FFFFFF",
-  padding: "0 4px",
-  position: "absolute",
-  top: "-4px",
-  right: "-8px",
-};
-
-const moreBadgeStyle: React.CSSProperties = {
-  marginLeft: "auto",
-  fontSize: "11px",
-  fontWeight: 600,
-  minWidth: "18px",
-  height: "18px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "9px",
-  background: "#AD7B2A",
-  color: "#FFFFFF",
-  padding: "0 5px",
-};
 
 // Map nav hrefs to badge count keys
 const BADGE_MAP: Record<string, keyof BadgeCounts> = {
@@ -149,24 +120,12 @@ export default function AdminBottomNav() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showMore, setShowMore] = useState(false);
-  const [badges, setBadges] = useState<BadgeCounts | null>(null);
+  const badges = useAdminBadges();
 
   const fromParam = searchParams.get("from");
-  const FROM_TO_HREF: Record<string, string> = {
-    offers: "/admin/offers",
-    payments: "/admin/payments",
-    returns: "/admin/returns",
-  };
   const overrideHref = pathname.startsWith("/admin/requests/") && fromParam
     ? FROM_TO_HREF[fromParam]
     : null;
-
-  useEffect(() => {
-    const fetchBadges = () => getAdminBadgeCounts().then(setBadges).catch(() => {});
-    fetchBadges();
-    const interval = setInterval(fetchBadges, 30_000);
-    return () => clearInterval(interval);
-  }, [pathname]);
 
   const isActive = (href: string, exact?: boolean) => {
     if (overrideHref) {
@@ -180,8 +139,12 @@ export default function AdminBottomNav() {
 
   const isMoreActive = moreNavItems.some((item) => isActive(item.href));
 
-  // Total badge count for items in the "More" menu
-  const moreBadgeTotal = badges ? badges.returns : 0;
+  const moreBadgeTotal = badges
+    ? moreNavItems.reduce((sum, item) => {
+        const key = BADGE_MAP[item.href];
+        return sum + (key ? badges[key] : 0);
+      }, 0)
+    : 0;
 
   return (
     <>
@@ -236,7 +199,7 @@ export default function AdminBottomNav() {
               >
                 {item.icon}
                 {item.label}
-                {count > 0 && <span style={moreBadgeStyle}>{count}</span>}
+                {count > 0 && <span className="admin-count-badge" style={{ marginLeft: "auto" }}>{count}</span>}
               </Link>
             );
           })}
@@ -284,7 +247,7 @@ export default function AdminBottomNav() {
             >
               <span style={{ position: "relative", display: "inline-flex" }}>
                 {item.icon}
-                {count > 0 && <span style={badgeStyle}>{count}</span>}
+                {count > 0 && <span className="admin-icon-badge">{count}</span>}
               </span>
               {item.label}
             </Link>
@@ -305,7 +268,7 @@ export default function AdminBottomNav() {
             <svg className="admin-bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
             </svg>
-            {moreBadgeTotal > 0 && <span style={badgeStyle}>{moreBadgeTotal}</span>}
+            {moreBadgeTotal > 0 && <span className="admin-icon-badge">{moreBadgeTotal}</span>}
           </span>
           More
         </button>

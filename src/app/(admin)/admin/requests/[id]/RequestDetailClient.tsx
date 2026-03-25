@@ -193,6 +193,7 @@ const VALID_BACK_PAGES: Record<string, string> = {
   offers: "/admin/offers",
   payments: "/admin/payments",
   returns: "/admin/returns",
+  shipping: "/admin/shipping",
 };
 
 export default function RequestDetailClient({ kit }: { kit: Kit }) {

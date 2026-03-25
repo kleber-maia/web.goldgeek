@@ -4,25 +4,10 @@ import { Fragment } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { getAdminBadgeCounts, type BadgeCounts } from "@/lib/actions/admin/badge.actions";
+import { FROM_TO_HREF } from "@/lib/admin-utils";
+import { useAdminBadges } from "./AdminBadgeProvider";
+import type { BadgeCounts } from "@/lib/actions/admin/badge.actions";
 
-const badgeStyle: React.CSSProperties = {
-  marginLeft: "auto",
-  fontSize: "11px",
-  fontWeight: 600,
-  minWidth: "18px",
-  height: "18px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "9px",
-  background: "#AD7B2A",
-  color: "#FFFFFF",
-  padding: "0 5px",
-};
-
-// Map nav hrefs to badge count keys
 const BADGE_MAP: Record<string, keyof BadgeCounts> = {
   "/admin/requests": "requests",
   "/admin/offers": "offers",
@@ -131,25 +116,12 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [badges, setBadges] = useState<BadgeCounts | null>(null);
+  const badges = useAdminBadges();
 
-  // On kit detail pages, highlight the referring page instead of Kit Requests
   const fromParam = searchParams.get("from");
-  const FROM_TO_HREF: Record<string, string> = {
-    offers: "/admin/offers",
-    payments: "/admin/payments",
-    returns: "/admin/returns",
-  };
   const overrideHref = pathname.startsWith("/admin/requests/") && fromParam
     ? FROM_TO_HREF[fromParam]
     : null;
-
-  useEffect(() => {
-    const fetchBadges = () => getAdminBadgeCounts().then(setBadges).catch(() => {});
-    fetchBadges();
-    const interval = setInterval(fetchBadges, 30_000);
-    return () => clearInterval(interval);
-  }, [pathname]);
 
   const isActive = (href: string, exact?: boolean) => {
     if (overrideHref) {
@@ -194,7 +166,7 @@ export default function AdminSidebar() {
                   >
                     {item.icon}
                     {item.label}
-                    {count > 0 && <span style={badgeStyle}>{count}</span>}
+                    {count > 0 && <span className="admin-count-badge" style={{ marginLeft: "auto" }}>{count}</span>}
                   </Link>
                 </li>
               </Fragment>

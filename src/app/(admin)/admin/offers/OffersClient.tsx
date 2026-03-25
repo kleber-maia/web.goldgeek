@@ -7,7 +7,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { formatCurrency } from "@/lib/db/utils";
-import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
+import { formatDate, formatStatus, getStatusBadgeClass, matchesSearch as matchesSearchUtil } from "@/lib/admin-utils";
 
 interface Offer {
   id: string;
@@ -90,12 +90,7 @@ export default function OffersClient({
   );
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Search helpers
-  const matchesSearch = (name: string, ...fields: string[]) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return name.toLowerCase().includes(q) || fields.some((f) => f.toLowerCase().includes(q));
-  };
+  const matchesSearch = (...fields: string[]) => matchesSearchUtil(searchQuery, ...fields);
 
   // Filtered evaluation kits
   const filteredEvalKits = evaluationKits.filter((kit) => {
@@ -107,9 +102,8 @@ export default function OffersClient({
   // Filtered offers — tabs group statuses, "All" shows everything
   const filteredOffers = offers.filter((offer) => {
     if (activeFilter === "ready_for_eval") return false;
-    if (activeFilter === "sent") return offer.status === "SENT";
-    if (activeFilter === "completed") return ["ACCEPTED", "DECLINED", "EXPIRED"].includes(offer.status);
-    if (activeFilter !== "all") return false;
+    if (activeFilter === "sent" && offer.status !== "SENT") return false;
+    if (activeFilter === "completed" && !["ACCEPTED", "DECLINED", "EXPIRED"].includes(offer.status)) return false;
     const name = `${offer.kit.customer.firstName} ${offer.kit.customer.lastName}`;
     return matchesSearch(name, offer.offerNumber, offer.kit.kitNumber);
   });
@@ -133,7 +127,7 @@ export default function OffersClient({
               >
                 {FILTER_LABELS[tab]}
                 {count > 0 && tab !== "all" && ACTION_TABS.has(tab) && (
-                  <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", padding: "0 5px", background: "#AD7B2A", color: "#FFFFFF" }}>{count}</span>
+                  <span className="admin-count-badge" style={{ marginLeft: "6px" }}>{count}</span>
                 )}
               </button>
             );
@@ -180,7 +174,7 @@ export default function OffersClient({
                           {kit.customer.firstName} {kit.customer.lastName}
                         </div>
                       </div>
-                      <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                      <span className="admin-badge action-needed">
                         Needs Evaluation
                       </span>
                     </div>
@@ -272,7 +266,7 @@ export default function OffersClient({
                         <td>{kit.customer.firstName} {kit.customer.lastName}</td>
                         <td>{kit.items.length} item{kit.items.length !== 1 ? "s" : ""}</td>
                         <td>
-                          <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                          <span className="admin-badge action-needed">
                             Needs Evaluation
                           </span>
                         </td>

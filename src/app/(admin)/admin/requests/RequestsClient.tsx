@@ -49,9 +49,6 @@ const FILTER_LABELS: Record<FilterTab, string> = {
   completed: "Completed",
 };
 
-// Intake-phase statuses (everything else lives on Offers/Payments/Returns pages)
-const INTAKE_STATUSES = new Set(["PENDING", "SHIPPED"]);
-
 // Only tabs where admin must act get a gold badge
 const ACTION_TABS = new Set<FilterTab>(["new_requests"]);
 
@@ -115,7 +112,7 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
               >
                 {FILTER_LABELS[tab]}
                 {count > 0 && tab !== "all" && ACTION_TABS.has(tab) && (
-                  <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", padding: "0 5px", background: "#AD7B2A", color: "#FFFFFF" }}>{count}</span>
+                  <span className="admin-count-badge" style={{ marginLeft: "6px" }}>{count}</span>
                 )}
               </button>
             );

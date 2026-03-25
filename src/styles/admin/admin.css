@@ -390,6 +390,81 @@
   color: var(--status-gray);
 }
 
+/* Count badge (filter tabs, sidebar, bottom nav) */
+.admin-count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  padding: 0 5px;
+  background: var(--admin-primary);
+  color: #FFFFFF;
+}
+
+/* Smaller positioned badge for bottom nav icons */
+.admin-icon-badge {
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--admin-primary);
+  color: #FFFFFF;
+  padding: 0 4px;
+  position: absolute;
+  top: -4px;
+  right: -8px;
+}
+
+/* Action-needed badge (amber warning style) */
+.admin-badge.action-needed {
+  background: var(--status-pending-bg);
+  color: #92400E;
+  border: 1px solid var(--status-pending);
+}
+
+/* Inline action button */
+.admin-action-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  background: var(--admin-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-action-btn:disabled {
+  background: #D1C4A9;
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Alert messages */
+.admin-alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.admin-alert.success {
+  background: var(--status-success-bg);
+  color: #065F46;
+}
+
+.admin-alert.error {
+  background: var(--status-error-bg);
+  color: var(--status-error);
+}
+
 /* Filter tabs */
 .admin-filter-tabs {
   display: flex;

@@ -8,7 +8,7 @@ import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { formatCurrency } from "@/lib/db/utils";
 import { ConfirmDialog } from "@/components/shared";
-import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
+import { formatDate, formatStatus, getStatusBadgeClass, matchesSearch as matchesSearchUtil, getNextPaymentStatus } from "@/lib/admin-utils";
 import { updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
 
 interface Payment {
@@ -67,43 +67,7 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: "Complete",
 };
 
-function getNextStatus(current: string): string | null {
-  switch (current) {
-    case "PENDING": return "PROCESSING";
-    case "PROCESSING": return "SENT";
-    case "SENT": return "COMPLETED";
-    default: return null;
-  }
-}
 
-function ActionButton({
-  label,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        fontSize: "12px",
-        padding: "4px 8px",
-        background: disabled ? "#D1C4A9" : "#AD7B2A",
-        color: "white",
-        border: "none",
-        borderRadius: "4px",
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled ? 0.7 : 1,
-      }}
-    >
-      {disabled ? "Updating..." : label}
-    </button>
-  );
-}
 
 export default function PaymentsClient({
   payments,
@@ -145,11 +109,7 @@ export default function PaymentsClient({
     }
   }, [successMsg]);
 
-  const matchesSearch = (name: string, ...fields: string[]) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return name.toLowerCase().includes(q) || fields.some((f) => f.toLowerCase().includes(q));
-  };
+  const matchesSearch = (...fields: string[]) => matchesSearchUtil(searchQuery, ...fields);
 
   // Filtered unpaid offers
   const filteredUnpaid = unpaidOffers.filter((offer) => {
@@ -161,9 +121,8 @@ export default function PaymentsClient({
   // Filtered payments — tabs group statuses, "All" shows everything
   const filteredPayments = payments.filter((payment) => {
     if (activeFilter === "awaiting_payment") return false;
-    if (activeFilter === "processing") return ["PENDING", "PROCESSING"].includes(payment.status);
-    if (activeFilter === "completed") return ["SENT", "COMPLETED"].includes(payment.status);
-    if (activeFilter !== "all") return false;
+    if (activeFilter === "processing" && !["PENDING", "PROCESSING"].includes(payment.status)) return false;
+    if (activeFilter === "completed" && !["SENT", "COMPLETED"].includes(payment.status)) return false;
     const name = `${payment.customer.firstName} ${payment.customer.lastName}`;
     return matchesSearch(name, payment.paymentNumber);
   });
@@ -215,7 +174,7 @@ export default function PaymentsClient({
               >
                 {FILTER_LABELS[tab]}
                 {count > 0 && tab !== "all" && ACTION_TABS.has(tab) && (
-                  <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", padding: "0 5px", background: "#AD7B2A", color: "#FFFFFF" }}>{count}</span>
+                  <span className="admin-count-badge" style={{ marginLeft: "6px" }}>{count}</span>
                 )}
               </button>
             );
@@ -236,17 +195,8 @@ export default function PaymentsClient({
           />
         </div>
 
-        {successMsg && (
-          <div style={{ padding: "12px 16px", background: "#D1FAE5", color: "#065F46", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
-            {successMsg}
-          </div>
-        )}
-
-        {errorMsg && (
-          <div style={{ padding: "12px 16px", background: "#FEE2E2", color: "#DC2626", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
-            {errorMsg}
-          </div>
-        )}
+        {successMsg && <div className="admin-alert success">{successMsg}</div>}
+        {errorMsg && <div className="admin-alert error">{errorMsg}</div>}
 
         {/* Mobile Card List */}
         <div className="admin-card-list">
@@ -273,7 +223,7 @@ export default function PaymentsClient({
                         {offer.kit.customer.firstName} {offer.kit.customer.lastName}
                       </div>
                     </div>
-                    <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                    <span className="admin-badge action-needed">
                       Awaiting Payment
                     </span>
                   </div>
@@ -293,7 +243,7 @@ export default function PaymentsClient({
 
               {/* Payment cards */}
               {filteredPayments.map((payment) => {
-                const nextStatus = getNextStatus(payment.status);
+                const nextStatus = getNextPaymentStatus(payment.status);
                 const isThisUpdating = updatingId === payment.id;
                 return (
                   <Link key={payment.id} href={`/admin/requests/${payment.offer.kit.id}?from=payments`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
@@ -316,11 +266,13 @@ export default function PaymentsClient({
                         {formatCurrency(parseFloat(payment.amount.toString()))}
                       </span>
                       {nextStatus && (
-                        <ActionButton
-                          label={STATUS_LABELS[nextStatus]}
+                        <button
+                          className="admin-action-btn"
                           onClick={() => handleUpdateStatus(payment.id, nextStatus)}
                           disabled={isThisUpdating}
-                        />
+                        >
+                          {isThisUpdating ? "Updating..." : STATUS_LABELS[nextStatus]}
+                        </button>
                       )}
                     </div>
                   </Link>
@@ -367,7 +319,7 @@ export default function PaymentsClient({
                       <td>{formatCurrency(parseFloat(offer.totalValue.toString()))}</td>
                       <td>—</td>
                       <td>
-                        <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                        <span className="admin-badge action-needed">
                           Awaiting Payment
                         </span>
                       </td>
@@ -382,7 +334,7 @@ export default function PaymentsClient({
 
                   {/* Payment rows */}
                   {filteredPayments.map((payment) => {
-                    const nextStatus = getNextStatus(payment.status);
+                    const nextStatus = getNextPaymentStatus(payment.status);
                     const isThisUpdating = updatingId === payment.id;
                     return (
                       <tr key={payment.id}>

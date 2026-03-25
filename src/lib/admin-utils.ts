@@ -18,6 +18,37 @@ export function formatDescription(text: string): string {
   return text.replace(STATUS_ENUM_PATTERN, (match) => formatStatus(match));
 }
 
+export function matchesSearch(query: string, ...fields: string[]): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return fields.some((f) => f.toLowerCase().includes(q));
+}
+
+export function getNextPaymentStatus(current: string): string | null {
+  switch (current) {
+    case "PENDING": return "PROCESSING";
+    case "PROCESSING": return "SENT";
+    case "SENT": return "COMPLETED";
+    default: return null;
+  }
+}
+
+export function getNextReturnStatus(current: string): string | null {
+  switch (current) {
+    case "PENDING": return "LABEL_CREATED";
+    case "LABEL_CREATED": return "IN_TRANSIT";
+    case "IN_TRANSIT": return "DELIVERED";
+    default: return null;
+  }
+}
+
+export const FROM_TO_HREF: Record<string, string> = {
+  offers: "/admin/offers",
+  payments: "/admin/payments",
+  returns: "/admin/returns",
+  shipping: "/admin/shipping",
+};
+
 export function getStatusBadgeClass(status: string): string {
   switch (status.toUpperCase()) {
     case "PENDING":

@@ -1,5 +1,6 @@
 import "@/styles/dashboard.css";
 import "@/styles/admin/admin.css";
+import AdminBadgeProvider from "@/components/admin/AdminBadgeProvider";
 
 export const metadata = {
   title: "Admin - Gold Geek",
@@ -13,7 +14,9 @@ export default function AdminLayout({
 }>) {
   return (
     <div className="admin-body">
-      {children}
+      <AdminBadgeProvider>
+        {children}
+      </AdminBadgeProvider>
     </div>
   );
 }

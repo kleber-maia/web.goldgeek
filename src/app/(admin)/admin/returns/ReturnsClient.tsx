@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { formatDate, formatStatus, getStatusBadgeClass } from "@/lib/admin-utils";
+import { formatDate, formatStatus, getStatusBadgeClass, matchesSearch as matchesSearchUtil, getNextReturnStatus } from "@/lib/admin-utils";
 import { updateReturnStatus } from "@/lib/actions/admin/shipping.actions";
 
 interface Return {
@@ -63,43 +63,7 @@ const STATUS_LABELS: Record<string, string> = {
   DELIVERED: "Mark Delivered",
 };
 
-function getNextStatus(current: string): string | null {
-  switch (current) {
-    case "PENDING": return "LABEL_CREATED";
-    case "LABEL_CREATED": return "IN_TRANSIT";
-    case "IN_TRANSIT": return "DELIVERED";
-    default: return null;
-  }
-}
 
-function ActionButton({
-  label,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        fontSize: "12px",
-        padding: "4px 8px",
-        background: disabled ? "#D1C4A9" : "#AD7B2A",
-        color: "white",
-        border: "none",
-        borderRadius: "4px",
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled ? 0.7 : 1,
-      }}
-    >
-      {disabled ? "Updating..." : label}
-    </button>
-  );
-}
 
 export default function ReturnsClient({
   returns,
@@ -140,11 +104,7 @@ export default function ReturnsClient({
     }
   }, [successMsg]);
 
-  const matchesSearch = (name: string, ...fields: string[]) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return name.toLowerCase().includes(q) || fields.some((f) => f.toLowerCase().includes(q));
-  };
+  const matchesSearch = (...fields: string[]) => matchesSearchUtil(searchQuery, ...fields);
 
   // Filtered declined offers
   const filteredDeclined = declinedOffers.filter((offer) => {
@@ -156,9 +116,8 @@ export default function ReturnsClient({
   // Filtered returns — tabs group statuses, "All" shows everything
   const filteredReturns = returns.filter((returnItem) => {
     if (activeFilter === "needs_return") return false;
-    if (activeFilter === "label_created") return ["PENDING", "LABEL_CREATED"].includes(returnItem.status);
-    if (activeFilter === "completed") return ["IN_TRANSIT", "DELIVERED"].includes(returnItem.status);
-    if (activeFilter !== "all") return false;
+    if (activeFilter === "label_created" && !["PENDING", "LABEL_CREATED"].includes(returnItem.status)) return false;
+    if (activeFilter === "completed" && !["IN_TRANSIT", "DELIVERED"].includes(returnItem.status)) return false;
     const name = `${returnItem.kit.customer.firstName} ${returnItem.kit.customer.lastName}`;
     return matchesSearch(name, returnItem.returnNumber, returnItem.kit.kitNumber);
   });
@@ -200,7 +159,7 @@ export default function ReturnsClient({
               >
                 {FILTER_LABELS[tab]}
                 {count > 0 && tab !== "all" && ACTION_TABS.has(tab) && (
-                  <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 600, minWidth: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "9px", padding: "0 5px", background: "#AD7B2A", color: "#FFFFFF" }}>{count}</span>
+                  <span className="admin-count-badge" style={{ marginLeft: "6px" }}>{count}</span>
                 )}
               </button>
             );
@@ -221,17 +180,8 @@ export default function ReturnsClient({
           />
         </div>
 
-        {successMsg && (
-          <div style={{ padding: "12px 16px", background: "#D1FAE5", color: "#065F46", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
-            {successMsg}
-          </div>
-        )}
-
-        {errorMsg && (
-          <div style={{ padding: "12px 16px", background: "#FEE2E2", color: "#DC2626", borderRadius: "8px", marginBottom: "16px", fontSize: "14px" }}>
-            {errorMsg}
-          </div>
-        )}
+        {successMsg && <div className="admin-alert success">{successMsg}</div>}
+        {errorMsg && <div className="admin-alert error">{errorMsg}</div>}
 
         {/* Mobile Card List */}
         <div className="admin-card-list">
@@ -258,7 +208,7 @@ export default function ReturnsClient({
                         {offer.kit.customer.firstName} {offer.kit.customer.lastName}
                       </div>
                     </div>
-                    <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                    <span className="admin-badge action-needed">
                       Needs Return
                     </span>
                   </div>
@@ -278,7 +228,7 @@ export default function ReturnsClient({
 
               {/* Return cards */}
               {filteredReturns.map((returnItem) => {
-                const nextStatus = getNextStatus(returnItem.status);
+                const nextStatus = getNextReturnStatus(returnItem.status);
                 const isThisUpdating = updatingId === returnItem.id;
                 return (
                   <Link key={returnItem.id} href={`/admin/requests/${returnItem.kit.id}?from=returns`} className="admin-card" style={{ textDecoration: "none", color: "inherit" }}>
@@ -302,11 +252,13 @@ export default function ReturnsClient({
                         {formatDate(returnItem.deliveredAt || returnItem.shippedAt || returnItem.createdAt)}
                       </span>
                       {nextStatus && (
-                        <ActionButton
-                          label={STATUS_LABELS[nextStatus]}
+                        <button
+                          className="admin-action-btn"
                           onClick={() => handleUpdateStatus(returnItem.id, nextStatus)}
                           disabled={isThisUpdating}
-                        />
+                        >
+                          {isThisUpdating ? "Updating..." : STATUS_LABELS[nextStatus]}
+                        </button>
                       )}
                     </div>
                   </Link>
@@ -351,7 +303,7 @@ export default function ReturnsClient({
                       <td>{offer.kit.customer.firstName} {offer.kit.customer.lastName}</td>
                       <td>{offer.kit.items.length} items</td>
                       <td>
-                        <span className="admin-badge pending" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                        <span className="admin-badge action-needed">
                           Needs Return
                         </span>
                       </td>
@@ -366,7 +318,7 @@ export default function ReturnsClient({
 
                   {/* Return rows */}
                   {filteredReturns.map((returnItem) => {
-                    const nextStatus = getNextStatus(returnItem.status);
+                    const nextStatus = getNextReturnStatus(returnItem.status);
                     const isThisUpdating = updatingId === returnItem.id;
                     return (
                       <tr key={returnItem.id}>
