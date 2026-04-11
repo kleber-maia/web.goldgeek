@@ -19,6 +19,13 @@ interface FormData {
   zip: string;
 }
 
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
+  "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
+  "VA","WA","WV","WI","WY","DC",
+];
+
 const itemOptions = [
   "Fine Jewelry",
   "Watches & Pocket Watches",
@@ -462,23 +469,25 @@ export default function RequestAppraisalPage() {
                       </div>
 
                       {/* State */}
-                      <div className="elementor-field-type-text elementor-field-group elementor-column elementor-field-group-State elementor-col-33">
+                      <div className="elementor-field-type-select elementor-field-group elementor-column elementor-field-group-State elementor-col-33">
                         <label
                           htmlFor="form-field-state"
                           className="elementor-field-label"
                         >
                           State
                         </label>
-                        <input
-                          size={1}
-                          type="text"
+                        <select
                           name="state"
                           id="form-field-state"
-                          className="elementor-field elementor-size-sm elementor-field-textual"
-                          placeholder="State"
+                          className="elementor-field elementor-size-sm"
                           value={formData.state}
                           onChange={handleInputChange}
-                        />
+                        >
+                          <option value="">--</option>
+                          {US_STATES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
                       </div>
 
                       {/* ZIP Code */}
