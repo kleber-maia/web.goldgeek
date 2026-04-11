@@ -5,6 +5,7 @@ import { KitService } from '@/lib/services/kit.service';
 import { CustomerService } from '@/lib/services/customer.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { headers } from 'next/headers';
+import { z } from 'zod';
 import {
   appraisalRequestSchema,
   type AppraisalRequestInput,
@@ -121,6 +122,11 @@ export async function createAppraisalRequest(
       },
     };
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      const firstIssue = error.issues[0];
+      const message = firstIssue?.message || 'Please check your form inputs and try again.';
+      return { success: false, error: message };
+    }
     const message = error instanceof Error ? error.message : 'Failed to create appraisal request';
     console.error('Error creating appraisal request:', error);
     return {
