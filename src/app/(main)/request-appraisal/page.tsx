@@ -140,27 +140,9 @@ export default function RequestAppraisalPage() {
         if (result.data?.magicLinkUrl) {
           setPendingMagicLink(result.data.magicLinkUrl);
         }
-
-        // Reset form
-        setFormData({
-          items: [],
-          description: "",
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          address: "",
-          address2: "",
-          city: "",
-          state: "",
-          zip: "",
-        });
-        setCurrentStep(1);
-
-        // Redirect to check-email page after 3 seconds
-        setTimeout(() => {
-          router.push("/account/check-email");
-        }, 3000);
+        router.push(
+          `/account/check-email?email=${encodeURIComponent(customerEmail)}&source=appraisal`
+        );
       } else {
         setSubmitMessage({
           type: "error",

@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { getPendingEmail, getPendingMagicLink } from "@/lib/account";
 
 export default function CheckEmailPage() {
-  const [email] = useState<string | null>(() => getPendingEmail());
+  const searchParams = useSearchParams();
+  const [email] = useState<string | null>(() =>
+    searchParams.get("email") || getPendingEmail()
+  );
   const [magicLink] = useState<string>(() => getPendingMagicLink() || "");
 
   return (

@@ -4,7 +4,14 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { setPendingEmail, setPendingMagicLink } from "@/lib/account";
+import {
+  clearPendingEmail,
+  clearPendingMagicLink,
+  getPendingEmail,
+  getPendingMagicLink,
+  setPendingEmail,
+  setPendingMagicLink,
+} from "@/lib/account";
 
 export default function LoginPage() {
   return (
@@ -16,9 +23,11 @@ export default function LoginPage() {
 
 function LoginPageInner() {
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const initialPendingEmail = getPendingEmail() || searchParams.get("email") || "";
+  const initialPendingMagicLink = getPendingMagicLink() || "";
+  const [email, setEmail] = useState(initialPendingEmail);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(Boolean(initialPendingEmail));
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,6 +107,8 @@ function LoginPageInner() {
               className="account-btn account-btn-secondary account-btn-full"
               style={{ marginTop: 16 }}
               onClick={() => {
+                clearPendingEmail();
+                clearPendingMagicLink();
                 setSubmitted(false);
                 setIsSubmitting(false);
                 setEmail("");
@@ -105,6 +116,18 @@ function LoginPageInner() {
             >
               Use a different email
             </button>
+
+            {initialPendingMagicLink && (
+              <div className="account-demo-link">
+                <div className="account-demo-link-label">Dev Only</div>
+                <Link
+                  href={initialPendingMagicLink}
+                  className="account-btn account-btn-primary account-btn-full"
+                >
+                  Click here to sign in
+                </Link>
+              </div>
+            )}
           </>
         ) : (
           <>
