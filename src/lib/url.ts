@@ -58,6 +58,15 @@ export const appRoutes = {
   accountKit: (kitId: string) => `/account/kit/${kitId}`,
   adminPayments: () => '/admin/payments',
   adminReturns: () => '/admin/returns',
-  authVerify: (token: string) =>
-    `/api/auth/verify?token=${encodeURIComponent(token)}`,
+  authVerify: (token: string, next?: string) => {
+    const searchParams = new URLSearchParams({
+      token,
+    });
+
+    if (next) {
+      searchParams.set('next', next);
+    }
+
+    return `/api/auth/verify?${searchParams.toString()}`;
+  },
 } as const;

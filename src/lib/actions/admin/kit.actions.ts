@@ -7,7 +7,8 @@ import { CustomerService } from '@/lib/services/customer.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { sendKitCreatedEmail } from '@/lib/email';
 import type { KitStatus } from '@prisma/client';
-import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
+import { createMagicLink } from '@/lib/auth';
+import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -200,9 +201,15 @@ export async function createKitForCustomer(data: {
       buildBaseUrlFromHeaders(await headers()),
       process.env.NEXT_PUBLIC_APP_URL
     );
-    sendKitCreatedEmail(customer.email, kit.kitNumber, data.kitType, baseUrl).catch(
-      err => console.error('Failed to send kit created email:', err)
+    const result = await createMagicLink(customer.email);
+    const actionUrl = buildAbsoluteUrl(
+      baseUrl,
+      appRoutes.authVerify(result.token, appRoutes.accountKit(kit.id))
     );
+    sendKitCreatedEmail(customer.email, kit.kitNumber, data.kitType, {
+      baseUrl,
+      actionUrl,
+    }).catch(err => console.error('Failed to send kit created email:', err));
 
     return {
       success: true,

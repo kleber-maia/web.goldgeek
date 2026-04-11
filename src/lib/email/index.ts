@@ -134,7 +134,7 @@ function emailShell(title: string, logoUrl: string, year: number, companyName: s
               <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width: 560px; width: 100%;">
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
-                    <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; max-width: 180px; height: auto;" />
+                    <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; width: 180px; max-width: 180px; height: auto;" />
                     <div style="margin-top: 10px; font-size: 18px; font-weight: 600; letter-spacing: 0.4px; color: #57370D;">
                       ${companyName}
                     </div>
@@ -204,7 +204,7 @@ export async function sendMagicLinkEmail(
                 <!-- Header with logo -->
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
-                    <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; max-width: 180px; height: auto;" />
+                    <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; width: 180px; max-width: 180px; height: auto;" />
                     <div style="margin-top: 10px; font-size: 18px; font-weight: 600; letter-spacing: 0.4px; color: #57370D;">
                       ${companyName}
                     </div>
@@ -601,10 +601,16 @@ export async function sendKitCreatedEmail(
   email: string,
   kitNumber: string,
   kitType: string,
-  baseUrl?: string
+  options?: {
+    baseUrl?: string;
+    actionUrl?: string;
+  }
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
-  const accountUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKits());
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(
+    options?.baseUrl
+  );
+  const actionUrl =
+    options?.actionUrl || buildAbsoluteUrl(appUrl, appRoutes.accountKits());
 
   const typeLabel = kitType === 'DIGITAL' ? 'Digital Kit' : 'Physical Kit';
   const nextStep = kitType === 'DIGITAL'
@@ -631,7 +637,7 @@ export async function sendKitCreatedEmail(
     <p style="margin: 0 0 24px 0; font-size: 14px; color: #7A6B5D; text-align: center; line-height: 1.5;">
       <strong style="color: #57370D;">Next step:</strong> ${nextStep}
     </p>
-    ${ctaButton(accountUrl, 'View My Kits')}`;
+    ${ctaButton(actionUrl, 'View My Kit')}`;
 
   const html = emailShell(`Kit Request Confirmed - ${companyName}`, logoUrl, year, companyName, body);
 
@@ -639,7 +645,7 @@ export async function sendKitCreatedEmail(
     to: email,
     subject: `Kit Request Confirmed - ${kitNumber} - ${companyName}`,
     html,
-    text: `Kit Request Confirmed\n\nKit ${kitNumber} (${typeLabel}) has been created.\n\nNext step: ${nextStep}\n\nView your kits: ${accountUrl}`,
+    text: `Kit Request Confirmed\n\nKit ${kitNumber} (${typeLabel}) has been created.\n\nNext step: ${nextStep}\n\nView your kit: ${actionUrl}`,
     attachments,
   });
 }

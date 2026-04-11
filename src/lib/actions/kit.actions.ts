@@ -101,20 +101,24 @@ export async function createAppraisalRequest(
         process.env.NEXT_PUBLIC_APP_URL
       ) || 'http://localhost:3000';
 
+    // Create magic link for authentication
+    const result = await createMagicLink(normalizedEmail);
+    const nextPath = appRoutes.accountKit(kit.id);
+    const magicLinkUrl = buildAbsoluteUrl(
+      baseUrl,
+      appRoutes.authVerify(result.token, nextPath)
+    );
+
     // Send kit created confirmation email
     sendKitCreatedEmail(
       normalizedEmail,
       kit.kitNumber,
       validated.kitType,
-      baseUrl
+      {
+        baseUrl,
+        actionUrl: magicLinkUrl,
+      }
     ).catch(err => console.error('Failed to send kit created email:', err));
-
-    // Create magic link for authentication
-    const result = await createMagicLink(normalizedEmail);
-    const magicLinkUrl = buildAbsoluteUrl(
-      baseUrl,
-      appRoutes.authVerify(result.token)
-    );
 
     // Send magic link email to customer
     const emailSent = await sendMagicLinkEmail(normalizedEmail, magicLinkUrl, baseUrl);
