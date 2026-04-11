@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { getPendingEmail, getPendingMagicLink } from "@/lib/account";
 
-export default function CheckEmailPage() {
+function CheckEmailPageInner() {
   const searchParams = useSearchParams();
   const [email] = useState<string | null>(() =>
     searchParams.get("email") || getPendingEmail()
@@ -71,5 +71,13 @@ export default function CheckEmailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CheckEmailPage() {
+  return (
+    <Suspense>
+      <CheckEmailPageInner />
+    </Suspense>
   );
 }
