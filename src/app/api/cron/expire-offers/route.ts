@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { sendOfferExpiredEmail } from '@/lib/email';
 import { ActivityService } from '@/lib/services/activity.service';
 import { SettingsService } from '@/lib/services/settings.service';
+import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromRequest, resolveBaseUrl } from '@/lib/url';
 
 /**
  * Cron endpoint to expire overdue offers.
@@ -56,13 +57,18 @@ export async function POST(request: NextRequest) {
       const email = offer.kit.customer?.email;
       if (email) {
         const companyInfo = await SettingsService.getCompanyInfo();
-        const appUrl = companyInfo.websiteUrl || process.env.NEXT_PUBLIC_APP_URL || '';
-        const kitUrl = `${appUrl}/account/kit/${offer.kitId}`;
+        const appUrl = resolveBaseUrl(
+          buildBaseUrlFromRequest(request),
+          companyInfo.websiteUrl,
+          process.env.NEXT_PUBLIC_APP_URL
+        );
+        const kitUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKit(offer.kitId));
         sendOfferExpiredEmail(
           email,
           offer.offerNumber,
           offer.kit.kitNumber,
           kitUrl,
+          appUrl,
         ).catch((err) => console.error('Failed to send offer expired email:', err));
       }
     }

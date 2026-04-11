@@ -1,5 +1,8 @@
-import { Resend } from 'resend';
+import { readFile } from 'fs/promises';
+import path from 'path';
+import { Resend, type Attachment } from 'resend';
 import { SettingsService, type CompanyInfo } from '@/lib/services/settings.service';
+import { appRoutes, buildAbsoluteUrl, resolveBaseUrl } from '@/lib/url';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,7 +12,10 @@ export interface EmailOptions {
   html: string;
   text?: string;
   from?: string;
+  attachments?: Attachment[];
 }
+
+const LOGO_CONTENT_ID = 'goldgeek-logo';
 
 /**
  * Load email configuration from company settings.
@@ -24,13 +30,16 @@ async function getEmailConfig() {
       : senderEmail
         ? `${info.name} <${senderEmail}>`
         : `${info.name} <noreply@example.com>`;
-    const websiteUrl = info.websiteUrl || process.env.NEXT_PUBLIC_APP_URL || '';
+    const websiteUrl = resolveBaseUrl(
+      info.websiteUrl,
+      process.env.NEXT_PUBLIC_APP_URL
+    );
     return { fromEmail, websiteUrl, company: info };
   } catch {
     const name = 'Gold Geek';
     return {
       fromEmail: process.env.EMAIL_FROM || `${name} <noreply@example.com>`,
-      websiteUrl: process.env.NEXT_PUBLIC_APP_URL || '',
+      websiteUrl: resolveBaseUrl(process.env.NEXT_PUBLIC_APP_URL),
       company: { name } as CompanyInfo,
     };
   }
@@ -53,6 +62,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       subject: options.subject,
       html: options.html,
       text: options.text,
+      attachments: options.attachments,
     });
 
     if (error) {
@@ -72,11 +82,41 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
 async function getEmailDefaults(baseUrl?: string) {
   const config = await getEmailConfig();
-  const appUrl = baseUrl || config.websiteUrl;
-  const logoUrl = `${appUrl}/images/logos/GoldGeekLogo-horizontal.png`;
+  const appUrl = resolveBaseUrl(baseUrl, config.websiteUrl);
+  const fallbackLogoUrl = buildAbsoluteUrl(
+    appUrl,
+    '/images/logos/GoldGeekLogo-horizontal.png'
+  );
+  const logoAttachment = await getLogoAttachment();
+  const logoUrl = logoAttachment ? `cid:${LOGO_CONTENT_ID}` : fallbackLogoUrl;
   const year = new Date().getFullYear();
   const companyName = config.company.name;
-  return { appUrl, logoUrl, year, companyName, company: config.company };
+  return {
+    appUrl,
+    logoUrl,
+    year,
+    companyName,
+    company: config.company,
+    attachments: logoAttachment ? [logoAttachment] : undefined,
+  };
+}
+
+async function getLogoAttachment(): Promise<Attachment | undefined> {
+  try {
+    const content = await readFile(
+      path.join(process.cwd(), 'public/images/logos/GoldGeekLogo-horizontal.png')
+    );
+
+    return {
+      filename: 'GoldGeekLogo-horizontal.png',
+      content,
+      contentType: 'image/png',
+      contentId: LOGO_CONTENT_ID,
+    };
+  } catch (error) {
+    console.error('Failed to load email logo attachment:', error);
+    return undefined;
+  }
 }
 
 function emailShell(title: string, logoUrl: string, year: number, companyName: string, body: string, footerNote?: string): string {
@@ -95,6 +135,9 @@ function emailShell(title: string, logoUrl: string, year: number, companyName: s
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
                     <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; max-width: 180px; height: auto;" />
+                    <div style="margin-top: 10px; font-size: 18px; font-weight: 600; letter-spacing: 0.4px; color: #57370D;">
+                      ${companyName}
+                    </div>
                   </td>
                 </tr>
                 <tr>
@@ -143,7 +186,7 @@ export async function sendMagicLinkEmail(
   magicLinkUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
 
   const html = `
     <!DOCTYPE html>
@@ -162,6 +205,9 @@ export async function sendMagicLinkEmail(
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
                     <img src="${logoUrl}" alt="${companyName}" width="180" style="display: block; max-width: 180px; height: auto;" />
+                    <div style="margin-top: 10px; font-size: 18px; font-weight: 600; letter-spacing: 0.4px; color: #57370D;">
+                      ${companyName}
+                    </div>
                   </td>
                 </tr>
                 <!-- Main card -->
@@ -219,6 +265,7 @@ export async function sendMagicLinkEmail(
     subject: `Sign in to ${companyName}`,
     html,
     text: `Sign in to ${companyName}\n\nClick this link to sign in: ${magicLinkUrl}\n\nThis link will expire in 15 minutes.`,
+    attachments,
   });
 }
 
@@ -232,7 +279,7 @@ export async function sendOfferReadyEmail(
   offerUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer is Ready!</h1>
@@ -255,6 +302,7 @@ export async function sendOfferReadyEmail(
     subject: `Your ${companyName} Offer is Ready - $${totalValue.toFixed(2)}`,
     html,
     text: `Your ${companyName} Offer is Ready\n\nOffer ${offerNumber}: $${totalValue.toFixed(2)}\n\nView your offer: ${offerUrl}\n\nThis offer is valid for 7 days.`,
+    attachments,
   });
 }
 
@@ -269,7 +317,7 @@ export async function sendPaymentSentEmail(
   trackingNumber?: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
 
   const trackingRow = trackingNumber
     ? `<tr>
@@ -311,6 +359,7 @@ export async function sendPaymentSentEmail(
     subject: `Payment Sent - ${companyName}`,
     html,
     text: `Payment Sent\n\nPayment ${paymentNumber}\nAmount: $${amount.toFixed(2)}\nMethod: ${method}${trackingNumber ? `\nTracking: ${trackingNumber}` : ''}\n\nThank you for choosing ${companyName}!`,
+    attachments,
   });
 }
 
@@ -322,8 +371,8 @@ export async function sendKitReceivedEmail(
   kitNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
-  const kitUrl = `${appUrl}/account/kits`;
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
+  const kitUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKits());
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">We've Received Your Kit!</h1>
@@ -359,6 +408,7 @@ export async function sendKitReceivedEmail(
     subject: `Kit Received - ${kitNumber} - ${companyName}`,
     html,
     text: `We've Received Your Kit!\n\nKit ${kitNumber} has arrived at our facility.\n\nOur expert evaluators will carefully assess your items and send you an offer within 24-48 hours.\n\nView status: ${kitUrl}`,
+    attachments,
   });
 }
 
@@ -371,7 +421,7 @@ export async function sendKitShippedToCustomerEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -407,6 +457,7 @@ export async function sendKitShippedToCustomerEmail(
     subject: `Your ${companyName} Kit is On Its Way! - ${kitNumber}`,
     html,
     text: `Your ${companyName} Kit is On Its Way!\n\nKit ${kitNumber} has been shipped.\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}\n\nOnce your kit arrives, place your items inside and use the prepaid return label to send them back.`,
+    attachments,
   });
 }
 
@@ -419,7 +470,7 @@ export async function sendPackageInTransitEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -455,6 +506,7 @@ export async function sendPackageInTransitEmail(
     subject: `Package In Transit - ${kitNumber} - ${companyName}`,
     html,
     text: `Your Package is On Its Way to ${companyName}\n\nKit ${kitNumber} is in transit.\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}\n\nWe'll notify you as soon as we receive it.`,
+    attachments,
   });
 }
 
@@ -468,7 +520,7 @@ export async function sendReturnShippedEmail(
   trackingNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
   const trackUrl = fedexTrackingUrl(trackingNumber);
 
   const body = `
@@ -505,6 +557,7 @@ export async function sendReturnShippedEmail(
     subject: `Return Shipped - ${kitNumber} - ${companyName}`,
     html,
     text: `Your Items Are Being Returned\n\nKit: ${kitNumber}\nReturn: ${returnNumber}\nTracking: ${trackingNumber}\n\nTrack your package: ${trackUrl}`,
+    attachments,
   });
 }
 
@@ -518,7 +571,7 @@ export async function sendOfferExpiredEmail(
   kitUrl: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Offer Has Expired</h1>
@@ -537,6 +590,7 @@ export async function sendOfferExpiredEmail(
     subject: `Offer Expired - ${kitNumber} - ${companyName}`,
     html,
     text: `Your Offer Has Expired\n\nOffer ${offerNumber} for kit ${kitNumber} has expired.\n\nContact us to discuss your items or request a new evaluation.\n\nView details: ${kitUrl}`,
+    attachments,
   });
 }
 
@@ -549,8 +603,8 @@ export async function sendKitCreatedEmail(
   kitType: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
-  const accountUrl = `${appUrl}/account/kits`;
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
+  const accountUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKits());
 
   const typeLabel = kitType === 'DIGITAL' ? 'Digital Kit' : 'Physical Kit';
   const nextStep = kitType === 'DIGITAL'
@@ -586,6 +640,7 @@ export async function sendKitCreatedEmail(
     subject: `Kit Request Confirmed - ${kitNumber} - ${companyName}`,
     html,
     text: `Kit Request Confirmed\n\nKit ${kitNumber} (${typeLabel}) has been created.\n\nNext step: ${nextStep}\n\nView your kits: ${accountUrl}`,
+    attachments,
   });
 }
 
@@ -597,8 +652,8 @@ export async function sendEvaluationStartedEmail(
   kitNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
-  const kitUrl = `${appUrl}/account/kits`;
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
+  const kitUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKits());
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Evaluation Has Started!</h1>
@@ -634,6 +689,7 @@ export async function sendEvaluationStartedEmail(
     subject: `Evaluation Started - ${kitNumber} - ${companyName}`,
     html,
     text: `Evaluation Has Started!\n\nOur team has started evaluating the items in kit ${kitNumber}.\n\nWe'll prepare a detailed offer within 24-48 hours.\n\nView status: ${kitUrl}`,
+    attachments,
   });
 }
 
@@ -648,7 +704,7 @@ export async function sendOfferAcceptedAdminEmail(
   totalValue: number,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Accepted</h1>
@@ -674,7 +730,7 @@ export async function sendOfferAcceptedAdminEmail(
     <p style="margin: 0 0 24px 0; font-size: 14px; color: #7A6B5D; text-align: center; line-height: 1.5;">
       Please process the payment at your earliest convenience.
     </p>
-    ${ctaButton(`${appUrl}/admin/payments`, 'Go to Payments')}`;
+    ${ctaButton(buildAbsoluteUrl(appUrl, appRoutes.adminPayments()), 'Go to Payments')}`;
 
   const html = emailShell(`Offer Accepted - ${companyName} Admin`, logoUrl, year, companyName, body);
 
@@ -683,6 +739,7 @@ export async function sendOfferAcceptedAdminEmail(
     subject: `Offer Accepted - ${offerNumber} ($${totalValue.toFixed(2)})`,
     html,
     text: `Offer Accepted\n\n${customerName} accepted offer ${offerNumber} for kit ${kitNumber}.\nAmount: $${totalValue.toFixed(2)}\n\nPlease process the payment.`,
+    attachments,
   });
 }
 
@@ -696,7 +753,7 @@ export async function sendOfferDeclinedAdminEmail(
   customerName: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Offer Declined</h1>
@@ -706,7 +763,7 @@ export async function sendOfferDeclinedAdminEmail(
     <div style="background-color: #FEE2E2; border-radius: 8px; padding: 20px; text-align: center; margin: 0 0 24px 0;">
       <p style="margin: 0; font-size: 14px; color: #991B1B;">A return has been automatically created. Please generate a return shipping label.</p>
     </div>
-    ${ctaButton(`${appUrl}/admin/returns`, 'Go to Returns')}`;
+    ${ctaButton(buildAbsoluteUrl(appUrl, appRoutes.adminReturns()), 'Go to Returns')}`;
 
   const html = emailShell(`Offer Declined - ${companyName} Admin`, logoUrl, year, companyName, body);
 
@@ -715,6 +772,7 @@ export async function sendOfferDeclinedAdminEmail(
     subject: `Offer Declined - ${offerNumber} - ${kitNumber}`,
     html,
     text: `Offer Declined\n\n${customerName} declined offer ${offerNumber} for kit ${kitNumber}.\n\nA return has been automatically created. Please generate a return shipping label.`,
+    attachments,
   });
 }
 
@@ -727,8 +785,8 @@ export async function sendReturnDeliveredEmail(
   returnNumber: string,
   baseUrl?: string
 ): Promise<boolean> {
-  const { appUrl, logoUrl, year, companyName } = await getEmailDefaults(baseUrl);
-  const accountUrl = `${appUrl}/account/kits`;
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
+  const accountUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKits());
 
   const body = `
     <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 600; color: #57370D; text-align: center;">Your Items Have Been Delivered</h1>
@@ -763,5 +821,6 @@ export async function sendReturnDeliveredEmail(
     subject: `Return Delivered - ${kitNumber} - ${companyName}`,
     html,
     text: `Your Items Have Been Delivered\n\nKit: ${kitNumber}\nReturn: ${returnNumber}\n\nYour returned items have been delivered successfully.\n\nThank you for giving ${companyName} the opportunity to evaluate your items!`,
+    attachments,
   });
 }

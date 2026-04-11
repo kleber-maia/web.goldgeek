@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ShippingService } from '@/lib/services/shipping.service';
 import type { FedExTrackingWebhookPayload, FedExTrackingEvent } from '@/lib/fedex/types';
 import type { ShippingLabelStatus } from '@prisma/client';
+import { buildBaseUrlFromRequest, resolveBaseUrl } from '@/lib/url';
 
 // ---------------------------------------------------------------------------
 // Map FedEx event codes → ShippingLabelStatus
@@ -88,7 +89,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    await processWebhookPayload(payload);
+    const baseUrl = resolveBaseUrl(
+      buildBaseUrlFromRequest(request),
+      process.env.NEXT_PUBLIC_APP_URL
+    );
+    await processWebhookPayload(payload, baseUrl);
   } catch (err) {
     console.error('FedEx webhook processing error:', err);
     // Return 200 to avoid FedEx retrying — log the error internally
@@ -99,7 +104,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 async function processWebhookPayload(
-  payload: FedExTrackingWebhookPayload
+  payload: FedExTrackingWebhookPayload,
+  baseUrl?: string
 ): Promise<void> {
   const trackingInfo = payload.trackingInfo;
   const trackingNumber =
@@ -152,7 +158,7 @@ async function processWebhookPayload(
   const newIndex = statusOrder.indexOf(newStatus);
 
   if (newStatus === 'EXCEPTION' || newIndex > currentIndex) {
-    await ShippingService.updateStatus(label.id, newStatus);
+    await ShippingService.updateStatus(label.id, newStatus, undefined, baseUrl);
     console.log(`FedEx webhook: updated label ${label.id} (${trackingNumber}) → ${newStatus}`);
   } else {
     console.log(`FedEx webhook: skipped status update for ${trackingNumber} (${label.status} → ${newStatus} is not an advance)`);

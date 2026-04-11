@@ -5,6 +5,7 @@ import type { OfferInput } from '@/lib/validators/offer';
 import { ActivityService } from './activity.service';
 import { sendOfferReadyEmail } from '@/lib/email';
 import { SettingsService } from './settings.service';
+import { appRoutes, buildAbsoluteUrl, resolveBaseUrl } from '@/lib/url';
 
 export class OfferService {
   /**
@@ -100,7 +101,11 @@ export class OfferService {
   /**
    * Send offer to customer
    */
-  static async send(offerId: string, userId?: string): Promise<Offer> {
+  static async send(
+    offerId: string,
+    userId?: string,
+    baseUrl?: string
+  ): Promise<Offer> {
     const offer = await prisma.offer.update({
       where: { id: offerId },
       data: {
@@ -132,12 +137,20 @@ export class OfferService {
     const customerEmail = offer.kit.customer?.email;
     if (customerEmail) {
       const companyInfo = await SettingsService.getCompanyInfo();
-      const appUrl = companyInfo.websiteUrl || process.env.NEXT_PUBLIC_APP_URL || '';
-      const offerUrl = `${appUrl}/account/kits/${offer.kitId}`;
-      const totalValue = parseFloat(offer.totalValue.toString());
-      sendOfferReadyEmail(customerEmail, offer.offerNumber, totalValue, offerUrl).catch(err =>
-        console.error('Failed to send offer ready email:', err)
+      const appUrl = resolveBaseUrl(
+        baseUrl,
+        companyInfo.websiteUrl,
+        process.env.NEXT_PUBLIC_APP_URL
       );
+      const offerUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKit(offer.kitId));
+      const totalValue = parseFloat(offer.totalValue.toString());
+      sendOfferReadyEmail(
+        customerEmail,
+        offer.offerNumber,
+        totalValue,
+        offerUrl,
+        appUrl
+      ).catch(err => console.error('Failed to send offer ready email:', err));
     }
 
     return offer;

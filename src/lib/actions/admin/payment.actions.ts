@@ -1,9 +1,11 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { requireAdmin } from '@/lib/auth';
 import { PaymentService } from '@/lib/services/payment.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import type { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -53,11 +55,16 @@ export async function updatePaymentStatus(
 ): Promise<ActionResult> {
   try {
     const session = await requireAdmin();
+    const baseUrl = resolveBaseUrl(
+      buildBaseUrlFromHeaders(await headers()),
+      process.env.NEXT_PUBLIC_APP_URL
+    );
 
     const payment = await PaymentService.updateStatus(
       paymentId,
       status,
-      session.id
+      session.id,
+      baseUrl
     );
 
     return {
@@ -138,9 +145,15 @@ export async function bulkUpdatePaymentStatus(
 ): Promise<ActionResult> {
   try {
     const session = await requireAdmin();
+    const baseUrl = resolveBaseUrl(
+      buildBaseUrlFromHeaders(await headers()),
+      process.env.NEXT_PUBLIC_APP_URL
+    );
 
     const results = await Promise.allSettled(
-      paymentIds.map((id) => PaymentService.updateStatus(id, status, session.id))
+      paymentIds.map((id) =>
+        PaymentService.updateStatus(id, status, session.id, baseUrl)
+      )
     );
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;

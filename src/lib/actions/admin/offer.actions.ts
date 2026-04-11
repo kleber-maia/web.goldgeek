@@ -1,11 +1,13 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { requireAdmin } from '@/lib/auth';
 import { OfferService } from '@/lib/services/offer.service';
 import { ItemService } from '@/lib/services/item.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { offerSchema, type OfferInput } from '@/lib/validators/offer';
 import type { OfferStatus } from '@prisma/client';
+import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -92,8 +94,11 @@ export async function createOffer(
 export async function sendOffer(offerId: string): Promise<ActionResult> {
   try {
     const session = await requireAdmin();
-
-    const offer = await OfferService.send(offerId, session.id);
+    const baseUrl = resolveBaseUrl(
+      buildBaseUrlFromHeaders(await headers()),
+      process.env.NEXT_PUBLIC_APP_URL
+    );
+    const offer = await OfferService.send(offerId, session.id, baseUrl);
 
     return {
       success: true,

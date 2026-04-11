@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createMagicLink } from '@/lib/auth';
 import { sendMagicLinkEmail } from '@/lib/email';
 import { z } from 'zod';
+import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromRequest, resolveBaseUrl } from '@/lib/url';
 
 const requestSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -16,9 +17,12 @@ export async function POST(request: Request) {
     const result = await createMagicLink(email);
 
     // Build magic link URL
-    const origin = request.headers.get('origin') || new URL(request.url).origin;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin || 'http://localhost:3000';
-    const magicLinkUrl = `${baseUrl}/api/auth/verify?token=${result.token}`;
+    const baseUrl =
+      resolveBaseUrl(
+        buildBaseUrlFromRequest(request),
+        process.env.NEXT_PUBLIC_APP_URL
+      ) || 'http://localhost:3000';
+    const magicLinkUrl = buildAbsoluteUrl(baseUrl, appRoutes.authVerify(result.token));
 
     // Send the magic link email
     const emailSent = await sendMagicLinkEmail(email, magicLinkUrl, baseUrl);

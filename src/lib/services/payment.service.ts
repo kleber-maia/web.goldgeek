@@ -95,7 +95,8 @@ export class PaymentService {
   static async updateStatus(
     paymentId: string,
     status: PaymentStatus,
-    userId?: string
+    userId?: string,
+    baseUrl?: string
   ): Promise<Payment> {
     const updates: any = { status };
 
@@ -163,7 +164,8 @@ export class PaymentService {
         payment.paymentNumber,
         amount,
         methodDisplay,
-        payment.trackingNumber ?? undefined
+        payment.trackingNumber ?? undefined,
+        baseUrl
       ).catch(err => console.error('Failed to send payment sent email:', err));
     }
 

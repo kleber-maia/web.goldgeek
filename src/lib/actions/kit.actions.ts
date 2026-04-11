@@ -6,6 +6,7 @@ import { CustomerService } from '@/lib/services/customer.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 import {
   appraisalRequestSchema,
   type AppraisalRequestInput,
@@ -93,20 +94,27 @@ export async function createAppraisalRequest(
       },
     });
 
+    const headerList = await headers();
+    const baseUrl =
+      resolveBaseUrl(
+        buildBaseUrlFromHeaders(headerList),
+        process.env.NEXT_PUBLIC_APP_URL
+      ) || 'http://localhost:3000';
+
     // Send kit created confirmation email
-    sendKitCreatedEmail(normalizedEmail, kit.kitNumber, validated.kitType).catch(err =>
-      console.error('Failed to send kit created email:', err)
-    );
+    sendKitCreatedEmail(
+      normalizedEmail,
+      kit.kitNumber,
+      validated.kitType,
+      baseUrl
+    ).catch(err => console.error('Failed to send kit created email:', err));
 
     // Create magic link for authentication
     const result = await createMagicLink(normalizedEmail);
-    const headerList = await headers();
-    const host =
-      headerList.get('x-forwarded-host') || headerList.get('host') || '';
-    const proto = headerList.get('x-forwarded-proto') || 'http';
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
-    const magicLinkUrl = `${baseUrl}/api/auth/verify?token=${result.token}`;
+    const magicLinkUrl = buildAbsoluteUrl(
+      baseUrl,
+      appRoutes.authVerify(result.token)
+    );
 
     // Send magic link email to customer
     const emailSent = await sendMagicLinkEmail(normalizedEmail, magicLinkUrl, baseUrl);

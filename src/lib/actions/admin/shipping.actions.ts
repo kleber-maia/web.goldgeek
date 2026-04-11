@@ -1,5 +1,6 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { requireAdmin } from '@/lib/auth';
 import { ShippingService } from '@/lib/services/shipping.service';
 import { ReturnService } from '@/lib/services/return.service';
@@ -7,6 +8,7 @@ import { KitService } from '@/lib/services/kit.service';
 import { FedExClient } from '@/lib/fedex/client';
 import { serializePrismaData } from '@/lib/db/utils';
 import type { ShippingCarrier, ShippingLabelType, ShippingLabelStatus, ReturnStatus } from '@prisma/client';
+import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -83,11 +85,16 @@ export async function updateLabelStatus(
 ): Promise<ActionResult> {
   try {
     const session = await requireAdmin();
+    const baseUrl = resolveBaseUrl(
+      buildBaseUrlFromHeaders(await headers()),
+      process.env.NEXT_PUBLIC_APP_URL
+    );
 
     const label = await ShippingService.updateStatus(
       labelId,
       status,
-      session.id
+      session.id,
+      baseUrl
     );
 
     return {

@@ -1,5 +1,6 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { requireAuth, requireCustomer } from '@/lib/auth';
 import { CustomerService } from '@/lib/services/customer.service';
 import { KitService } from '@/lib/services/kit.service';
@@ -22,6 +23,7 @@ import {
   type PaymentPreferencesInput,
 } from '@/lib/validators/customer';
 import { sendOfferAcceptedAdminEmail, sendOfferDeclinedAdminEmail, sendKitCreatedEmail } from '@/lib/email';
+import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -168,6 +170,10 @@ export async function acceptOffer(
       const adminUsers = await prisma.user.findMany({ select: { email: true } });
       const adminEmails = adminUsers.map((u) => u.email);
       if (adminEmails.length > 0) {
+        const baseUrl = resolveBaseUrl(
+          buildBaseUrlFromHeaders(await headers()),
+          process.env.NEXT_PUBLIC_APP_URL
+        );
         const customerName = offerWithKit.kit.customer
           ? `${offerWithKit.kit.customer.firstName} ${offerWithKit.kit.customer.lastName}`.trim()
           : 'Customer';
@@ -177,6 +183,7 @@ export async function acceptOffer(
           offerWithKit.kit.kitNumber,
           customerName,
           parseFloat(offerWithKit.totalValue.toString()),
+          baseUrl,
         ).catch(err => console.error('Failed to send offer accepted admin email:', err));
       }
     }
@@ -220,6 +227,10 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
       const adminUsers = await prisma.user.findMany({ select: { email: true } });
       const adminEmails = adminUsers.map((u) => u.email);
       if (adminEmails.length > 0) {
+        const baseUrl = resolveBaseUrl(
+          buildBaseUrlFromHeaders(await headers()),
+          process.env.NEXT_PUBLIC_APP_URL
+        );
         const customerName = offerWithKit.kit.customer
           ? `${offerWithKit.kit.customer.firstName} ${offerWithKit.kit.customer.lastName}`.trim()
           : 'Customer';
@@ -228,6 +239,7 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
           offerWithKit.offerNumber,
           offerWithKit.kit.kitNumber,
           customerName,
+          baseUrl,
         ).catch(err => console.error('Failed to send offer declined admin email:', err));
       }
     }
@@ -731,9 +743,16 @@ export async function createKitFromAccount(data: {
 
     // Send confirmation email
     if (customer.email) {
-      sendKitCreatedEmail(customer.email, kit.kitNumber, data.kitType).catch(err =>
-        console.error('Failed to send kit created email:', err)
+      const baseUrl = resolveBaseUrl(
+        buildBaseUrlFromHeaders(await headers()),
+        process.env.NEXT_PUBLIC_APP_URL
       );
+      sendKitCreatedEmail(
+        customer.email,
+        kit.kitNumber,
+        data.kitType,
+        baseUrl
+      ).catch(err => console.error('Failed to send kit created email:', err));
     }
 
     return {

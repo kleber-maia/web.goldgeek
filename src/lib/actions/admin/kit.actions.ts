@@ -1,11 +1,13 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { requireAdmin } from '@/lib/auth';
 import { KitService } from '@/lib/services/kit.service';
 import { CustomerService } from '@/lib/services/customer.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { sendKitCreatedEmail } from '@/lib/email';
 import type { KitStatus } from '@prisma/client';
+import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -194,8 +196,12 @@ export async function createKitForCustomer(data: {
     });
 
     // Send confirmation email to customer
-    sendKitCreatedEmail(customer.email, kit.kitNumber, data.kitType).catch(err =>
-      console.error('Failed to send kit created email:', err)
+    const baseUrl = resolveBaseUrl(
+      buildBaseUrlFromHeaders(await headers()),
+      process.env.NEXT_PUBLIC_APP_URL
+    );
+    sendKitCreatedEmail(customer.email, kit.kitNumber, data.kitType, baseUrl).catch(
+      err => console.error('Failed to send kit created email:', err)
     );
 
     return {

@@ -114,7 +114,8 @@ export class ShippingService {
   static async updateStatus(
     labelId: string,
     status: ShippingLabelStatus,
-    userId?: string
+    userId?: string,
+    baseUrl?: string
   ): Promise<ShippingLabel> {
     const updates: any = { status };
 
@@ -159,9 +160,12 @@ export class ShippingService {
         });
 
         if (customerEmail) {
-          sendKitShippedToCustomerEmail(customerEmail, label.kit.kitNumber, label.trackingNumber).catch(err =>
-            console.error('Failed to send kit shipped email:', err)
-          );
+          sendKitShippedToCustomerEmail(
+            customerEmail,
+            label.kit.kitNumber,
+            label.trackingNumber,
+            baseUrl
+          ).catch(err => console.error('Failed to send kit shipped email:', err));
         }
       } else if (status === 'DELIVERED') {
         // Kit box arrived at customer — no separate kit status change needed
@@ -187,9 +191,12 @@ export class ShippingService {
         });
 
         if (customerEmail) {
-          sendPackageInTransitEmail(customerEmail, label.kit.kitNumber, label.trackingNumber).catch(err =>
-            console.error('Failed to send package in transit email:', err)
-          );
+          sendPackageInTransitEmail(
+            customerEmail,
+            label.kit.kitNumber,
+            label.trackingNumber,
+            baseUrl
+          ).catch(err => console.error('Failed to send package in transit email:', err));
         }
       } else if (status === 'DELIVERED') {
         // Package arrived — auto-start evaluation
@@ -212,9 +219,11 @@ export class ShippingService {
         });
 
         if (customerEmail) {
-          sendKitReceivedEmail(customerEmail, label.kit.kitNumber).catch(err =>
-            console.error('Failed to send kit received email:', err)
-          );
+          sendKitReceivedEmail(
+            customerEmail,
+            label.kit.kitNumber,
+            baseUrl
+          ).catch(err => console.error('Failed to send kit received email:', err));
         }
       }
     } else if (label.type === 'RETURN') {
@@ -236,9 +245,13 @@ export class ShippingService {
           });
 
           if (customerEmail) {
-            sendReturnShippedEmail(customerEmail, label.kit.kitNumber, returnRecord.returnNumber, label.trackingNumber).catch(err =>
-              console.error('Failed to send return shipped email:', err)
-            );
+            sendReturnShippedEmail(
+              customerEmail,
+              label.kit.kitNumber,
+              returnRecord.returnNumber,
+              label.trackingNumber,
+              baseUrl
+            ).catch(err => console.error('Failed to send return shipped email:', err));
           }
         } else if (status === 'DELIVERED') {
           await prisma.return.update({
@@ -250,9 +263,12 @@ export class ShippingService {
           });
 
           if (customerEmail) {
-            sendReturnDeliveredEmail(customerEmail, label.kit.kitNumber, returnRecord.returnNumber).catch(err =>
-              console.error('Failed to send return delivered email:', err)
-            );
+            sendReturnDeliveredEmail(
+              customerEmail,
+              label.kit.kitNumber,
+              returnRecord.returnNumber,
+              baseUrl
+            ).catch(err => console.error('Failed to send return delivered email:', err));
           }
         }
       }
