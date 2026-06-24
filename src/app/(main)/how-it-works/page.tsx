@@ -1,6 +1,15 @@
 import Link from "next/link";
 import MotionFxImage from "@/components/ui/MotionFxImage";
 import MotionFxContainer from "@/components/ui/MotionFxContainer";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "How It Works",
+  description:
+    "Selling your gold with Gold Geek is simple: request a free appraisal kit, ship your items fully insured, and get a fast, no-obligation cash offer.",
+  path: "/how-it-works",
+});
 
 export default function HowItWorksPage() {
   return (

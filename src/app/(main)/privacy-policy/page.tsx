@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { SettingsService } from "@/lib/services/settings.service";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Privacy Policy",
+  description: "How Gold Geek collects, uses, and protects your personal information.",
+  path: "/privacy-policy",
+});
 
 export default async function PrivacyPolicyPage() {
   const company = await SettingsService.getCompanyInfo();

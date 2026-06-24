@@ -1,3 +1,12 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Terms & Conditions",
+  description: "The terms and conditions governing your use of Gold Geek's services.",
+  path: "/terms-conditions",
+});
+
 export default function TermsConditionsPage() {
   return (
     <div

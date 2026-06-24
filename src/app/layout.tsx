@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, Alegreya_Sans } from "next/font/google";
+import { siteUrl } from "@/lib/seo";
 import "@/styles/account/account.css";
 
 const poppins = Poppins({
@@ -23,15 +24,37 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+const SITE_DESCRIPTION =
+  "Fast, simple, and secure. Turn your gold, jewelry, diamonds, coins, bullion, and watches into cash with Gold Geek.";
+
 export const metadata: Metadata = {
-  title: "Gold Geek – Turn Your Gold Into Cash",
-  description: "Fast, simple, and secure. Turn your gold, jewelry, diamonds, coins, bullion, and watches into cash with Gold Geek.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Gold Geek – Turn Your Gold Into Cash",
+    template: "%s | Gold Geek",
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: "Gold Geek",
+  robots: { index: true, follow: true },
   icons: {
     icon: [
       { url: "/images/favicon/cropped-GoldGeekFavicon-32x32.png", sizes: "32x32" },
       { url: "/images/favicon/cropped-GoldGeekFavicon-192x192.png", sizes: "192x192" },
     ],
     apple: "/images/favicon/cropped-GoldGeekFavicon-180x180.png",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Gold Geek",
+    locale: "en_US",
+    url: siteUrl,
+    title: "Gold Geek – Turn Your Gold Into Cash",
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Gold Geek – Turn Your Gold Into Cash",
+    description: SITE_DESCRIPTION,
   },
 };
 

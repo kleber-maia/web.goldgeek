@@ -3,6 +3,16 @@ import Link from "next/link";
 import TestimonialsCarousel from "@/components/sections/TestimonialsCarousel";
 import TradingViewWidget from "@/components/widgets/TradingViewWidget";
 import ScrollRotatingImage from "@/components/ui/ScrollRotatingImage";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Gold Geek – Turn Your Gold Into Cash",
+  description:
+    "Fast, simple, and secure. Turn your gold, jewelry, diamonds, coins, bullion, and watches into cash with Gold Geek. Request a free, insured appraisal kit today.",
+  path: "/",
+  absoluteTitle: true,
+});
 
 export default function HomePage() {
   return (

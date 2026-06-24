@@ -1,6 +1,15 @@
 import Image from "next/image";
 import MotionFxImage from "@/components/ui/MotionFxImage";
 import MotionFxContainer from "@/components/ui/MotionFxContainer";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Who We Are",
+  description:
+    "Meet Gold Geek — a trusted precious-metals buyer making it fast, simple, and secure to turn your gold, jewelry, coins, and bullion into cash.",
+  path: "/who-we-are",
+});
 
 export default function WhoWeArePage() {
   return (

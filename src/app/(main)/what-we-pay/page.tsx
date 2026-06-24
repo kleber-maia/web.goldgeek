@@ -1,3 +1,13 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "What We Pay",
+  description:
+    "Transparent, competitive payouts based on live precious-metal prices. See how Gold Geek values your gold, silver, diamonds, and jewelry — and how you get paid.",
+  path: "/what-we-pay",
+});
+
 export default function WhatWePayPage() {
   return (
     <div
