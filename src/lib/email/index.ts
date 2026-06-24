@@ -4,7 +4,16 @@ import { Resend, type Attachment } from 'resend';
 import { SettingsService, type CompanyInfo } from '@/lib/services/settings.service';
 import { appRoutes, buildAbsoluteUrl, resolveBaseUrl } from '@/lib/url';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Construct the Resend client lazily so a missing RESEND_API_KEY only affects
+// actual send attempts at runtime — it must never crash the build (Next.js
+// evaluates module code while collecting page data).
+let resendClient: Resend | null = null;
+function getResend(): Resend {
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 export interface EmailOptions {
   to: string | string[];
@@ -56,7 +65,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       from = config.fromEmail;
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from,
       to: Array.isArray(options.to) ? options.to : [options.to],
       subject: options.subject,
