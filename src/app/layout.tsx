@@ -36,6 +36,9 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   applicationName: "Gold Geek",
   robots: { index: true, follow: true },
+  // Set GOOGLE_SITE_VERIFICATION in the environment to emit the
+  // <meta name="google-site-verification"> tag for Search Console.
+  verification: { google: process.env.GOOGLE_SITE_VERIFICATION },
   icons: {
     icon: [
       { url: "/images/favicon/cropped-GoldGeekFavicon-32x32.png", sizes: "32x32" },
