@@ -25,7 +25,7 @@ export const viewport: Viewport = {
 };
 
 const SITE_DESCRIPTION =
-  "Fast, simple, and secure. Turn your gold, jewelry, diamonds, coins, bullion, and watches into cash with Gold Geek.";
+  "Get top dollar for your gold, jewelry, diamonds, coins & watches. Free insured appraisal kit, fast cash offers, no obligation. Turn your valuables into cash today!";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

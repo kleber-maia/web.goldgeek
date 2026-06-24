@@ -3,9 +3,9 @@ import { pageMetadata } from "@/lib/seo";
 
 // The page is a Client Component, so metadata lives in this co-located layout.
 export const metadata: Metadata = pageMetadata({
-  title: "What We Buy",
+  title: "What We Buy — Gold, Jewelry, Coins & More",
   description:
-    "Gold Geek buys gold, jewelry, diamonds, coins, bullion, and luxury watches. See the items we accept and get a free, no-obligation appraisal.",
+    "We pay top dollar for gold, jewelry, diamonds, coins, bullion & luxury watches. Not sure if yours qualifies? Get a free, no-obligation appraisal and find out fast.",
   path: "/what-we-buy",
 });
 

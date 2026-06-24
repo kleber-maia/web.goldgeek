@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "What We Pay",
+  title: "What We Pay — Top Prices, Live Gold Rates",
   description:
-    "Transparent, competitive payouts based on live precious-metal prices. See how Gold Geek values your gold, silver, diamonds, and jewelry — and how you get paid.",
+    "See why sellers choose Gold Geek: competitive payouts tied to live precious-metal prices, fully transparent valuations, and fast payment. Find out what your gold is worth.",
   path: "/what-we-pay",
 });
 

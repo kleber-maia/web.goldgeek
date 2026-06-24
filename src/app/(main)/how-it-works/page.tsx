@@ -5,9 +5,9 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "How It Works",
+  title: "How It Works — Free Kit, Insured, Fast Cash",
   description:
-    "Selling your gold with Gold Geek is simple: request a free appraisal kit, ship your items fully insured, and get a fast, no-obligation cash offer.",
+    "Selling gold has never been easier. Request a free appraisal kit, ship your items fully insured, and get a fast cash offer — no obligation. Get started in 3 simple steps.",
   path: "/how-it-works",
 });
 

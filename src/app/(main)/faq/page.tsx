@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "FAQ",
+  title: "FAQ — Selling Your Gold, Answered",
   description:
-    "Answers to common questions about selling gold, jewelry, coins, and bullion to Gold Geek — appraisals, insured shipping, offers, and getting paid.",
+    "Free appraisals, insured shipping, how offers work, and how fast you get paid — everything you need to sell your gold to Gold Geek with total confidence. Get answers here.",
   path: "/faq",
 });
 

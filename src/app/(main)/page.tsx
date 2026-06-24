@@ -9,7 +9,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Gold Geek – Turn Your Gold Into Cash",
   description:
-    "Fast, simple, and secure. Turn your gold, jewelry, diamonds, coins, bullion, and watches into cash with Gold Geek. Request a free, insured appraisal kit today.",
+    "Get top dollar for your gold, jewelry, diamonds, coins & watches. Free insured appraisal kit, fast cash offers, zero obligation. Get your free quote today!",
   path: "/",
   absoluteTitle: true,
 });

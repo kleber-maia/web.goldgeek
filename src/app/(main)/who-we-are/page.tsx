@@ -5,9 +5,9 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Who We Are",
+  title: "Who We Are — Your Trusted Gold Buyer",
   description:
-    "Meet Gold Geek — a trusted precious-metals buyer making it fast, simple, and secure to turn your gold, jewelry, coins, and bullion into cash.",
+    "Thousands trust Gold Geek to turn gold, jewelry & coins into cash — safely, fairly, and fast. Meet the secure, transparent buyer making it simple to sell precious metals.",
   path: "/who-we-are",
 });
 
