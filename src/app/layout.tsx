@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, Alegreya_Sans } from "next/font/google";
-import { siteUrl } from "@/lib/seo";
+import { siteUrl, ogImage } from "@/lib/seo";
 import "@/styles/account/account.css";
 
 const poppins = Poppins({
@@ -50,11 +50,13 @@ export const metadata: Metadata = {
     url: siteUrl,
     title: "Gold Geek – Turn Your Gold Into Cash",
     description: SITE_DESCRIPTION,
+    images: [ogImage],
   },
   twitter: {
     card: "summary_large_image",
     title: "Gold Geek – Turn Your Gold Into Cash",
     description: SITE_DESCRIPTION,
+    images: [ogImage.url],
   },
 };
 
