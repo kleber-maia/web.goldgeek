@@ -8,6 +8,7 @@ Gold Geek is a precious metals and jewelry buying platform, converted from WordP
 
 **Key Documentation:**
 - [Kit Lifecycle](docs/kit-lifecycle.md) — Full appraisal kit lifecycle: actors, phases, diagrams, all test scenarios, and known gaps
+- [Deployment & Environments Runbook](docs/deployment.md) — staging vs prod, the two Neon DBs, how to deploy, how to migrate, DNS, FedEx
 
 ## Three Products (CRITICAL — Read Before Any Change)
 
