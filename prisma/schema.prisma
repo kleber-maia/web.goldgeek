@@ -385,5 +385,12 @@ model CompanySettings {
   websiteUrl   String?
   instagramUrl String?
   facebookUrl  String?
+
+  // FedEx service type per shipment direction (sent on every Ship API request).
+  // Valuable legs (customer→GG inbound, GG→customer return) ship fast by air;
+  // the empty kit going out can ship Ground. Changeable in Admin → Settings.
+  fedexValuableServiceType    String @default("PRIORITY_OVERNIGHT")
+  fedexKitDeliveryServiceType String @default("FEDEX_GROUND")
+
   updatedAt    DateTime @updatedAt
 }

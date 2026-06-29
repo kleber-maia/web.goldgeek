@@ -19,8 +19,21 @@ interface CompanySettings {
   websiteUrl?: string | null;
   instagramUrl?: string | null;
   facebookUrl?: string | null;
+  fedexValuableServiceType?: string | null;
+  fedexKitDeliveryServiceType?: string | null;
   updatedAt?: string | Date;
 }
+
+// FedEx domestic service types (must match the values FedEx's Ship API accepts).
+const FEDEX_SERVICE_OPTIONS = [
+  { value: "FEDEX_GROUND", label: "FedEx Ground (1–5 business days)" },
+  { value: "FEDEX_EXPRESS_SAVER", label: "FedEx Express Saver (3 business days, air)" },
+  { value: "FEDEX_2_DAY", label: "FedEx 2Day (2 business days, air)" },
+  { value: "FEDEX_2_DAY_AM", label: "FedEx 2Day A.M. (2 business days by noon)" },
+  { value: "STANDARD_OVERNIGHT", label: "Standard Overnight (next business day PM)" },
+  { value: "PRIORITY_OVERNIGHT", label: "Priority Overnight (next business day ~10:30am)" },
+  { value: "FIRST_OVERNIGHT", label: "First Overnight (next business day early AM)" },
+];
 
 interface IntegrationStatus {
   fedex: {
@@ -105,6 +118,8 @@ export default function SettingsClient({ initialSettings, integrations }: Props)
       websiteUrl: settings.websiteUrl || undefined,
       instagramUrl: settings.instagramUrl || undefined,
       facebookUrl: settings.facebookUrl || undefined,
+      fedexValuableServiceType: settings.fedexValuableServiceType || undefined,
+      fedexKitDeliveryServiceType: settings.fedexKitDeliveryServiceType || undefined,
     });
 
     setIsSaving(false);
@@ -341,6 +356,43 @@ export default function SettingsClient({ initialSettings, integrations }: Props)
                     onChange={(e) => handleChange("facebookUrl", e.target.value)}
                     placeholder="https://www.facebook.com/yourpage"
                   />
+                </div>
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label className="admin-form-label">
+                    Shipping service — valuables (inbound &amp; returns)
+                  </label>
+                  <select
+                    className="admin-form-input"
+                    value={settings.fedexValuableServiceType ?? "PRIORITY_OVERNIGHT"}
+                    onChange={(e) => handleChange("fedexValuableServiceType", e.target.value)}
+                  >
+                    {FEDEX_SERVICE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
+                    Used when customers ship gold/jewelry to you and when items are returned. Ship fast by air.
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-form-label">
+                    Shipping service — kit delivery (empty kit out)
+                  </label>
+                  <select
+                    className="admin-form-input"
+                    value={settings.fedexKitDeliveryServiceType ?? "FEDEX_GROUND"}
+                    onChange={(e) => handleChange("fedexKitDeliveryServiceType", e.target.value)}
+                  >
+                    {FEDEX_SERVICE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
+                    No valuables in transit — Ground is usually fine and cheaper.
+                  </div>
                 </div>
               </div>
 

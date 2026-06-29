@@ -360,13 +360,21 @@ export class ShippingService {
       select: { kitNumber: true },
     });
 
+    // Service type per direction: valuable legs (INBOUND customer→GG, RETURN
+    // GG→customer carry gold/jewelry) ship fast by air; the empty KIT_DELIVERY
+    // can go Ground. Both are admin-configurable in Settings.
+    const serviceType =
+      type === 'KIT_DELIVERY'
+        ? companySettings.fedexKitDeliveryServiceType || 'FEDEX_GROUND'
+        : companySettings.fedexValuableServiceType || 'PRIORITY_OVERNIGHT';
+
     const shipRequest = {
       labelResponseOptions: 'LABEL' as const,
       accountNumber: { value: accountNumber },
       requestedShipment: {
         shipper: shipperParty,
         recipients: [recipientParty],
-        serviceType: 'FEDEX_GROUND',
+        serviceType,
         packagingType: 'YOUR_PACKAGING',
         pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
         requestedPackageLineItems: [

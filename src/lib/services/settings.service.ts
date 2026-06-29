@@ -14,6 +14,8 @@ export interface CompanySettingsInput {
   websiteUrl?: string;
   instagramUrl?: string;
   facebookUrl?: string;
+  fedexValuableServiceType?: string;
+  fedexKitDeliveryServiceType?: string;
 }
 
 /**
@@ -32,6 +34,8 @@ export interface CompanyInfo {
   websiteUrl: string;
   instagramUrl: string;
   facebookUrl: string;
+  fedexValuableServiceType: string;
+  fedexKitDeliveryServiceType: string;
 }
 
 const DEFAULTS: CompanyInfo = {
@@ -47,6 +51,8 @@ const DEFAULTS: CompanyInfo = {
   websiteUrl: '',
   instagramUrl: '',
   facebookUrl: '',
+  fedexValuableServiceType: 'PRIORITY_OVERNIGHT',
+  fedexKitDeliveryServiceType: 'FEDEX_GROUND',
 };
 
 export class SettingsService {
@@ -80,6 +86,10 @@ export class SettingsService {
         websiteUrl: s.websiteUrl || DEFAULTS.websiteUrl,
         instagramUrl: s.instagramUrl || DEFAULTS.instagramUrl,
         facebookUrl: s.facebookUrl || DEFAULTS.facebookUrl,
+        fedexValuableServiceType:
+          s.fedexValuableServiceType || DEFAULTS.fedexValuableServiceType,
+        fedexKitDeliveryServiceType:
+          s.fedexKitDeliveryServiceType || DEFAULTS.fedexKitDeliveryServiceType,
       };
     } catch {
       // New columns may not exist yet — return defaults
@@ -105,6 +115,12 @@ export class SettingsService {
         websiteUrl: data.websiteUrl ?? null,
         instagramUrl: data.instagramUrl ?? null,
         facebookUrl: data.facebookUrl ?? null,
+        ...(data.fedexValuableServiceType
+          ? { fedexValuableServiceType: data.fedexValuableServiceType }
+          : {}),
+        ...(data.fedexKitDeliveryServiceType
+          ? { fedexKitDeliveryServiceType: data.fedexKitDeliveryServiceType }
+          : {}),
       },
       create: {
         id: this.ID,
@@ -120,6 +136,12 @@ export class SettingsService {
         websiteUrl: data.websiteUrl ?? null,
         instagramUrl: data.instagramUrl ?? null,
         facebookUrl: data.facebookUrl ?? null,
+        ...(data.fedexValuableServiceType
+          ? { fedexValuableServiceType: data.fedexValuableServiceType }
+          : {}),
+        ...(data.fedexKitDeliveryServiceType
+          ? { fedexKitDeliveryServiceType: data.fedexKitDeliveryServiceType }
+          : {}),
       },
     });
   }
