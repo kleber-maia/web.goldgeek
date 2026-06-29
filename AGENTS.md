@@ -400,7 +400,7 @@ Vercel team `gold-geek`, project `goldgeek` (`prj_G9sqvwCp5LBDFWE6M5Q1zLRFk2ND`)
 | `git push origin production` (or merge master→production) | **production** | prod |
 | `vercel --prod` | production (manual) | prod |
 
-The Vercel **Production Branch** setting must stay `production` (dashboard-only — there is no public API; a top-level `productionBranch` PATCH is rejected). Never push to `master` expecting a prod deploy.
+The Vercel **Production Branch** is `production`. Never push to `master` expecting a prod deploy. To change it programmatically use the **undocumented** endpoint `PATCH /v9/projects/{id}/branch` with body `{"branch":"<name>"}` (the documented projects PATCH rejects `productionBranch` and `link`). Auth with the CLI token from `~/Library/Application Support/com.vercel.cli/auth.json`, `teamId=team_JQ5Fkl4WtHBJnZzfrhDZVZfe`.
 
 **Staging env vars (Preview scope):** FedEx in **sandbox** (`FEDEX_SANDBOX_MODE=true`, sandbox keys), staging-only `SESSION_SECRET`/`MAGIC_LINK_SECRET`. Production scope holds the **production** FedEx keys — but real FedEx labels won't transmit until FedEx's label validation (Bar Code Analysis) approves them; approval is per-service, so resubmit if the configured service type changes.
 
