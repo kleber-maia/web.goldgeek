@@ -2,6 +2,22 @@
 ALTER TABLE "Kit" ALTER COLUMN "type" SET DEFAULT 'DIGITAL';
 
 -- =========================================================================
+-- Ensure PostgREST roles exist before REVOKEing from them.
+-- On Supabase these roles preexist; on Neon / plain Postgres they don't,
+-- so create them as inert NOLOGIN roles. Makes this migration portable.
+-- =========================================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+END
+$$;
+
+-- =========================================================================
 -- Enable Row Level Security on all tables
 -- The postgres role (table owner, used by Prisma) bypasses RLS automatically.
 -- With no permissive policies, anon/authenticated roles see zero rows.
