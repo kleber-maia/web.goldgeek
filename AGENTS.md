@@ -375,3 +375,46 @@ Available email functions:
 - `sendOfferReadyEmail()` - Offer notification
 - `sendPaymentSentEmail()` - Payment confirmation
 - `sendKitReceivedEmail()` - Kit received notification
+
+## Environments & Deployment
+
+Vercel team `gold-geek`, project `goldgeek` (`prj_G9sqvwCp5LBDFWE6M5Q1zLRFk2ND`), GitHub `kleber-maia/web.goldgeek`, region `iad1`.
+**CLI default scope is personal — run `vercel switch gold-geek` first** or commands hit the wrong scope (resources 404 / "no resources found").
+
+**Two Neon Postgres DBs, both via the Vercel Marketplace Neon integration:**
+
+| Env scope | Neon resource | Used by |
+|-----------|---------------|---------|
+| Production | `neon-lime-island` (`ep-autumn-mouse-...`) | the `production` branch (live site) |
+| Preview + Development | `goldgeek-dev` (`ep-sweet-mountain-...`) | `master` (staging) + local dev |
+
+- App reads `process.env.DATABASE_URL` (per-environment, via `@prisma/adapter-pg`). Neon's `DATABASE_URL` is **pooled**; **run migrations against `DATABASE_URL_UNPOOLED`** (the pooler breaks DDL).
+- Local `.env` `DATABASE_URL` points at the **dev** DB (unpooled). `.env` is gitignored.
+
+**Deploy model — `master` = staging, `production` branch = prod:**
+
+| Action | Deploys to | DB |
+|--------|-----------|-----|
+| `npm run dev` | local | dev |
+| `git push origin master` | **staging** (Preview) | dev |
+| `git push origin production` (or merge master→production) | **production** | prod |
+| `vercel --prod` | production (manual) | prod |
+
+The Vercel **Production Branch** setting must stay `production` (dashboard-only — there is no public API; a top-level `productionBranch` PATCH is rejected). Never push to `master` expecting a prod deploy.
+
+**Staging env vars (Preview scope):** FedEx in **sandbox** (`FEDEX_SANDBOX_MODE=true`, sandbox keys), staging-only `SESSION_SECRET`/`MAGIC_LINK_SECRET`. Production scope holds the **production** FedEx keys — but real FedEx labels won't transmit until FedEx's label validation (Bar Code Analysis) approves them; approval is per-service, so resubmit if the configured service type changes.
+
+### Migrations on Neon (read before editing migration history)
+
+- Use `prisma migrate deploy` (forward-only) for both DBs. **Never `prisma migrate reset` against the prod DB.**
+- All migrations must be **transaction-safe and role-portable** so a fresh Neon DB builds cleanly:
+  - Don't `ALTER TYPE ... ADD VALUE` and then use that value in the same migration (Postgres error 55P04). Recreate the enum and remap via a `USING` cast instead. (See `compact_kit_lifecycle`.)
+  - Guard Supabase-only roles: `CREATE ROLE anon/authenticated NOLOGIN` if missing before `REVOKE`ing from them. (See `secure_rls_and_revoke`.)
+- Known residual: prod's `_prisma_migrations` has stale checksums for the two migrations fixed on 2026-06-29 — `migrate deploy` ignores this, but `migrate dev`/`migrate status` against prod will warn.
+
+## Working conventions for agents
+
+- **Be terse.** Lead with the action/result. No long preambles or exhaustive option lists. Act on sensible defaults; only ask when a decision genuinely changes the outcome.
+- **Do the work; don't offload it.** Run the command yourself rather than telling the user to. Escalate only on true hard gates (browser ToS, dashboard-only settings, auto-mode credential blocks).
+- **Reuse the existing home for a concern.** Before adding UI fields/config, find the dedicated section/pattern that already owns it (e.g. the FedEx Shipping card in Admin Settings) instead of bolting onto an unrelated form.
+- **Verify third-party API literals exactly.** FedEx Ship API service types: `PRIORITY_OVERNIGHT`, `STANDARD_OVERNIGHT`, `FIRST_OVERNIGHT` (no `FEDEX_` prefix); `FEDEX_GROUND`, `FEDEX_2_DAY`, `FEDEX_EXPRESS_SAVER` (with prefix). FedEx caps jewelry/precious-metals liability at $1,000/package.
