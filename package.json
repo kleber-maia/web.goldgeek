@@ -14,7 +14,8 @@
     "admin:create": "tsx scripts/manage-admin.ts create",
     "admin:list": "tsx scripts/manage-admin.ts list",
     "admin:delete": "tsx scripts/manage-admin.ts delete",
-    "migrate:split": "tsx scripts/migrate-user-customer-split.ts"
+    "migrate:split": "tsx scripts/migrate-user-customer-split.ts",
+    "migrate:prod": "bash scripts/migrate-prod.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

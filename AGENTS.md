@@ -404,7 +404,15 @@ The Vercel **Production Branch** is `production`. Never push to `master` expecti
 
 **Staging env vars (Preview scope):** FedEx in **sandbox** (`FEDEX_SANDBOX_MODE=true`, sandbox keys), staging-only `SESSION_SECRET`/`MAGIC_LINK_SECRET`. Production scope holds the **production** FedEx keys — but real FedEx labels won't transmit until FedEx's label validation (Bar Code Analysis) approves them; approval is per-service, so resubmit if the configured service type changes.
 
-### Migrations on Neon (read before editing migration history)
+### Migration workflow
+
+Builds do **not** run migrations (`build` = `prisma generate && next build`). Apply them deliberately:
+
+1. **Develop:** `npm run prisma:migrate` (`prisma migrate dev --name X`) — creates the migration file and applies it to your local `.env` DB, which **is** the dev DB. So dev/staging is migrated as a side effect of normal local work.
+2. **Staging:** `git push origin master` → staging deploy. Its DB (dev) is already migrated from step 1. Verify on `dev.goldgeek.com`.
+3. **Production release:** **`npm run migrate:prod` FIRST** (applies pending migrations to the prod Neon DB — shows status, asks to confirm, runs `migrate deploy` against the non-pooling URL), **then** `git push origin production` to deploy the code. Migrate-before-deploy so the schema is ready; for non-additive changes this ordering is required.
+
+### Migration rules on Neon (read before editing migration history)
 
 - Use `prisma migrate deploy` (forward-only) for both DBs. **Never `prisma migrate reset` against the prod DB.**
 - All migrations must be **transaction-safe and role-portable** so a fresh Neon DB builds cleanly:
