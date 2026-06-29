@@ -165,6 +165,46 @@ export default function SettingsClient({ initialSettings, integrations }: Props)
                         "Configure missing variables in your .env file to enable shipping labels."
                       )}
                     </div>
+
+                    <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #E5E7EB" }}>
+                      <div className="admin-form-group" style={{ marginBottom: "12px" }}>
+                        <label className="admin-form-label">
+                          Service — valuables (inbound &amp; returns)
+                        </label>
+                        <select
+                          className="admin-form-input"
+                          value={settings.fedexValuableServiceType ?? "PRIORITY_OVERNIGHT"}
+                          onChange={(e) => handleChange("fedexValuableServiceType", e.target.value)}
+                        >
+                          {FEDEX_SERVICE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                        <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
+                          Carries gold/jewelry — ship fast by air.
+                        </div>
+                      </div>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label className="admin-form-label">
+                          Service — kit delivery (empty kit out)
+                        </label>
+                        <select
+                          className="admin-form-input"
+                          value={settings.fedexKitDeliveryServiceType ?? "FEDEX_GROUND"}
+                          onChange={(e) => handleChange("fedexKitDeliveryServiceType", e.target.value)}
+                        >
+                          {FEDEX_SERVICE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                        <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
+                          No valuables in transit — Ground is fine and cheaper.
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "10px" }}>
+                        Saved with the Save Settings button below.
+                      </div>
+                    </div>
                   </>
                 );
               })()}
@@ -356,43 +396,6 @@ export default function SettingsClient({ initialSettings, integrations }: Props)
                     onChange={(e) => handleChange("facebookUrl", e.target.value)}
                     placeholder="https://www.facebook.com/yourpage"
                   />
-                </div>
-              </div>
-
-              <div className="admin-form-row">
-                <div className="admin-form-group">
-                  <label className="admin-form-label">
-                    Shipping service — valuables (inbound &amp; returns)
-                  </label>
-                  <select
-                    className="admin-form-input"
-                    value={settings.fedexValuableServiceType ?? "PRIORITY_OVERNIGHT"}
-                    onChange={(e) => handleChange("fedexValuableServiceType", e.target.value)}
-                  >
-                    {FEDEX_SERVICE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                  <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
-                    Used when customers ship gold/jewelry to you and when items are returned. Ship fast by air.
-                  </div>
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-form-label">
-                    Shipping service — kit delivery (empty kit out)
-                  </label>
-                  <select
-                    className="admin-form-input"
-                    value={settings.fedexKitDeliveryServiceType ?? "FEDEX_GROUND"}
-                    onChange={(e) => handleChange("fedexKitDeliveryServiceType", e.target.value)}
-                  >
-                    {FEDEX_SERVICE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                  <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px" }}>
-                    No valuables in transit — Ground is usually fine and cheaper.
-                  </div>
                 </div>
               </div>
 
