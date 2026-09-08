@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import KitDestination from "@/components/account/KitDestination";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
 import { AlertDialog } from "@/components/shared";
@@ -15,6 +16,7 @@ interface OfferSummary {
   kitNumber: string;
   offerId: string;
   offerValue: number;
+  mailingAddress: string;
 }
 
 export default function DeclineOfferPage() {
@@ -23,8 +25,10 @@ export default function DeclineOfferPage() {
   const kitId = params.id as string;
 
   const [summary, setSummary] = useState<OfferSummary | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [errorAlert, setErrorAlert] = useState(false);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ export default function DeclineOfferPage() {
     const loadSummary = async () => {
       const result = await getKitOfferSummary(kitId);
       if (!result.success || !result.data) {
-        router.replace("/account");
+        if (isMounted) { setLoadError(result.error || "Unable to load this offer."); setIsLoading(false); }
         return;
       }
       if (!isMounted) return;
@@ -42,6 +46,7 @@ export default function DeclineOfferPage() {
         kitNumber: result.data.kitNumber,
         offerId: result.data.offerId,
         offerValue: result.data.offerValue,
+        mailingAddress: result.data.mailingAddress,
       });
       setIsLoading(false);
     };
@@ -67,10 +72,13 @@ export default function DeclineOfferPage() {
       }
     } catch (error) {
       console.error("Error declining offer:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Unable to decline this offer. Please try again.");
       setErrorAlert(true);
       setIsSubmitting(false);
     }
   };
+
+  if (loadError) return <AccountContainer headerProps={{ title: "Offer unavailable", showBackButton: true, backHref: `/account/kit/${kitId}` }}><p role="alert">{loadError}</p><Link href={`/account/kit/${kitId}`} className="underline">View the latest kit status</Link><button type="button" onClick={() => window.location.reload()} className="block underline mt-4">Try again</button></AccountContainer>;
 
   if (isLoading || !summary) {
     return (
@@ -138,6 +146,7 @@ export default function DeclineOfferPage() {
         </div>
       </div>
 
+      <KitDestination kitId={kitId} address={summary.mailingAddress} onUpdated={async () => { const result = await getKitOfferSummary(kitId); if (result.success && result.data) setSummary(result.data); }} />
       {/* Offer Details */}
       <div className="account-section">
         <div className="account-section-title">Offer You&apos;re Declining</div>
@@ -184,13 +193,13 @@ export default function DeclineOfferPage() {
       </div>
 
       <p className="account-disclaimer" style={{ marginTop: 24 }}>
-        Your items will be shipped back to your registered address within 5-7
+        Your items will be shipped back to the address shown above within 5-7
         business days.
       </p>
       <AlertDialog
         isOpen={errorAlert}
         title="Error"
-        message="Something went wrong. Please try again."
+        message={errorMessage}
         onClose={() => setErrorAlert(false)}
       />
     </AccountContainer>

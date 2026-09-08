@@ -1,6 +1,8 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { addressSchema } from '@/lib/validators/customer';
+import { itemBreakdownSchema } from '@/lib/validators/offer';
 import { requireAdmin } from '@/lib/auth';
 import { KitService } from '@/lib/services/kit.service';
 import { CustomerService } from '@/lib/services/customer.service';
@@ -10,7 +12,7 @@ import type { KitStatus } from '@prisma/client';
 import { createMagicLink } from '@/lib/auth';
 import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -22,7 +24,7 @@ export interface ActionResult<T = any> {
 export async function getAllKits(filters?: {
   status?: KitStatus;
   search?: string;
-}): Promise<ActionResult> {
+}) {
   try {
     await requireAdmin();
 
@@ -32,11 +34,11 @@ export async function getAllKits(filters?: {
       success: true,
       data: serializePrismaData(kits),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting kits:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get kits',
+      error: error instanceof Error ? error.message : 'Failed to get kits',
     };
   }
 }
@@ -45,21 +47,21 @@ export async function getAllKits(filters?: {
  * Get kits awaiting evaluation (EVALUATING with no offers).
  * Used by the Offers funnel page.
  */
-export async function getKitsForEvaluation(): Promise<ActionResult> {
+export async function getKitsForEvaluation() {
   try {
     await requireAdmin();
     const kits = await KitService.getAwaitingEvaluation();
     return { success: true, data: serializePrismaData(kits) };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting evaluation kits:', error);
-    return { success: false, error: error.message || 'Failed to get evaluation kits' };
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get evaluation kits' };
   }
 }
 
 /**
  * Get kit details (admin only)
  */
-export async function getKitDetails(kitId: string): Promise<ActionResult> {
+export async function getKitDetails(kitId: string) {
   try {
     await requireAdmin();
 
@@ -71,13 +73,17 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: serializePrismaData(kit),
+      data: serializePrismaData({ ...kit,
+        customer: { ...kit.customer, paymentPreferences: null },
+        shippingAddress: addressSchema.omit({ type: true }).nullable().catch(null).parse(kit.shippingAddress),
+        offers: kit.offers.map(offer => ({ ...offer, itemBreakdown: itemBreakdownSchema.array().nullable().catch(null).parse(offer.itemBreakdown), payment: offer.payment ? { ...offer.payment, accountInfo: null } : null })),
+      }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting kit details:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get kit details',
+      error: error instanceof Error ? error.message : 'Failed to get kit details',
     };
   }
 }
@@ -88,7 +94,7 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
 export async function updateKitStatus(
   kitId: string,
   status: KitStatus
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -98,11 +104,11 @@ export async function updateKitStatus(
       success: true,
       data: serializePrismaData(kit),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating kit status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update kit status',
+      error: error instanceof Error ? error.message : 'Failed to update kit status',
     };
   }
 }
@@ -113,7 +119,7 @@ export async function updateKitStatus(
 export async function updateKitNotes(
   kitId: string,
   notes: string
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -123,11 +129,11 @@ export async function updateKitNotes(
       success: true,
       data: serializePrismaData(kit),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating kit notes:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update kit notes',
+      error: error instanceof Error ? error.message : 'Failed to update kit notes',
     };
   }
 }
@@ -138,7 +144,7 @@ export async function updateKitNotes(
 export async function updateKitType(
   kitId: string,
   type: 'PHYSICAL' | 'DIGITAL'
-): Promise<ActionResult> {
+) {
   try {
     await requireAdmin();
 
@@ -148,11 +154,11 @@ export async function updateKitType(
       success: true,
       data: serializePrismaData(kit),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating kit type:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update kit type',
+      error: error instanceof Error ? error.message : 'Failed to update kit type',
     };
   }
 }
@@ -172,7 +178,7 @@ export async function createKitForCustomer(data: {
     state: string;
     zipCode: string;
   };
-}): Promise<ActionResult> {
+}) {
   try {
     await requireAdmin();
 
@@ -215,11 +221,11 @@ export async function createKitForCustomer(data: {
       success: true,
       data: serializePrismaData(kit),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating kit for customer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to create kit',
+      error: error instanceof Error ? error.message : 'Failed to create kit',
     };
   }
 }
@@ -230,7 +236,7 @@ export async function createKitForCustomer(data: {
 export async function bulkUpdateKitStatus(
   kitIds: string[],
   status: KitStatus
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -245,11 +251,11 @@ export async function bulkUpdateKitStatus(
       success: true,
       data: { succeeded, failed, total: kitIds.length },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error bulk updating kit status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to bulk update kits',
+      error: error instanceof Error ? error.message : 'Failed to bulk update kits',
     };
   }
 }
@@ -257,7 +263,7 @@ export async function bulkUpdateKitStatus(
 /**
  * Delete kit (admin only)
  */
-export async function deleteKit(kitId: string): Promise<ActionResult> {
+export async function deleteKit(kitId: string) {
   try {
     await requireAdmin();
 
@@ -266,11 +272,11 @@ export async function deleteKit(kitId: string): Promise<ActionResult> {
     return {
       success: true,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting kit:', error);
     return {
       success: false,
-      error: error.message || 'Failed to delete kit',
+      error: error instanceof Error ? error.message : 'Failed to delete kit',
     };
   }
 }

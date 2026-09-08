@@ -32,31 +32,26 @@ export default function MobileMenu({
   const [ctaHover, setCtaHover] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setIsVisible(true);
-      // Small delay to ensure the element is mounted before animating
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true);
-        });
-      });
-      document.body.style.overflow = "hidden";
-    } else {
-      setIsAnimating(false);
-      document.body.style.overflow = "";
-      // Wait for animation to complete before unmounting
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
+    let nextFrame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    const frame = requestAnimationFrame(() => {
+      if (isOpen) {
+        setIsVisible(true);
+        nextFrame = requestAnimationFrame(() => setIsAnimating(true));
+      } else {
+        setIsAnimating(false);
+        timer = setTimeout(() => setIsVisible(false), 300);
+      }
+    });
     return () => {
-      document.body.style.overflow = "";
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(nextFrame);
+      clearTimeout(timer);
+      document.body.style.overflow = previousOverflow;
     };
-  }, []);
+  }, [isOpen]);
 
   if (!isVisible) return null;
 

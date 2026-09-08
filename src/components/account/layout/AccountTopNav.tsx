@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useAccountInitial } from '../AccountIdentity';
 
 interface AccountTopNavProps {
   customerInitial?: string;
@@ -12,10 +13,13 @@ const navLinks = [
   { href: "/account", label: "Dashboard", exact: true },
   { href: "/account/kits", label: "My Kits", matchPrefix: "/account/kit" },
   { href: "/account/payments", label: "Payments" },
+  { href: "/account/returns", label: "Returns" },
+  { href: "/account/notifications", label: "Activity" },
 ];
 
 export default function AccountTopNav({ customerInitial }: AccountTopNavProps) {
   const pathname = usePathname();
+  const accountInitial = useAccountInitial();
 
   const isActive = (link: (typeof navLinks)[0]) => {
     if (link.exact) return pathname === link.href;
@@ -51,7 +55,7 @@ export default function AccountTopNav({ customerInitial }: AccountTopNavProps) {
 
         {/* Right: Settings + Avatar */}
         <div className="account-top-nav-actions">
-          <Link href="/account/settings" className="account-top-nav-settings">
+          <Link href="/account/settings" aria-label="Settings" className="account-top-nav-settings">
             <svg
               width="20"
               height="20"
@@ -74,7 +78,7 @@ export default function AccountTopNav({ customerInitial }: AccountTopNavProps) {
             </svg>
           </Link>
           <div className="account-top-nav-avatar">
-            {customerInitial || "G"}
+            {customerInitial || accountInitial}
           </div>
         </div>
       </div>

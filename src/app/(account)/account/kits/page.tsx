@@ -1,14 +1,16 @@
+import { historyQuery } from '@/lib/account/history';
+import { isActionableOffer, canPrepareDigitalKit } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { getMyKits } from "@/lib/actions/customer.actions";
-import { normalizeKitType } from "@/lib/account";
 import KitsClient from "./KitsClient";
 
 type OfferLike = {
   status: string;
   totalValue: { toString(): string };
-  createdAt: Date;
+  createdAt: string;
+  expiresAt?: string | Date;
 };
 
 type KitLike = {
@@ -16,12 +18,13 @@ type KitLike = {
   kitNumber: string;
   type: string;
   status: string;
-  createdAt: Date;
-  items?: { id: string }[];
+  createdAt: string;
+  items?: { id: string; quantity: number }[];
   offers?: OfferLike[];
+  shippingLabels?: {type: string; status: string}[];
 };
 
-export default async function ManageKitsPage() {
+export default async function ManageKitsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
 
   if (!session) {
@@ -32,10 +35,11 @@ export default async function ManageKitsPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const result = await getMyKits();
+  const query = historyQuery(await searchParams);
+  const result = await getMyKits(query);
 
   if (!result.success) {
-    redirect("/account");
+    throw new Error("Unable to load your kits. Please try again.");
   }
 
   const allKits = (result.data || []) as KitLike[];
@@ -45,20 +49,19 @@ export default async function ManageKitsPage() {
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-    const activeOffer = sortedOffers.find((offer) => offer.status === "SENT");
+    const activeOffer = sortedOffers.find(offer => isActionableOffer(offer));
     const offerForValue = activeOffer || sortedOffers[0];
     const hasOffer = kit.status === "OFFER_SENT" && Boolean(activeOffer);
     const needsShippingLabel =
-      normalizeKitType(kit.type) === "digital" &&
-      ["PENDING", "SHIPPED"].includes(kit.status);
+      canPrepareDigitalKit(kit);
 
     return {
       id: kit.id,
       kitNumber: kit.kitNumber,
       type: kit.type,
       status: kit.status,
-      createdAt: kit.createdAt?.toISOString?.() ?? String(kit.createdAt),
-      itemCount: kit.items?.length ?? 0,
+      createdAt: String(kit.createdAt),
+      itemCount: kit.items?.reduce((total, item) => total + (item.quantity || 1), 0) ?? 0,
       offerValue: offerForValue
         ? parseFloat(offerForValue.totalValue.toString())
         : undefined,
@@ -67,5 +70,5 @@ export default async function ManageKitsPage() {
     };
   });
 
-  return <KitsClient kits={kitsForClient} />;
+  return <KitsClient kits={kitsForClient} page={query.page} hasMore={result.hasMore ?? false} query={query} />;
 }

@@ -1,11 +1,11 @@
+import { historyQuery } from '@/lib/account/history';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
-import { AccountContainer } from "@/components/account";
 import { getMyPayments } from "@/lib/actions/customer.actions";
 import PaymentsClient from "./PaymentsClient";
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
 
   if (!session) {
@@ -16,24 +16,12 @@ export default async function PaymentsPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const result = await getMyPayments();
+  const { page } = historyQuery(await searchParams);
+  const result = await getMyPayments(page);
 
-  if (!result.success) {
-    return (
-      <AccountContainer
-        headerProps={{
-          title: "My Payments",
-          showBackButton: true,
-        }}
-      >
-        <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <p style={{ color: "red" }}>Error loading payments</p>
-        </div>
-      </AccountContainer>
-    );
-  }
+  if (!result.success) throw new Error("Unable to load history. Please try again.");
 
   const payments = result.data || [];
 
-  return <PaymentsClient payments={payments} />;
+  return <PaymentsClient page={page} hasMore={result.hasMore ?? false} payments={payments} />;
 }

@@ -15,26 +15,28 @@
     "admin:list": "tsx scripts/manage-admin.ts list",
     "admin:delete": "tsx scripts/manage-admin.ts delete",
     "migrate:split": "tsx scripts/migrate-user-customer-split.ts",
-    "migrate:prod": "bash scripts/migrate-prod.sh"
+    "migrate:prod": "bash scripts/migrate-prod.sh",
+    "test": "node scripts/test.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.3.1",
     "html2pdf.js": "^0.14.0",
     "nanoid": "^5.1.6",
-    "next": "16.1.2",
+    "next": "^16.3.4",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.5.207",
     "pg": "^8.18.0",
-    "prisma": "^7.3.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "prisma": "^7.10.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "resend": "^6.9.1",
     "swiper": "^12.0.3",
     "tailwindcss": "^4.2.1",
@@ -46,8 +48,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.2",
+    "eslint-config-next": "^16.3.4",
     "tsx": "^4.21.0",
     "typescript": "^5"
+  },
+  "overrides": {
+    "mysql2": "^3.24.0",
+    "deepmerge-ts": "^8.0.0"
   }
 }

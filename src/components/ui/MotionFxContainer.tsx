@@ -36,7 +36,6 @@ export default function MotionFxContainer({
 
   useEffect(() => {
     if (!enableTranslateY || (disableOnMobile && isMobile)) {
-      setTranslateY(0);
       return;
     }
 
@@ -70,7 +69,7 @@ export default function MotionFxContainer({
       data-id={dataId}
       data-element_type="container"
       style={
-        enableTranslateY && translateY !== 0
+        enableTranslateY && !(disableOnMobile && isMobile) && translateY !== 0
           ? {
               transform: `translateY(${translateY}px)`,
               transition: "transform 1s cubic-bezier(0, 0.33, 0.07, 1.03)",

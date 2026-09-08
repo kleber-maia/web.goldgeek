@@ -1,20 +1,22 @@
+import { SessionService } from '@/lib/services/session.service';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const SESSION_COOKIE_NAME = 'gg-session';
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const session = request.cookies.get(SESSION_COOKIE_NAME);
+  const session = await SessionService.getIdentity(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   // Protect /account/* routes (except login and auth-callback)
   if (pathname.startsWith('/account')) {
     const isLoginPage = pathname === '/account/login';
     const isAuthCallback = pathname === '/account/auth-callback';
+    const isCheckEmail = pathname === '/account/check-email';
 
-    if (!session && !isLoginPage && !isAuthCallback) {
+    if (!session && !isLoginPage && !isAuthCallback && !isCheckEmail) {
       const url = new URL('/account/login', request.url);
-      url.searchParams.set('redirect', pathname);
+      url.searchParams.set('redirect', pathname + request.nextUrl.search);
       return NextResponse.redirect(url);
     }
 
@@ -29,7 +31,7 @@ export function proxy(request: NextRequest) {
 
     if (!session && !isAdminLoginPage) {
       const url = new URL('/admin/login', request.url);
-      url.searchParams.set('redirect', pathname);
+      url.searchParams.set('redirect', pathname + request.nextUrl.search);
       return NextResponse.redirect(url);
     }
 

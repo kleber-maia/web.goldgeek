@@ -7,8 +7,6 @@ import Link from "next/link";
 import {
   clearPendingEmail,
   clearPendingMagicLink,
-  getPendingEmail,
-  getPendingMagicLink,
   setPendingEmail,
   setPendingMagicLink,
 } from "@/lib/account";
@@ -23,11 +21,11 @@ export default function LoginPage() {
 
 function LoginPageInner() {
   const searchParams = useSearchParams();
-  const initialPendingEmail = getPendingEmail() || searchParams.get("email") || "";
-  const initialPendingMagicLink = getPendingMagicLink() || "";
+  const initialPendingEmail = searchParams.get("email") || "";
+  const [initialPendingMagicLink, setDevLink] = useState("");
   const [email, setEmail] = useState(initialPendingEmail);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(Boolean(initialPendingEmail));
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +39,7 @@ function LoginPageInner() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, type: "customer", next: searchParams.get("redirect") || searchParams.get("next") || undefined }),
       });
 
       const data = await response.json();
@@ -50,6 +48,7 @@ function LoginPageInner() {
         setPendingEmail(email);
         if (data.magicLinkUrl) {
           setPendingMagicLink(data.magicLinkUrl);
+          setDevLink(data.magicLinkUrl);
         }
         setSubmitted(true);
       } else {

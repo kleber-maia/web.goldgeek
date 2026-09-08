@@ -11,8 +11,8 @@ import { formatDate, formatStatus, formatDescription, getStatusBadgeClass } from
 import { addItemToKit, updateItem, deleteItem } from "@/lib/actions/admin/item.actions";
 import { generateOffer, sendOffer } from "@/lib/actions/admin/offer.actions";
 import { updateKitStatus, updateKitNotes, updateKitType } from "@/lib/actions/admin/kit.actions";
-import { createShippingLabel, generatePhysicalKitFedExLabels, generateReturnFedExLabel, validateAddressWithFedEx, updateReturnStatus } from "@/lib/actions/admin/shipping.actions";
-import { processPayment, updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
+import { resetCarrierRequest, createShippingLabel, generatePhysicalKitFedExLabels, generateReturnFedExLabel, validateAddressWithFedEx, updateReturnStatus } from "@/lib/actions/admin/shipping.actions";
+import { getPaymentDestination, processPayment, updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
 import type { KitStatus, ItemType, MetalType, ShippingLabelType, ShippingCarrier, PaymentMethod, PaymentStatus, ReturnStatus } from "@prisma/client";
 
 interface Kit {
@@ -31,11 +31,11 @@ interface Kit {
     id: string;
     firstName: string;
     lastName: string;
-    phone?: string;
+    phone?: string | null;
     email: string;
     addresses: Array<{
       street1: string;
-      street2?: string;
+      street2?: string | null;
       city: string;
       state: string;
       zipCode: string;
@@ -72,6 +72,7 @@ interface Kit {
       checkNumber: string | null;
     } | null;
   }>;
+  shippingOperations?: Array<{ id: string; type: 'INBOUND' | 'KIT_DELIVERY' | 'RETURN'; status: string; updatedAt: string }> ;
   shippingLabels: Array<{
     id: string;
     type: string;
@@ -80,6 +81,7 @@ interface Kit {
     status: string;
     labelUrl: string | null;
     labelData: string | null;
+    voidedAt: string | null;
     createdAt: Date | string;
   }>;
   returns: Array<{
@@ -100,7 +102,7 @@ interface Kit {
   }>;
   shippingAddress: {
     street1: string;
-    street2?: string;
+    street2?: string | null;
     city: string;
     state: string;
     zipCode: string;
@@ -242,6 +244,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const [labelCarrier, setLabelCarrier] = useState("FEDEX");
   const [labelType, setLabelType] = useState("INBOUND");
   const [labelTracking, setLabelTracking] = useState("");
+  const [labelData, setLabelData] = useState("");
   const [labelUrl, setLabelUrl] = useState("");
   const [labelCost, setLabelCost] = useState("");
 
@@ -252,13 +255,16 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   // Notes state
   const [notesValue, setNotesValue] = useState(kit.notes || "");
 
+  const [payoutDetails, setPayoutDetails] = useState<Record<string, string> | null>(null);
+
   // Payment form state
   const [paymentMethod, setPaymentMethod] = useState<string>("CHECK");
 
   // Sync notes when kit prop changes (after router.refresh)
   useEffect(() => {
     setNotesValue(kit.notes || "");
-  }, [kit.notes]);
+    setPayoutDetails(null);
+  }, [kit.id, kit.notes]);
 
   // Auto-estimate for the add form (reference only)
   const autoEstimate = itemWeight && itemPurity
@@ -285,9 +291,9 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   }, 0);
 
   // Shipping label checks
-  const hasKitDeliveryLabel = kit.shippingLabels.some((l) => l.type === "KIT_DELIVERY");
-  const hasInboundLabel = kit.shippingLabels.some((l) => l.type === "INBOUND");
-  const hasReturnLabel = kit.shippingLabels.some((l) => l.type === "RETURN");
+  const hasKitDeliveryLabel = kit.shippingLabels.some((l) => l.type === "KIT_DELIVERY" && l.status !== "VOIDED");
+  const hasInboundLabel = kit.shippingLabels.some((l) => l.type === "INBOUND" && l.status !== "VOIDED");
+  const hasReturnLabel = kit.shippingLabels.some((l) => l.type === "RETURN" && l.status !== "VOIDED");
 
   // Kit type toggle guards
   const canChangeType = kit.status === "PENDING";
@@ -526,11 +532,12 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
         carrier: labelCarrier as ShippingCarrier,
         trackingNumber: labelTracking.trim(),
         labelUrl: labelUrl.trim() || undefined,
+        labelData: labelData || undefined,
         cost: labelCost ? parseFloat(labelCost) : undefined,
       });
       if (result.success) {
         setIsCreatingLabel(false);
-        setLabelTracking(""); setLabelUrl(""); setLabelCost("");
+        setLabelTracking(""); setLabelUrl(""); setLabelCost(""); setLabelData("");
         router.refresh();
       } else {
         showFeedback("error", result.error || "Failed to create shipping label");
@@ -912,8 +919,8 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
             </div>
           )}
 
-          {/* Cancel Kit button — available for all non-terminal statuses */}
-          {!isTerminal && (
+          {/* Cancel Kit button — before appraisal begins */}
+          {["PENDING", "SHIPPED"].includes(kit.status) && (
             <button
               onClick={handleCancelKit}
               disabled={isSubmitting}
@@ -947,7 +954,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
               {/* FedEx auto-generate buttons — only when customer has an address */}
               {shippingAddress && (
                 <>
-                  {kit.type === "PHYSICAL" && !hasKitDeliveryLabel && !hasInboundLabel && (
+                  {["PENDING", "SHIPPED"].includes(kit.status) && kit.type === "PHYSICAL" && (!hasKitDeliveryLabel || !hasInboundLabel) && (
                     <button
                       onClick={handleGeneratePhysicalKitLabels}
                       className="admin-btn admin-btn-primary"
@@ -971,47 +978,70 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                   )}
                 </>
               )}
-              <button
+              {["PENDING", "SHIPPED", "DECLINED"].includes(kit.status) && <button
                 onClick={() => setIsCreatingLabel(!isCreatingLabel)}
                 className="admin-btn admin-btn-secondary"
                 style={{ fontSize: "13px", padding: "6px 12px" }}
               >
                 {isCreatingLabel ? "Cancel" : "+ Manual Label"}
-              </button>
+              </button>}
             </div>
           </div>
+
+          {kit.shippingOperations?.filter(operation => ['STARTED', 'UNKNOWN'].includes(operation.status)).map(operation => (
+            <div key={operation.id} role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 my-3">
+              <p>Carrier request needs review ({operation.type.replaceAll('_', ' ')}). Check FedEx for an existing shipment. If it exists, recover its tracking number and label using Manual Label.</p>
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setConfirmAction({
+                title: 'Allow another carrier request?', variant: 'warning', confirmLabel: 'No shipment exists — allow retry',
+                message: 'Only continue after checking FedEx and confirming this request did not create a shipment. Otherwise recover the existing label to avoid duplicate charges.',
+                onConfirm: async () => { const result = await resetCarrierRequest(kit.id, operation.type, true); showFeedback(result.success ? 'success' : 'error', result.success ? 'You can now retry label generation.' : result.error || 'Unable to reset request'); router.refresh(); },
+              })}>I checked FedEx: no shipment exists</button>
+            </div>
+          ))}
 
           {isCreatingLabel && (
             <form onSubmit={handleCreateLabel} style={{ marginTop: "12px", marginBottom: "16px" }}>
               <div className="admin-form-row">
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Type</label>
-                  <select className="admin-form-input" value={labelType} onChange={(e) => setLabelType(e.target.value)}>
+                  <label htmlFor="labelType" className="admin-form-label">Type</label>
+                  <select id="labelType" className="admin-form-input" value={labelType} onChange={(e) => setLabelType(e.target.value)}>
                     <option value="INBOUND">Inbound (Customer → Gold Geek)</option>
                     <option value="RETURN">Return (Gold Geek → Customer)</option>
                     <option value="KIT_DELIVERY">Kit Delivery (Gold Geek → Customer)</option>
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Carrier</label>
-                  <select className="admin-form-input" value={labelCarrier} onChange={(e) => setLabelCarrier(e.target.value)}>
+                  <label htmlFor="labelCarrier" className="admin-form-label">Carrier</label>
+                  <select id="labelCarrier" className="admin-form-input" value={labelCarrier} onChange={(e) => setLabelCarrier(e.target.value)}>
                     <option value="FEDEX">FedEx</option>
                     <option value="USPS">USPS</option>
                   </select>
                 </div>
               </div>
               <div className="admin-form-group">
-                <label className="admin-form-label">Tracking Number *</label>
-                <input type="text" className="admin-form-input" value={labelTracking} onChange={(e) => setLabelTracking(e.target.value)} placeholder="e.g., 794644790132" required />
+                <label htmlFor="labelTracking" className="admin-form-label">Tracking Number *</label>
+                <input id="labelTracking" type="text" className="admin-form-input" value={labelTracking} onChange={(e) => setLabelTracking(e.target.value)} placeholder="e.g., 794644790132" required />
+              </div>
+              <div className="admin-form-group">
+                <label htmlFor="recovered-label-pdf" className="admin-form-label">Original carrier PDF (up to 500 KB)</label>
+                <input id="recovered-label-pdf" type="file" accept="application/pdf,.pdf" className="admin-form-input" onChange={async event => {
+                  const file = event.target.files?.[0]; setLabelData('');
+                  if (!file) return;
+                  if (file.size > 500000) { showFeedback('error', 'Choose a carrier PDF smaller than 500 KB.'); event.target.value = ''; return; }
+                  const bytes = new Uint8Array(await file.arrayBuffer());
+                  let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+                  setLabelData(btoa(binary));
+                }} />
+                <p className="text-sm text-stone-600">Attach the original label when recovering a shipment so the customer can print it.</p>
               </div>
               <div className="admin-form-row">
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Label URL (optional)</label>
-                  <input type="url" className="admin-form-input" value={labelUrl} onChange={(e) => setLabelUrl(e.target.value)} placeholder="https://..." />
+                  <label htmlFor="labelUrl" className="admin-form-label">Label URL (optional)</label>
+                  <input id="labelUrl" type="url" className="admin-form-input" value={labelUrl} onChange={(e) => setLabelUrl(e.target.value)} placeholder="https://..." />
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Cost (optional)</label>
-                  <input type="number" step="0.01" min="0" className="admin-form-input" value={labelCost} onChange={(e) => setLabelCost(e.target.value)} placeholder="12.50" />
+                  <label htmlFor="labelCost" className="admin-form-label">Cost (optional)</label>
+                  <input id="labelCost" type="number" step="0.01" min="0" className="admin-form-input" value={labelCost} onChange={(e) => setLabelCost(e.target.value)} placeholder="12.50" />
                 </div>
               </div>
               <button type="submit" className="admin-btn admin-btn-primary" disabled={isSubmitting}>
@@ -1042,7 +1072,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                         </div>
                       </div>
                       <span className={`admin-badge ${getStatusBadgeClass(label.status)}`} style={{ fontSize: "11px" }}>
-                        {formatStatus(label.status)}
+                        {label.status === 'VOIDED' && !label.voidedAt ? 'Carrier cancellation pending' : formatStatus(label.status)}
                       </span>
                     </div>
                     <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -1515,6 +1545,18 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
                   </div>
                 )}
 
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={async () => {
+                  if (payoutDetails) { setPayoutDetails(null); return; }
+                  const result = await getPaymentDestination(existingPayment.id);
+                  if (result.success && result.data) setPayoutDetails(result.data);
+                  else showFeedback('error', result.error || 'Unable to load payout destination');
+                }}>{payoutDetails ? 'Hide payout destination' : 'Review saved payout destination'}</button>
+                {payoutDetails && <dl className="grid gap-2 my-3 text-sm" aria-label="Saved payout destination">
+                  {Object.entries(payoutDetails).map(([key, value]) => <div key={key}>
+                    <dt className="font-semibold">{({ bankRouting: 'Routing number', bankAccount: 'Account number', paypalEmail: 'PayPal email', zellePhone: 'Zelle destination', venmoHandle: 'Venmo handle', name: 'Payee', street1: 'Street', street2: 'Unit', city: 'City', state: 'State', zipCode: 'ZIP code', country: 'Country' } as Record<string, string>)[key] || 'Payment detail'}</dt>
+                    <dd className="break-all">{value}</dd>
+                  </div>)}
+                </dl>}
                 {/* Advance payment status */}
                 {PAYMENT_NEXT_STATUS[existingPayment.status] && (
                   <button

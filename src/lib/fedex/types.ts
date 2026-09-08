@@ -131,6 +131,7 @@ export interface FedExShipResponse {
   transactionId?: string;
   output?: {
     transactionShipments?: Array<{
+      pieceResponses?: Array<{ packageDocuments?: Array<{ contentType?: string; encodedLabel?: string; url?: string }> }>;
       masterTrackingNumber?: string;
       serviceType?: string;
       shipDatestamp?: string;

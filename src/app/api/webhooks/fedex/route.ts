@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual, createHash } from 'node:crypto';
+import { ShippingTransitionService } from '@/lib/services/shipping-transition.service';
 import { ShippingService } from '@/lib/services/shipping.service';
 import type { FedExTrackingWebhookPayload, FedExTrackingEvent } from '@/lib/fedex/types';
 import type { ShippingLabelStatus } from '@prisma/client';
-import { buildBaseUrlFromRequest, resolveBaseUrl } from '@/lib/url';
 
 // ---------------------------------------------------------------------------
 // Map FedEx event codes → ShippingLabelStatus
@@ -40,28 +41,21 @@ function mapEventCode(code: string): ShippingLabelStatus | null {
 function verifySignature(request: Request, body: string): boolean {
   const secret = process.env.FEDEX_WEBHOOK_SECRET;
   if (!secret) {
-    // If no secret configured, skip verification (development only)
-    console.warn('FEDEX_WEBHOOK_SECRET not set — skipping webhook signature verification');
-    return true;
+    return false;
   }
 
   const signature = request.headers.get('x-fedex-signature') ??
     request.headers.get('x-signature');
 
-  if (!signature) {
+  if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) {
     return false;
   }
 
-  // FedEx uses HMAC-SHA256 hex digest
-  // We can't use crypto.createHmac in Edge runtime, but this route runs in Node
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const crypto = require('crypto') as typeof import('crypto');
-  const expected = crypto
-    .createHmac('sha256', secret)
+  const expected = createHmac('sha256', secret)
     .update(body)
     .digest('hex');
 
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
 }
 
 // ---------------------------------------------------------------------------
@@ -89,15 +83,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const baseUrl = resolveBaseUrl(
-      buildBaseUrlFromRequest(request),
-      process.env.NEXT_PUBLIC_APP_URL
-    );
-    await processWebhookPayload(payload, baseUrl);
+    await processWebhookPayload(payload, createHash('sha256').update(rawBody).digest('hex'));
   } catch (err) {
     console.error('FedEx webhook processing error:', err);
-    // Return 200 to avoid FedEx retrying — log the error internally
-    return NextResponse.json({ ok: true, warning: 'Processing error logged' }, { status: 200 });
+    return NextResponse.json({ error: 'Processing failed; retry this event' }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });
@@ -105,7 +94,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 async function processWebhookPayload(
   payload: FedExTrackingWebhookPayload,
-  baseUrl?: string
+  receiptId: string
 ): Promise<void> {
   const trackingInfo = payload.trackingInfo;
   const trackingNumber =
@@ -118,32 +107,14 @@ async function processWebhookPayload(
     return;
   }
 
-  // Determine the most significant event code from the payload
-  const latestCode = trackingInfo?.latestStatusDetail?.code;
-  const derivedCode = trackingInfo?.latestStatusDetail?.derivedCode;
-
-  // Also scan the events array for the most recent event
   const events: FedExTrackingEvent[] = trackingInfo?.events ?? [];
-  const eventCodes = [
-    ...(latestCode ? [latestCode] : []),
-    ...(derivedCode ? [derivedCode] : []),
-    ...events.map((e) => e.eventType),
-  ];
-
-  let newStatus: ShippingLabelStatus | null = null;
-  for (const code of eventCodes) {
-    const mapped = mapEventCode(code);
-    if (mapped) {
-      newStatus = mapped;
-      // Prefer DELIVERED > EXCEPTION > IN_TRANSIT
-      if (mapped === 'DELIVERED') break;
-    }
-  }
-
-  if (!newStatus) {
-    console.log(`FedEx webhook: no actionable status for tracking ${trackingNumber}, codes: ${eventCodes.join(', ')}`);
-    return;
-  }
+  const dated = events.map(event => ({ event, time: Date.parse(event.timestamp || event.eventTime || '') })).filter(entry => Number.isFinite(entry.time)).sort((a, b) => b.time - a.time);
+  const latest = dated[0];
+  const code = latest?.event.eventType || trackingInfo?.latestStatusDetail?.derivedCode || trackingInfo?.latestStatusDetail?.code || events[0]?.eventType;
+  const newStatus = code ? mapEventCode(code) : null;
+  if (!newStatus) return;
+  const rawTime = latest?.time ?? Date.parse(payload.eventTime || '');
+  const eventAt = Number.isFinite(rawTime) ? new Date(rawTime) : new Date();
 
   // Look up the label in our database
   const label = await ShippingService.getByTrackingNumber(trackingNumber);
@@ -152,15 +123,5 @@ async function processWebhookPayload(
     return;
   }
 
-  // Only advance status — never go backwards
-  const statusOrder: ShippingLabelStatus[] = ['CREATED', 'IN_TRANSIT', 'DELIVERED', 'EXCEPTION', 'VOIDED'];
-  const currentIndex = statusOrder.indexOf(label.status as ShippingLabelStatus);
-  const newIndex = statusOrder.indexOf(newStatus);
-
-  if (newStatus === 'EXCEPTION' || newIndex > currentIndex) {
-    await ShippingService.updateStatus(label.id, newStatus, undefined, baseUrl);
-    console.log(`FedEx webhook: updated label ${label.id} (${trackingNumber}) → ${newStatus}`);
-  } else {
-    console.log(`FedEx webhook: skipped status update for ${trackingNumber} (${label.status} → ${newStatus} is not an advance)`);
-  }
+  await ShippingTransitionService.apply(label.id, newStatus, undefined, eventAt, receiptId);
 }

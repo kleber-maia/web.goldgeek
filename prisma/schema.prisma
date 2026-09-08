@@ -134,6 +134,7 @@ model User {
 
   magicLinks     MagicLink[]
   timelineEvents TimelineEvent[]
+  sessions       AuthSession[]
 
   @@index([email])
 }
@@ -168,6 +169,7 @@ model Customer {
   addresses  Address[]
   kits       Kit[]
   payments   Payment[]
+  sessions   AuthSession[]
 
   @@index([email])
 }
@@ -185,6 +187,31 @@ model CustomerMagicLink {
 
   @@index([token])
   @@index([customerId])
+}
+
+// The migration enforces exactly one owner. Only hashed session tokens are stored.
+model AuthSession {
+  tokenHash  String    @id
+  userId     String?
+  customerId String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([customerId])
+  @@index([expiresAt])
+}
+
+model AuthRequestLimit {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model Address {
@@ -208,6 +235,8 @@ model Address {
 }
 
 model Kit {
+  shippingOperations ShippingOperation[]
+  requestId String? @unique
   id                String    @id @default(cuid())
   customerId        String
   kitNumber         String    @unique // e.g., "GG-2026-001234"
@@ -235,6 +264,18 @@ model Kit {
   @@index([kitNumber])
   @@index([status])
   @@index([createdAt])
+}
+
+model ShippingOperation {
+  id String @id
+  kitId String
+  type ShippingLabelType
+  status String @default("STARTED")
+  result Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kit Kit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  @@index([status, updatedAt])
 }
 
 model Item {
@@ -345,12 +386,34 @@ model ShippingLabel {
   deliveredAt    DateTime?
   voidedAt       DateTime?
   updatedAt      DateTime            @updatedAt
+  lastCarrierEventAt DateTime?
 
   kit Kit @relation(fields: [kitId], references: [id], onDelete: Cascade)
 
   @@index([kitId])
   @@index([trackingNumber])
   @@index([status])
+}
+
+model CarrierReceipt {
+  id             String   @id
+  trackingNumber String
+  processedAt    DateTime @default(now())
+}
+
+model NotificationOutbox {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  kind          String
+  aggregateId   String
+  createdAt     DateTime @default(now())
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lockedUntil   DateTime?
+  sentAt        DateTime?
+  lastError     String?
+
+  @@index([sentAt, nextAttemptAt])
 }
 
 model TimelineEvent {

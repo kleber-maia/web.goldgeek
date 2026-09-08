@@ -16,7 +16,7 @@ interface ShippingLabel {
   carrier: string;
   trackingNumber: string;
   status: string;
-  cost: any;
+  cost: { toString(): string } | null;
   createdAt: string;
   shippedAt: string | null;
   deliveredAt: string | null;
@@ -47,7 +47,7 @@ function formatType(type: string): string {
   return type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatCost(cost: any): string {
+function formatCost(cost: { toString(): string } | null): string {
   if (cost === null || cost === undefined) return "-";
   const num = parseFloat(cost.toString());
   if (isNaN(num)) return "-";

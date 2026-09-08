@@ -1,15 +1,14 @@
+import { shippingLabelSchema } from '@/lib/validators/shipping';
+import { validateCarrierPdf } from '@/lib/account/digital-kit-pdf';
 import { prisma } from '@/lib/db';
-import type { ShippingLabel, ShippingCarrier, ShippingLabelType, ShippingLabelStatus } from '@prisma/client';
-import { ActivityService } from './activity.service';
+import { Prisma } from '@prisma/client';
+import type { ShippingLabel, ShippingCarrier, ShippingLabelType, ShippingLabelStatus, EventType } from '@prisma/client';
+import { NotificationService } from './notification.service';
+import { addressSchema } from '@/lib/validators/customer';
+import type { FedExLabelResult } from '@/lib/fedex/types';
 import { SettingsService } from './settings.service';
 import { FedExClient } from '@/lib/fedex/client';
-import {
-  sendKitShippedToCustomerEmail,
-  sendPackageInTransitEmail,
-  sendKitReceivedEmail,
-  sendReturnShippedEmail,
-  sendReturnDeliveredEmail,
-} from '@/lib/email';
+import { ShippingTransitionService } from './shipping-transition.service';
 
 export interface CreateShippingLabelInput {
   kitId: string;
@@ -20,10 +19,20 @@ export interface CreateShippingLabelInput {
   labelData?: string;
   cost?: number;
   externalId?: string;
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue;
 }
 
 export class ShippingService {
+  static async printableInbound(kit: { id: string; type: string; status: string; shippingLabels: ShippingLabel[]; customer: { firstName: string; lastName: string; phone: string | null } }, address: { street1: string; street2?: string | null; city: string; state: string; zipCode: string }) {
+    let label = kit.shippingLabels.filter(label => label.type === 'INBOUND' && label.status !== 'VOIDED').sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    if (!label && kit.type === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status)) {
+      label = await this.generateFedExLabel(kit.id, 'INBOUND', { ...address, street2: address.street2 ?? undefined, name: `${kit.customer.firstName} ${kit.customer.lastName}`.trim() || 'Customer', phone: kit.customer.phone ?? undefined });
+    }
+    if (!label?.labelData) throw new Error('Your carrier label is not ready. Please retry or contact support.');
+    await validateCarrierPdf(label.labelData);
+    return label;
+  }
+
   /**
    * Create a shipping label
    */
@@ -31,41 +40,52 @@ export class ShippingService {
     data: CreateShippingLabelInput,
     userId?: string
   ): Promise<ShippingLabel> {
-    const label = await prisma.shippingLabel.create({
-      data: {
-        kitId: data.kitId,
-        type: data.type,
-        carrier: data.carrier,
-        trackingNumber: data.trackingNumber,
-        labelUrl: data.labelUrl,
-        labelData: data.labelData,
-        cost: data.cost,
-        externalId: data.externalId,
-        metadata: data.metadata,
-        status: 'CREATED',
-      },
+    data = { ...shippingLabelSchema.parse(data), metadata: data.metadata };
+    if (data.labelData) await validateCarrierPdf(data.labelData);
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${data.kitId} FOR UPDATE`;
+      const kit = await tx.kit.findUniqueOrThrow({ where: { id: data.kitId } });
+      this.assertEligible(kit, data.type);
+      if (await tx.shippingLabel.findFirst({ where: { kitId: data.kitId, type: data.type, status: 'VOIDED', carrier: 'FEDEX', voidedAt: null } })) throw new Error('Carrier cancellation is pending. Wait before creating a replacement label.');
+      const existing = await tx.shippingLabel.findFirst({ where: { kitId: data.kitId, type: data.type, status: { not: 'VOIDED' } } });
+      if (existing) {
+        if (existing.trackingNumber !== data.trackingNumber || existing.carrier !== data.carrier) throw new Error('Void the existing label before adding a replacement.');
+        const missingPdf = !existing.labelData && data.labelData;
+        const missingUrl = !existing.labelUrl && data.labelUrl;
+        if (missingPdf || missingUrl) {
+          if (existing.status !== 'CREATED') throw new Error('A shipped label cannot be changed.');
+          return tx.shippingLabel.update({ where: { id: existing.id }, data: { ...(missingPdf ? { labelData: data.labelData } : {}), ...(missingUrl ? { labelUrl: data.labelUrl } : {}) } });
+        }
+        return existing;
+      }
+      const label = await tx.shippingLabel.create({ data: { ...data, status: 'CREATED' } });
+      const eventType: EventType = data.type === 'RETURN' ? 'RETURN_LABEL_CREATED' : 'STATUS_CHANGED';
+      await tx.timelineEvent.create({ data: { kitId: data.kitId, userId, type: eventType, title: 'Shipping label prepared', metadata: { labelId: label.id } } });
+      if (data.type === 'RETURN') {
+        const record = await tx.return.findFirst({ where: { kitId: data.kitId }, orderBy: { createdAt: 'desc' } });
+        if (!record) throw new Error('Create a return request before preparing its label.');
+        await tx.return.update({ where: { id: record.id }, data: { status: 'LABEL_CREATED', trackingNumber: data.trackingNumber } });
+      }
+      await tx.shippingOperation.updateMany({ where: { id: `${data.kitId}:${data.type}` }, data: { status: 'SAVED', result: Prisma.JsonNull } });
+      if (data.carrier === 'FEDEX') await NotificationService.enqueue(tx, 'CARRIER:SUBSCRIBE', label.id, `label:${label.id}:subscribe`);
+      return label;
     });
+  }
 
-    // Log activity
-    const activityTypeMap: Record<string, { type: string; title: string }> = {
-      INBOUND: { type: 'KIT_SENT', title: 'Inbound Label Created' },
-      RETURN: { type: 'RETURN_LABEL_CREATED', title: 'Return Label Created' },
-      KIT_DELIVERY: { type: 'KIT_SENT', title: 'Kit Delivery Label Created' },
-    };
-    const activityInfo = activityTypeMap[data.type] ?? {
-      type: 'STATUS_CHANGED',
-      title: 'Label Created',
-    };
-    await ActivityService.logEvent({
-      kitId: data.kitId,
-      userId,
-      type: activityInfo.type as any,
-      title: activityInfo.title,
-      description: `${data.carrier} label created: ${data.trackingNumber}`,
-      metadata: { labelId: label.id },
+  private static assertEligible(kit: { status: string; type: string }, type: ShippingLabelType) {
+    if (!['INBOUND', 'RETURN', 'KIT_DELIVERY'].includes(type)) throw new Error('Invalid label type');
+    if (type === 'RETURN' ? kit.status !== 'DECLINED' : !['PENDING', 'SHIPPED'].includes(kit.status)) throw new Error('This kit is not eligible for this shipping label.');
+    if (type === 'KIT_DELIVERY' && kit.type !== 'PHYSICAL') throw new Error('Kit delivery labels are only for physical kits.');
+  }
+
+  static async resetGeneration(kitId: string, type: ShippingLabelType, userId: string) {
+    const operation = await prisma.shippingOperation.findUniqueOrThrow({ where: { id: `${kitId}:${type}` } });
+    if (operation.status === 'STARTED' && operation.updatedAt.getTime() > Date.now() - 120000) throw new Error('This request is still running. Wait for it to finish.');
+    if (operation.result) throw new Error('A carrier result is saved. Retry generation to recover that label.');
+    await prisma.$transaction(async tx => {
+      await tx.shippingOperation.update({ where: { id: operation.id, updatedAt: operation.updatedAt }, data: { status: 'READY' } });
+      await tx.timelineEvent.create({ data: { kitId, userId, type: 'NOTE_ADDED', title: 'Carrier recovery reviewed', description: 'Staff confirmed no shipment exists at FedEx before allowing another creation attempt.' } });
     });
-
-    return label;
   }
 
   /**
@@ -115,173 +135,27 @@ export class ShippingService {
     labelId: string,
     status: ShippingLabelStatus,
     userId?: string,
-    baseUrl?: string
+    _baseUrl?: string
   ): Promise<ShippingLabel> {
-    const updates: any = { status };
-
-    // Set timestamps based on status
-    switch (status) {
-      case 'IN_TRANSIT':
-        updates.shippedAt = new Date();
-        break;
-      case 'DELIVERED':
-        updates.deliveredAt = new Date();
-        break;
-      case 'VOIDED':
-        updates.voidedAt = new Date();
-        break;
-    }
-
-    const label = await prisma.shippingLabel.update({
-      where: { id: labelId },
-      data: updates,
-      include: {
-        kit: { include: { customer: true } },
-      },
-    });
-
-    const customerEmail = label.kit.customer?.email;
-
-    // Update kit/return status based on label type and status
-    if (label.type === 'KIT_DELIVERY') {
-      // The kit box itself is on its way to the customer
-      if (status === 'IN_TRANSIT') {
-        await prisma.kit.update({
-          where: { id: label.kitId },
-          data: { status: 'SHIPPED', kitSentAt: new Date() },
-        });
-        await ActivityService.logEvent({
-          kitId: label.kitId,
-          userId,
-          type: 'KIT_SENT',
-          title: 'Kit Shipped to Customer',
-          description: `Kit box shipped via FedEx: ${label.trackingNumber}`,
-          metadata: { labelId: label.id },
-        });
-
-        if (customerEmail) {
-          sendKitShippedToCustomerEmail(
-            customerEmail,
-            label.kit.kitNumber,
-            label.trackingNumber,
-            baseUrl
-          ).catch(err => console.error('Failed to send kit shipped email:', err));
-        }
-      } else if (status === 'DELIVERED') {
-        // Kit box arrived at customer — no separate kit status change needed
-        await ActivityService.logEvent({
-          kitId: label.kitId,
-          userId,
-          type: 'STATUS_CHANGED',
-          title: 'Kit Box Delivered to Customer',
-          description: `Kit box delivered: ${label.trackingNumber}`,
-          metadata: { labelId: label.id },
-        });
-      }
-    } else if (label.type === 'INBOUND') {
-      if (status === 'IN_TRANSIT') {
-        // Package in transit — kit stays at SHIPPED (already there from kit delivery)
-        await ActivityService.logEvent({
-          kitId: label.kitId,
-          userId,
-          type: 'PACKAGE_IN_TRANSIT',
-          title: 'Package In Transit',
-          description: `Package is in transit: ${label.trackingNumber}`,
-          metadata: { labelId: label.id },
-        });
-
-        if (customerEmail) {
-          sendPackageInTransitEmail(
-            customerEmail,
-            label.kit.kitNumber,
-            label.trackingNumber,
-            baseUrl
-          ).catch(err => console.error('Failed to send package in transit email:', err));
-        }
-      } else if (status === 'DELIVERED') {
-        // Package arrived — auto-start evaluation
-        await prisma.kit.update({
-          where: { id: label.kitId },
-          data: {
-            status: 'EVALUATING',
-            receivedAt: new Date(),
-            evaluationStartAt: new Date(),
-          },
-        });
-
-        await ActivityService.logEvent({
-          kitId: label.kitId,
-          userId,
-          type: 'PACKAGE_DELIVERED',
-          title: 'Package Received — Evaluation Started',
-          description: `Package delivered: ${label.trackingNumber}`,
-          metadata: { labelId: label.id },
-        });
-
-        if (customerEmail) {
-          sendKitReceivedEmail(
-            customerEmail,
-            label.kit.kitNumber,
-            baseUrl
-          ).catch(err => console.error('Failed to send kit received email:', err));
-        }
-      }
-    } else if (label.type === 'RETURN') {
-      // Update return status if exists
-      const returnRecord = await prisma.return.findFirst({
-        where: { kitId: label.kitId },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (returnRecord) {
-        if (status === 'IN_TRANSIT') {
-          await prisma.return.update({
-            where: { id: returnRecord.id },
-            data: {
-              status: 'IN_TRANSIT',
-              trackingNumber: label.trackingNumber,
-              shippedAt: new Date(),
-            },
-          });
-
-          if (customerEmail) {
-            sendReturnShippedEmail(
-              customerEmail,
-              label.kit.kitNumber,
-              returnRecord.returnNumber,
-              label.trackingNumber,
-              baseUrl
-            ).catch(err => console.error('Failed to send return shipped email:', err));
-          }
-        } else if (status === 'DELIVERED') {
-          await prisma.return.update({
-            where: { id: returnRecord.id },
-            data: {
-              status: 'DELIVERED',
-              deliveredAt: new Date(),
-            },
-          });
-
-          if (customerEmail) {
-            sendReturnDeliveredEmail(
-              customerEmail,
-              label.kit.kitNumber,
-              returnRecord.returnNumber,
-              baseUrl
-            ).catch(err => console.error('Failed to send return delivered email:', err));
-          }
-        }
-      }
-    }
-
-    return label;
+    if (status === 'VOIDED') return this.voidLabel(labelId, userId);
+    return ShippingTransitionService.apply(labelId, status, userId);
   }
 
   /**
    * Void a shipping label
    */
   static async voidLabel(labelId: string, userId?: string): Promise<ShippingLabel> {
-    return this.updateStatus(labelId, 'VOIDED', userId);
+    const current = await prisma.shippingLabel.findUniqueOrThrow({ where: { id: labelId } });
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${current.kitId} FOR UPDATE`;
+      const latest = await tx.shippingLabel.findUniqueOrThrow({ where: { id: labelId } });
+      if (latest.status === 'VOIDED') return latest;
+      if (latest.status !== 'CREATED') throw new Error('A shipped label cannot be voided here. Contact the carrier.');
+      const label = await tx.shippingLabel.update({ where: { id: labelId }, data: { status: 'VOIDED', voidedAt: latest.carrier === 'FEDEX' ? null : new Date() } });
+      if (latest.carrier === 'FEDEX') await NotificationService.enqueue(tx, 'CARRIER:VOID', labelId, `label:${labelId}:void`);
+      await tx.timelineEvent.create({ data: { kitId: current.kitId, userId, type: 'STATUS_CHANGED', title: latest.carrier === 'FEDEX' ? 'Shipping label cancellation requested' : 'Shipping label voided', metadata: { labelId } } });
+      return label;
+    });
   }
 
   /**
@@ -306,6 +180,18 @@ export class ShippingService {
     },
     userId?: string
   ): Promise<ShippingLabel> {
+    const initialKit = await prisma.kit.findUniqueOrThrow({ where: { id: kitId } });
+    this.assertEligible(initialKit, type);
+    const existing = await prisma.shippingLabel.findFirst({ where: { kitId, type, status: { not: 'VOIDED' } }, orderBy: { createdAt: 'desc' } });
+    if (existing) return existing;
+    const pendingVoid = await prisma.shippingLabel.findFirst({ where: { kitId, type, status: 'VOIDED', carrier: 'FEDEX', voidedAt: null } });
+    if (pendingVoid) throw new Error('Carrier cancellation is pending. Wait before creating a replacement label.');
+    const recovery = await prisma.shippingOperation.findUnique({ where: { id: `${kitId}:${type}` } });
+    if (recovery?.result && recovery.status !== 'SAVED') {
+      const result = recovery.result as unknown as FedExLabelResult;
+      return this.createLabel({ kitId, type, carrier: 'FEDEX', trackingNumber: result.trackingNumber, labelData: result.labelData, labelUrl: result.labelUrl, cost: result.cost, externalId: result.externalId, metadata: { masterTrackingNumber: result.masterTrackingNumber } }, userId);
+    }
+    addressSchema.parse({ ...customerAddress, type: 'shipping' });
     // Load Gold Geek shipper address from DB settings
     const companySettings = await SettingsService.getCompanySettings();
     if (
@@ -406,10 +292,31 @@ export class ShippingService {
       },
     };
 
-    // Validate the customer address before creating the shipment
-    await FedExClient.validateAddress(customerAddress);
-
-    const result = await FedExClient.createShipment(shipRequest);
+    const validation = await FedExClient.validateAddress(customerAddress);
+    if (!validation.valid) throw new Error('The carrier could not validate this address. Correct it before generating a label.');
+    const operationId = `${kitId}:${type}`;
+    const saved = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
+      this.assertEligible(await tx.kit.findUniqueOrThrow({ where: { id: kitId } }), type);
+      if (await tx.shippingLabel.findFirst({ where: { kitId, type, status: 'VOIDED', carrier: 'FEDEX', voidedAt: null } })) throw new Error('Carrier cancellation is pending. Wait before creating a replacement label.');
+      const activeLabel = await tx.shippingLabel.findFirst({ where: { kitId, type, status: { not: 'VOIDED' } } });
+      if (activeLabel) throw new Error('A label is already ready. Reload this kit to view it.');
+      const operation = await tx.shippingOperation.findUnique({ where: { id: operationId } });
+      if (operation?.result && operation.status !== 'SAVED') return operation.result as unknown as FedExLabelResult;
+      if (operation && ['STARTED', 'UNKNOWN'].includes(operation.status)) throw new Error('A previous carrier request needs review. Check FedEx before retrying to avoid duplicate labels.');
+      await tx.shippingOperation.upsert({ where: { id: operationId }, create: { id: operationId, kitId, type }, update: { status: 'STARTED', result: Prisma.JsonNull } });
+      return null;
+    });
+    let result = saved;
+    if (!result) {
+      try {
+        result = await FedExClient.createShipment(shipRequest);
+        await prisma.shippingOperation.update({ where: { id: operationId }, data: { result: JSON.parse(JSON.stringify(result)) } });
+      } catch {
+        await prisma.shippingOperation.update({ where: { id: operationId }, data: { status: 'UNKNOWN' } });
+        throw new Error('Carrier response was not confirmed. Staff must check FedEx before another label is created.');
+      }
+    }
 
     const label = await this.createLabel(
       {
@@ -425,15 +332,6 @@ export class ShippingService {
       },
       userId
     );
-
-    // Subscribe to tracking webhook (non-fatal if it fails)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (appUrl) {
-      await FedExClient.subscribeTracking(
-        result.trackingNumber,
-        `${appUrl}/api/webhooks/fedex`
-      );
-    }
 
     return label;
   }
@@ -514,7 +412,7 @@ export class ShippingService {
     status?: ShippingLabelStatus;
     kitId?: string;
   }) {
-    const where: any = {};
+    const where: Prisma.ShippingLabelWhereInput = {};
 
     if (filters?.type) {
       where.type = filters.type;

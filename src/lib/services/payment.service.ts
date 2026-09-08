@@ -1,15 +1,15 @@
 import { prisma } from '@/lib/db';
 import { generatePaymentNumber } from '@/lib/db/utils';
-import type { Payment, PaymentMethod, PaymentStatus } from '@prisma/client';
-import { ActivityService } from './activity.service';
-import { sendPaymentSentEmail } from '@/lib/email';
+import type { Payment, PaymentMethod, PaymentStatus, Prisma, EventType } from '@prisma/client';
+import { PaymentDetailsService } from './payment-details.service';
+import { NotificationService } from './notification.service';
 
 export interface CreatePaymentInput {
   offerId: string;
   customerId: string;
   amount: number;
   method: PaymentMethod;
-  accountInfo?: any; // Should be encrypted
+  accountInfo?: Record<string, string>;
   notes?: string;
 }
 
@@ -18,41 +18,28 @@ export class PaymentService {
    * Create a payment
    */
   static async create(data: CreatePaymentInput, userId?: string): Promise<Payment> {
-    const paymentNumber = generatePaymentNumber();
-
-    // Get the offer to get the kit ID
-    const offer = await prisma.offer.findUnique({
-      where: { id: data.offerId },
+    return prisma.$transaction(async (tx) => {
+      const offer = await tx.offer.findUniqueOrThrow({ where: { id: data.offerId }, include: { kit: { include: { customer: true } } } });
+      await tx.$queryRaw`SELECT "id" FROM "Kit" WHERE "id" = ${offer.kitId} FOR UPDATE`;
+      const kit = await tx.kit.findUniqueOrThrow({ where: { id: offer.kitId } });
+      if (offer.status !== 'ACCEPTED' || !['ACCEPTED', 'PAID'].includes(kit.status) || data.customerId !== kit.customerId) throw new Error('Payment does not match an accepted offer.');
+      const existing = await tx.payment.findUnique({ where: { offerId: data.offerId } });
+      if (existing && existing.status !== 'FAILED') return existing;
+      const details = existing ? PaymentDetailsService.decrypt(existing.accountInfo) : data.method === 'CHECK'
+        ? PaymentDetailsService.checkDestination(offer.kit.customer, kit.shippingAddress)
+        : PaymentDetailsService.validate(data.method, data.accountInfo || PaymentDetailsService.preferences(offer.kit.customer.paymentPreferences).accountInfo);
+      const payment = existing
+        ? await tx.payment.update({ where: { id: existing.id, status: 'FAILED' }, data: { status: 'PENDING', initiatedAt: null, sentAt: null, completedAt: null } })
+        : await tx.payment.create({ data: { offerId: offer.id, customerId: kit.customerId, paymentNumber: generatePaymentNumber(), amount: offer.totalValue, method: data.method, accountInfo: PaymentDetailsService.encrypt(details), notes: data.notes } });
+      await tx.timelineEvent.create({ data: { kitId: kit.id, userId, type: 'PAYMENT_INITIATED', title: existing ? 'Payment retry requested' : 'Payment requested', metadata: { paymentId: payment.id, retry: Boolean(existing) } } });
+      return payment;
     });
+  }
 
-    if (!offer) {
-      throw new Error('Offer not found');
-    }
-
-    const payment = await prisma.payment.create({
-      data: {
-        offerId: data.offerId,
-        customerId: data.customerId,
-        paymentNumber,
-        amount: data.amount,
-        method: data.method,
-        accountInfo: data.accountInfo,
-        notes: data.notes,
-        status: 'PENDING',
-      },
-    });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId: offer.kitId,
-      userId,
-      type: 'PAYMENT_INITIATED',
-      title: 'Payment Initiated',
-      description: `Payment ${paymentNumber} initiated for $${data.amount}`,
-      metadata: { paymentId: payment.id },
-    });
-
-    return payment;
+  static async getDestination(paymentId: string, userId: string) {
+    const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { offer: true } });
+    await prisma.timelineEvent.create({ data: { kitId: payment.offer.kitId, userId, type: 'NOTE_ADDED', title: 'Payout destination reviewed', metadata: { paymentId } } });
+    return PaymentDetailsService.decrypt(payment.accountInfo);
   }
 
   /**
@@ -96,80 +83,26 @@ export class PaymentService {
     paymentId: string,
     status: PaymentStatus,
     userId?: string,
-    baseUrl?: string
+    _baseUrl?: string
   ): Promise<Payment> {
-    const updates: any = { status };
-
-    // Set timestamps based on status
-    switch (status) {
-      case 'PROCESSING':
-        updates.initiatedAt = new Date();
-        break;
-      case 'SENT':
-        updates.sentAt = new Date();
-        break;
-      case 'COMPLETED':
-        updates.completedAt = new Date();
-        break;
-    }
-
-    const payment = await prisma.payment.update({
-      where: { id: paymentId },
-      data: updates,
-      include: {
-        offer: {
-          include: {
-            kit: true,
-          },
-        },
-        customer: true,
-      },
+    return prisma.$transaction(async (tx) => {
+      const initial = await tx.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { offer: true } });
+      await tx.$queryRaw`SELECT "id" FROM "Kit" WHERE "id" = ${initial.offer.kitId} FOR UPDATE`;
+      const current = await tx.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { offer: { include: { kit: true } } } });
+      const allowed: Record<PaymentStatus, PaymentStatus[]> = { PENDING: ['PROCESSING', 'SENT', 'FAILED'], PROCESSING: ['SENT', 'FAILED'], SENT: ['COMPLETED', 'FAILED'], COMPLETED: [], FAILED: ['PENDING'] };
+      if (current.status === status) return current;
+      if (current.offer.kit.status === 'CANCELLED' || !allowed[current.status].includes(status)) throw new Error('This payment status change is not allowed.');
+      if (status === 'PROCESSING' || status === 'SENT') PaymentDetailsService.validateSnapshot(current.method, PaymentDetailsService.decrypt(current.accountInfo));
+      const now = new Date();
+      const updates: Prisma.PaymentUpdateInput = { status, ...(status === 'PROCESSING' ? { initiatedAt: now } : {}), ...(status === 'SENT' ? { sentAt: now } : {}), ...(status === 'COMPLETED' ? { completedAt: now } : {}) };
+      const payment = await tx.payment.update({ where: { id: paymentId }, data: updates });
+      if (status === 'SENT' || status === 'COMPLETED') await tx.kit.update({ where: { id: current.offer.kitId }, data: { status: 'PAID', completedAt: now } });
+      if (status === 'FAILED') await tx.kit.updateMany({ where: { id: current.offer.kitId, status: 'PAID' }, data: { status: 'ACCEPTED', completedAt: null } });
+      const type: EventType = status === 'SENT' ? 'PAYMENT_SENT' : status === 'COMPLETED' ? 'PAYMENT_COMPLETED' : 'PAYMENT_INITIATED';
+      const event = await tx.timelineEvent.create({ data: { kitId: current.offer.kitId, userId, type, title: `Payment ${status.toLowerCase()}`, metadata: { paymentId, oldStatus: current.status, newStatus: status } } });
+      if (status === 'SENT') await NotificationService.enqueue(tx, 'PAYMENT:SENT', paymentId, event.id);
+      return payment;
     });
-
-    // Update kit status if payment is sent
-    if (status === 'SENT' || status === 'COMPLETED') {
-      await prisma.kit.update({
-        where: { id: payment.offer.kitId },
-        data: { status: 'PAID' },
-      });
-    }
-
-    // Log activity
-    let eventType: any = 'PAYMENT_INITIATED';
-    let title = 'Payment Status Updated';
-
-    if (status === 'SENT') {
-      eventType = 'PAYMENT_SENT';
-      title = 'Payment Sent';
-    } else if (status === 'COMPLETED') {
-      eventType = 'PAYMENT_COMPLETED';
-      title = 'Payment Completed';
-    }
-
-    await ActivityService.logEvent({
-      kitId: payment.offer.kitId,
-      userId,
-      type: eventType,
-      title,
-      description: `Payment ${payment.paymentNumber} status: ${status}`,
-      metadata: { paymentId: payment.id, status },
-    });
-
-    // Send email when payment is sent
-    if (status === 'SENT' && payment.customer?.email) {
-      const amount = parseFloat(payment.amount.toString());
-      const methodDisplay = payment.method.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-      sendPaymentSentEmail(
-        payment.customer.email,
-        payment.paymentNumber,
-        amount,
-        methodDisplay,
-        payment.trackingNumber ?? undefined,
-        baseUrl
-      ).catch(err => console.error('Failed to send payment sent email:', err));
-    }
-
-    return payment;
   }
 
   /**
@@ -197,7 +130,7 @@ export class PaymentService {
     customerId?: string;
     method?: PaymentMethod;
   }) {
-    const where: any = {};
+    const where: Prisma.PaymentWhereInput = {};
 
     if (filters?.status) {
       where.status = filters.status;

@@ -2,13 +2,14 @@ import { getStatusBadgeClass, formatStatusForUser } from "@/lib/account";
 
 interface BadgeProps {
   status: string;
+  label?: string;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export default function Badge({ status, className = "", style }: BadgeProps) {
+export default function Badge({ status, label: customLabel, className = "", style }: BadgeProps) {
   const badgeClass = getStatusBadgeClass(status);
-  const label = formatStatusForUser(status);
+  const label = customLabel || formatStatusForUser(status);
 
   return (
     <span className={`account-badge ${badgeClass} ${className}`} style={style}>

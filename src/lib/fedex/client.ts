@@ -91,19 +91,21 @@ export class FedExClient {
 
   private static async request<T>(
     path: string,
-    body: unknown
+    body: unknown,
+    method: 'POST' | 'PUT' = 'POST'
   ): Promise<T> {
     const token = await this.getToken();
     const url = `${getBaseUrl()}${path}`;
 
     const res = await fetch(url, {
-      method: 'POST',
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-locale': 'en_US',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!res.ok) {
@@ -112,6 +114,15 @@ export class FedExClient {
     }
 
     return res.json() as Promise<T>;
+  }
+
+  static async cancelShipment(trackingNumber: string): Promise<void> {
+    const result = await this.request<{ output?: { cancelledShipment?: boolean } }>(
+      '/ship/v1/shipments/cancel',
+      { accountNumber: { value: getAccountNumber() }, trackingNumber, senderCountryCode: 'US', deletionControl: 'DELETE_ALL_PACKAGES' },
+      'PUT',
+    );
+    if (!result.output?.cancelledShipment) throw new Error('FedEx did not confirm cancellation. Check the shipment before retrying.');
   }
 
   // -------------------------------------------------------------------------
@@ -142,9 +153,9 @@ export class FedExClient {
 
     // Fallback: pieceResponses[0].packageDocuments (used by sandbox & newer API versions)
     if (!labelData) {
-      const piece = (shipment as any).pieceResponses?.[0];
+      const piece = shipment.pieceResponses?.[0];
       const doc = piece?.packageDocuments?.find(
-        (d: any) => d.contentType === 'LABEL'
+        (d) => d.contentType === 'LABEL'
       );
       if (doc) {
         labelData = doc.encodedLabel;
@@ -264,13 +275,7 @@ export class FedExClient {
       },
     };
 
-    try {
-      await this.request('/notifyapi/v1/notifications/subscriptions', body);
-    } catch (err) {
-      // Non-fatal: label is still usable even if webhook subscription fails.
-      // Log and continue so the label creation doesn't break.
-      console.error('FedEx tracking subscription failed (non-fatal):', err);
-    }
+    await this.request('/notifyapi/v1/notifications/subscriptions', body);
   }
 
   // -------------------------------------------------------------------------
@@ -295,10 +300,10 @@ export class FedExClient {
       resultsRequested: maxResults,
     };
 
-    const raw = await this.request<any>('/location/v1/locations', body);
+    const raw = await this.request<{ output?: { locationDetailList?: Array<{ locationType?: string; contactAndAddress?: { address?: { streetLines?: string[]; city?: string; stateOrProvinceCode?: string; postalCode?: string }; addressAncillaryDetail?: { displayName?: string } }; distance?: { value?: number; units?: string } }> } }>('/location/v1/locations', body);
     const locations = raw?.output?.locationDetailList ?? [];
 
-    return locations.slice(0, maxResults).map((loc: any) => {
+    return locations.slice(0, maxResults).map((loc) => {
       const addr = loc.contactAndAddress?.address ?? {};
       const rawName =
         loc.contactAndAddress?.addressAncillaryDetail?.displayName

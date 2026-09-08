@@ -23,20 +23,20 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
-function BarChart({ data, labelKey, valueKey, color = "#AD7B2A" }: { data: any[]; labelKey: string; valueKey: string; color?: string }) {
-  const max = Math.max(...data.map((d) => d[valueKey]), 1);
+function BarChart({ data, labelKey, valueKey, color = "var(--brand-primary)" }: { data: Record<string, string | number>[]; labelKey: string; valueKey: string; color?: string }) {
+  const max = Math.max(...data.map((d) => Number(d[valueKey])), 1);
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "120px" }}>
       {data.map((item, i) => (
         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
           <span style={{ fontSize: "10px", color: "#6B7280" }}>
-            {valueKey === "revenue" ? `$${Math.round(item[valueKey])}` : item[valueKey]}
+            {valueKey === "revenue" ? `$${Math.round(Number(item[valueKey]))}` : item[valueKey]}
           </span>
           <div
             style={{
               width: "100%",
               maxWidth: "40px",
-              height: `${Math.max((item[valueKey] / max) * 80, 4)}px`,
+              height: `${Math.max((Number(item[valueKey]) / max) * 80, 4)}px`,
               background: color,
               borderRadius: "4px 4px 0 0",
             }}

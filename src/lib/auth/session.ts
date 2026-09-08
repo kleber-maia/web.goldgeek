@@ -2,33 +2,29 @@ import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import type { AuthType } from './magic-link';
+import { SessionService, SESSION_DURATION_MS, type SessionIdentity } from '@/lib/services/session.service';
 
 const SESSION_COOKIE_NAME = 'gg-session';
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
-export interface Session {
-  id: string;
-  email: string;
-  type: AuthType;
-}
-
-interface SessionData {
-  id: string;
-  type: AuthType;
-}
+export type Session = SessionIdentity;
 
 /**
  * Creates a new session for a user or customer
  */
 export async function createSession(id: string, type: AuthType): Promise<void> {
   const cookieStore = await cookies();
-  const sessionData: SessionData = { id, type };
+  const session = await SessionService.create(
+    id,
+    type,
+    cookieStore.get(SESSION_COOKIE_NAME)?.value
+  );
 
-  cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
+  cookieStore.set(SESSION_COOKIE_NAME, session.token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: SESSION_DURATION / 1000, // Convert to seconds
+    maxAge: SESSION_DURATION_MS / 1000,
+    expires: session.expiresAt,
     path: '/',
   });
 }
@@ -40,75 +36,8 @@ export const getSession = cache(_getSession);
 
 async function _getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
-
-  if (!sessionCookie?.value) {
-    return null;
-  }
-
-  try {
-    const { id, type } = JSON.parse(sessionCookie.value) as SessionData;
-
-    if (type === 'admin') {
-      const user = await prisma.user.findUnique({
-        where: { id },
-        select: { id: true, email: true },
-      });
-
-      if (!user) {
-        cookieStore.delete(SESSION_COOKIE_NAME);
-        return null;
-      }
-
-      return { id: user.id, email: user.email, type: 'admin' };
-    } else {
-      const customer = await prisma.customer.findUnique({
-        where: { id },
-        select: { id: true, email: true },
-      });
-
-      if (!customer) {
-        cookieStore.delete(SESSION_COOKIE_NAME);
-        return null;
-      }
-
-      return { id: customer.id, email: customer.email, type: 'customer' };
-    }
-  } catch {
-    // Invalid session data - try legacy format (just userId string)
-    const userId = sessionCookie.value;
-
-    // Validate it looks like a CUID before querying
-    if (!userId || userId.length < 20 || userId.length > 40) {
-      return null;
-    }
-
-    try {
-      // Check if it's a legacy admin session
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, email: true },
-      });
-
-      if (user) {
-        return { id: user.id, email: user.email, type: 'admin' };
-      }
-
-      // Check if it's a legacy customer session
-      const customer = await prisma.customer.findUnique({
-        where: { id: userId },
-        select: { id: true, email: true },
-      });
-
-      if (customer) {
-        return { id: customer.id, email: customer.email, type: 'customer' };
-      }
-    } catch {
-      // Invalid ID format - return null
-    }
-
-    return null;
-  }
+  // Session reads run in Server Components too; never mutate cookies here.
+  return SessionService.getIdentity(cookieStore.get(SESSION_COOKIE_NAME)?.value);
 }
 
 /**
@@ -149,6 +78,7 @@ export async function getCurrentCustomer() {
  */
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
+  await SessionService.revoke(cookieStore.get(SESSION_COOKIE_NAME)?.value);
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 

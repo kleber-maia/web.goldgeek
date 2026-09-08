@@ -1,3 +1,4 @@
+import { isActionableOffer, canPrepareDigitalKit } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
@@ -9,7 +10,7 @@ import type { DashboardData } from "@/components/account/DashboardClient";
 type CustomerKit = Awaited<ReturnType<typeof CustomerService.getKits>>[number];
 type CustomerPayment = Awaited<ReturnType<typeof CustomerService.getPayments>>[number];
 
-const ACTIVE_KIT_STATUSES = ["PENDING", "SHIPPED", "EVALUATING"] as const;
+
 
 function toNumber(value: { toString(): string }): number {
   return parseFloat(value.toString());
@@ -35,35 +36,19 @@ export default async function AccountDashboardPage() {
   const firstName = customer.firstName || customer.email.split("@")[0];
   const customerInitial = firstName.charAt(0).toUpperCase();
 
-  const [kits, payments] = await Promise.all([
-    CustomerService.getKits(session.id),
-    CustomerService.getPayments(session.id),
-  ]);
-
-  const activeKits = kits.filter((k: CustomerKit) =>
-    (ACTIVE_KIT_STATUSES as readonly string[]).includes(k.status)
-  );
-  const kitsWithOffer = kits.filter((k: CustomerKit) => k.status === "OFFER_SENT");
-  const kitsNeedingLabel = kits.filter(
-    (k: CustomerKit) =>
-      k.type === "DIGITAL" &&
-      ["PENDING", "SHIPPED"].includes(k.status) &&
-      (k.shippingLabels?.length ?? 0) === 0
-  );
-
-  const totalEarned = payments
-    .filter((p: CustomerPayment) => ["COMPLETED", "SENT"].includes(p.status))
-    .reduce((sum: number, p: CustomerPayment) => sum + toNumber(p.amount), 0);
+  const { kits, payments, actionKits, stats } = await CustomerService.getDashboard(session.id);
+  const kitsWithOffer = actionKits.filter(k => k.status === 'OFFER_SENT' && k.offers.some(offer => isActionableOffer(offer)));
+  const kitsNeedingLabel = actionKits.filter(canPrepareDigitalKit);
 
   const actionRequired = [
     ...kitsWithOffer.map((kit: CustomerKit) => ({
       type: "offer" as const,
       kitId: kit.id,
       kitNumber: kit.kitNumber,
-      offerValue: kit.offers?.[0]
-        ? toNumber(kit.offers[0].totalValue)
+      offerValue: kit.offers.find(offer => isActionableOffer(offer))
+        ? toNumber(kit.offers.find(offer => isActionableOffer(offer))!.totalValue)
         : undefined,
-      itemCount: kit.items?.length ?? 0,
+      itemCount: kit.items?.reduce((total, item) => total + (item.quantity || 1), 0) ?? 0,
     })),
     ...kitsNeedingLabel.map((kit: CustomerKit) => ({
       type: "label" as const,
@@ -78,7 +63,7 @@ export default async function AccountDashboardPage() {
     status: kit.status,
     type: kit.type,
     createdAt: kit.createdAt.toISOString ? kit.createdAt.toISOString() : String(kit.createdAt),
-    itemCount: kit.items?.length ?? 0,
+    itemCount: kit.items?.reduce((total, item) => total + (item.quantity || 1), 0) ?? 0,
     offerValue: kit.offers?.[0]
       ? toNumber(kit.offers[0].totalValue)
       : undefined,
@@ -97,12 +82,7 @@ export default async function AccountDashboardPage() {
   const data: DashboardData = {
     firstName,
     customerInitial,
-    stats: {
-      totalKits: kits.length,
-      activeKits: activeKits.length,
-      offersReady: kitsWithOffer.length,
-      totalEarned,
-    },
+    stats,
     actionRequired,
     recentKits,
     recentPayments,

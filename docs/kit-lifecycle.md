@@ -101,7 +101,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
          └──────┘    └──────────┘  a new offer
                                    (back to OFFER_SENT)
 
-         ★ CANCELLED can happen from ANY state ★
+         ★ CANCELLED only before appraisal begins ★
 ```
 
 ---
@@ -246,7 +246,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
   └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Cancellation (from any state)
+### Cancellation (PENDING/SHIPPED only, before inbound shipment)
 
 ```
   ┌──────────────────── CANCELLATION ───────────────────────────────┐
@@ -284,7 +284,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
   │                                 └──→ Kit becomes PAID            │
   │                                                                  │
   │  Failure path:                                                   │
-  │    PENDING ──→ FAILED (admin must create new payment manually)   │
+  │    PENDING ──→ FAILED (admin retries the same payment obligation)   │
   │                                                                  │
   └──────────────────────────────────────────────────────────────────┘
 ```
@@ -325,7 +325,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
   ③ Physical kit shipped + tracking        ⑩ Offer declined alert
   ④ Items in transit + tracking               ("generate return label")
   ⑤ Items received at facility
-  ⑥ Evaluation started
+  ⑥ Evaluation starts with the received notification
   ⑦ Offer ready ($amount, 7-day expiry)
   ⑧ Offer expired
   ⑪ Payment sent ($amount, method)
@@ -372,7 +372,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 | # | Scenario | Cancelled From |
 |---|----------|----------------|
 | 16 | Cancel before any shipping | PENDING |
-| 17 | Cancel after kit box shipped (physical) | KIT_SENT |
+| 17 | Cancel after kit box shipped (physical) | SHIPPED |
 | 18 | Cancel while items are in transit | IN_TRANSIT |
 | 19 | Cancel during evaluation | EVALUATING |
 | 20 | Cancel after offer sent (customer hasn't responded) | OFFER_SENT |
@@ -393,7 +393,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 | 25 | FedEx address validation fails — admin corrects address |
 | 26 | Customer changes kit type from Physical to Digital before labels exist |
 | 27 | FedEx delivery exception on inbound shipment |
-| 28 | Physical kit box delivered but customer never ships items back (stuck at KIT_SENT) |
+| 28 | Physical kit box delivered but customer never ships items back (stuck at SHIPPED) |
 
 ### Customer Account Scenarios
 
@@ -414,12 +414,17 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 
 ---
 
-## Known Gaps
+## Current implementation and remaining product capabilities
 
-1. **Offer expiration is not automated** — requires manual trigger or external scheduler
-2. **No constraint preventing multiple active offers** for the same kit
-3. **No refund/reversal flow** after a kit reaches PAID
-4. **No image upload** — item images field exists but has no upload mechanism
-5. **Cancellation sends no email** — customer must be notified out-of-band
-6. **USPS has no API integration** — only FedEx labels can be auto-generated
-7. **No soft delete** — deleting a kit destroys entire audit trail permanently
+The September 2026 remediation supersedes older scenario assumptions above. See [the complete finding and scenario matrix](dashboard-remediation-report.md).
+
+- Offer expiry is checked at decision time. The scheduled sweep runs every six hours; the deadline is seven days after sending, even if the sweep has not yet run. Creating/sending/deciding offers serializes on the kit; prior drafts/sent offers are superseded.
+- Digital Kit loading may create an eligible inbound FedEx label. A persistent reservation prevents concurrent purchases. Unknown carrier responses require staff reconciliation; saved responses can be recovered without another purchase. Void confirmation must finish before replacement. The packet requires a valid original PDF and preserves all carrier pages.
+- Inbound IN_TRANSIT advances the kit to SHIPPED; inbound DELIVERED advances it to EVALUATING. Return delivery updates the return and kit RETURNED atomically on both manual and webhook paths. Duplicate/older events cannot undo delivery or cancellation.
+- Payment retries reuse the unique payment record. Accepted amount/method/destination are immutable snapshots. SENT changes the kit to PAID; a failure reopens payment work on ACCEPTED. Customer messages distinguish sending from settlement.
+- Cancellation is allowed only from PENDING or SHIPPED, before inbound items are travelling or received and after uncertain carrier creation is resolved. Unused labels are queued for cancellation; later callbacks cannot reopen the kit. Appraisal, accepted payments and returns must finish through their own workflows. Cancellation does not send a dedicated customer email; staff must contact the customer.
+- Customer profile edits do not rewrite kit snapshots. Before payout or return label preparation, the customer can explicitly apply their current shipping address. A prepared/shipped return or accepted payment protects its saved destination.
+- Notification and carrier side effects use a durable retry queue; a successful domain mutation does not imply email/carrier completion. The notification cron requires CRON_SECRET.
+- Insurance defaults to $1,000. The operator retained the existing bonus and turnaround wording. No automatic bonus eligibility system is claimed.
+
+Remaining optional capabilities: refunds/reversals, image uploads, USPS purchasing integration, archival instead of hard deletion, operational retention tooling, and a dedicated cancellation notification. These require explicit product scope; no existing record was deleted during this audit.

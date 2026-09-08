@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const itemBreakdownSchema = z.object({
   itemId: z.string(),
   description: z.string(),
+  quantity: z.number().int().positive().optional(),
   value: z.string(), // Stored as string to preserve decimal precision
 });
 

@@ -4,6 +4,8 @@ import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
 import RequestKitClient from "./RequestKitClient";
 import { serializePrismaData } from "@/lib/db/utils";
+import Link from 'next/link';
+import { AccountContainer } from '@/components/account';
 
 export default async function RequestKitPage() {
   const session = await getSession();
@@ -20,6 +22,13 @@ export default async function RequestKitPage() {
 
   if (!customer) {
     redirect("/account/login");
+  }
+
+  if (!customer.firstName.trim() || !customer.lastName.trim()) {
+    return <AccountContainer headerProps={{ title: 'Request New Kit', showBackButton: true }}>
+      <p className="mb-4">Add your first and last name so we can prepare your shipping label and payment correctly.</p>
+      <Link className="account-btn account-btn-primary" href="/account/settings">Complete your profile</Link>
+    </AccountContainer>;
   }
 
   const defaultAddress =

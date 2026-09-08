@@ -61,7 +61,7 @@ export default function KitTypeToggle({ kitId, currentType, disabled = false }: 
               flex: 1,
               padding: "14px 16px",
               borderRadius: 8,
-              border: isSelected ? "2px solid #AD7B2A" : "2px solid #E5E5E5",
+              border: isSelected ? "2px solid var(--brand-primary)" : "2px solid var(--account-border)",
               background: isSelected ? "#FBF7EF" : "#FFFFFF",
               cursor: disabled ? "default" : isPending ? "wait" : "pointer",
               transition: "all 0.2s",
@@ -71,14 +71,14 @@ export default function KitTypeToggle({ kitId, currentType, disabled = false }: 
             <div style={{
               fontSize: 15,
               fontWeight: 600,
-              color: isSelected ? "#AD7B2A" : "#2E1F0C",
+              color: isSelected ? "var(--brand-primary)" : "var(--brand-text)",
               marginBottom: 4,
             }}>
               {opt.label}
             </div>
             <div style={{
               fontSize: 12,
-              color: isSelected ? "#AD7B2A" : "#6B7280",
+              color: isSelected ? "var(--brand-primary)" : "var(--status-gray)",
               lineHeight: 1.3,
             }}>
               {opt.desc}

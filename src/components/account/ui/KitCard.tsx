@@ -10,6 +10,7 @@ import {
 } from "@/lib/account";
 
 interface KitCardProps {
+  returnTo?: string;
   kit: {
     id: string;
     kitNumber: string;
@@ -23,7 +24,7 @@ interface KitCardProps {
   };
 }
 
-export default function KitCard({ kit }: KitCardProps) {
+export default function KitCard({ kit, returnTo }: KitCardProps) {
   const hasOffer = Boolean(kit.hasOffer);
   const needsLabel = Boolean(kit.needsShippingLabel);
   const normalizedStatus = normalizeKitStatus(kit.status);
@@ -43,7 +44,7 @@ export default function KitCard({ kit }: KitCardProps) {
     if (normalizedStatus === "paid") {
       valueDisplay = (
         <span className="account-kit-value">
-          Received: {formatCurrency(kit.offerValue)}
+          Payment sent: {formatCurrency(kit.offerValue)}
         </span>
       );
     } else if (hasOffer) {
@@ -57,17 +58,17 @@ export default function KitCard({ kit }: KitCardProps) {
 
   return (
     <Link
-      href={`/account/kit/${kit.id}`}
+      href={`/account/kit/${kit.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
       className={`account-kit-card ${hasOffer ? "highlight" : ""}`}
     >
       <div className="account-kit-card-header">
         <div>
           <div className="account-kit-id">Kit #{kit.kitNumber}</div>
           <div className="account-kit-type">
-            {kitTypeLabel} &bull; {kit.itemCount ?? "?"} items
+            {kitTypeLabel} &bull; {kit.itemCount ?? "?"} {kit.itemCount === 1 ? 'item' : 'items'}
           </div>
         </div>
-        <Badge status={kit.status} />
+        <Badge status={kit.status} label={kit.status === 'OFFER_SENT' && !hasOffer ? 'Awaiting updated offer' : undefined} />
       </div>
 
       {valueDisplay}

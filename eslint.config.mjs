@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored toolkit and PDF.js worker are maintained upstream.
+    ".staff-engineer/**",
+    "public/pdf.worker.min.mjs",
   ]),
 ]);
 

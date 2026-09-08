@@ -1,3 +1,4 @@
+import { deliveryContext } from './delivery-context';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { Resend, type Attachment } from 'resend';
@@ -72,7 +73,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       html: options.html,
       text: options.text,
       attachments: options.attachments,
-    });
+    }, deliveryContext.getStore() ? { idempotencyKey: deliveryContext.getStore() } : undefined);
 
     if (error) {
       console.error('Error sending email:', error);

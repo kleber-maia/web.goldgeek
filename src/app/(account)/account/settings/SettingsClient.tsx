@@ -68,6 +68,7 @@ export default function SettingsClient({
   const [selectedMethod, setSelectedMethod] =
     useState<PaymentMethod>(defaultPaymentMethod);
   const [paypalEmail, setPaypalEmail] = useState(savedAccountInfo.paypalEmail || "");
+  const [venmoHandle, setVenmoHandle] = useState(savedAccountInfo.venmoHandle || "");
   const [zellePhone, setZellePhone] = useState(savedAccountInfo.zellePhone || "");
   const [bankRouting, setBankRouting] = useState(savedAccountInfo.bankRouting || "");
   const [bankAccount, setBankAccount] = useState(savedAccountInfo.bankAccount || "");
@@ -84,7 +85,7 @@ export default function SettingsClient({
       const result = await updateProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone.trim(),
       });
 
       if (result.success) {
@@ -122,7 +123,7 @@ export default function SettingsClient({
     try {
       const addressData = {
         street1: street1.trim(),
-        street2: street2.trim() || undefined,
+        street2: street2.trim(),
         city: city.trim(),
         state: state.trim().toUpperCase(),
         zipCode: zipCode.trim(),
@@ -182,6 +183,7 @@ export default function SettingsClient({
       if (selectedMethod === "ZELLE" && zellePhone) {
         accountInfo.zellePhone = zellePhone;
       }
+      if (selectedMethod === "VENMO") accountInfo.venmoHandle = venmoHandle;
       if (selectedMethod === "ACH") {
         if (bankRouting) accountInfo.bankRouting = bankRouting;
         if (bankAccount) accountInfo.bankAccount = bankAccount;
@@ -583,6 +585,7 @@ export default function SettingsClient({
             <option value="PAYPAL">PayPal</option>
             <option value="ZELLE">Zelle</option>
             <option value="ACH">Bank Transfer</option>
+            <option value="VENMO">Venmo</option>
           </select>
         </div>
 
@@ -618,6 +621,13 @@ export default function SettingsClient({
           </div>
         )}
 
+        {selectedMethod === "VENMO" && (
+          <div className="account-form-group">
+            <label className="account-form-label" htmlFor="venmo-handle">Venmo handle</label>
+            <input id="venmo-handle" className="account-form-input" value={venmoHandle} onChange={(event) => setVenmoHandle(event.target.value)} autoComplete="off" />
+          </div>
+        )}
+
         {selectedMethod === "ACH" && (
           <>
             <div className="account-form-group">
@@ -650,7 +660,7 @@ export default function SettingsClient({
         )}
 
         {saveMessage && (
-          <div
+          <div role={saveStatus === "error" ? "alert" : "status"}
             className={`account-alert ${
               saveStatus === "error"
                 ? "account-alert-error"

@@ -10,7 +10,7 @@ const globalForPrisma = globalThis as unknown as {
 if (!globalForPrisma.pool) {
   globalForPrisma.pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 1,
+    max: Math.max(1, Math.min(20, Number.parseInt(process.env.DATABASE_POOL_SIZE || '1', 10) || 1)),
     idleTimeoutMillis: 5000,
     connectionTimeoutMillis: 10000,
     allowExitOnIdle: true,

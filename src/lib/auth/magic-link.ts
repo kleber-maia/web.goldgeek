@@ -15,18 +15,14 @@ export interface VerifyResult {
 
 /**
  * Creates a magic link token for authentication.
- * - If email belongs to an admin (User table), creates admin magic link
- * - Otherwise, creates customer magic link (creates customer if doesn't exist)
+ * The caller explicitly selects the account type; customer login never selects staff.
  */
-export async function createMagicLink(email: string): Promise<MagicLinkResult> {
+export async function createMagicLink(email: string, type: AuthType = 'customer'): Promise<MagicLinkResult> {
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Check if admin exists
-  const admin = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-  });
-
-  if (admin) {
+  if (type === 'admin') {
+    const admin = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!admin) throw new Error('Unable to send an administrator sign-in link');
     const token = generateToken();
     const expiresAt = calculateMagicLinkExpiration();
 
@@ -41,20 +37,11 @@ export async function createMagicLink(email: string): Promise<MagicLinkResult> {
     return { token, type: 'admin' };
   }
 
-  // Check/create customer
-  let customer = await prisma.customer.findUnique({
+  const customer = await prisma.customer.upsert({
     where: { email: normalizedEmail },
+    create: { email: normalizedEmail, firstName: '', lastName: '' },
+    update: {},
   });
-
-  if (!customer) {
-    customer = await prisma.customer.create({
-      data: {
-        email: normalizedEmail,
-        firstName: '',
-        lastName: '',
-      },
-    });
-  }
 
   const token = generateToken();
   const expiresAt = calculateMagicLinkExpiration();
@@ -81,11 +68,11 @@ export async function verifyMagicLink(token: string): Promise<VerifyResult | nul
   });
 
   if (adminLink && !adminLink.usedAt && new Date() < adminLink.expiresAt) {
-    await prisma.magicLink.update({
-      where: { id: adminLink.id },
+    const consumed = await prisma.magicLink.updateMany({
+      where: { id: adminLink.id, usedAt: null, expiresAt: { gt: new Date() } },
       data: { usedAt: new Date() },
     });
-    return { id: adminLink.userId, type: 'admin' };
+    return consumed.count === 1 ? { id: adminLink.userId, type: 'admin' } : null;
   }
 
   // Check customer magic link
@@ -95,11 +82,11 @@ export async function verifyMagicLink(token: string): Promise<VerifyResult | nul
   });
 
   if (customerLink && !customerLink.usedAt && new Date() < customerLink.expiresAt) {
-    await prisma.customerMagicLink.update({
-      where: { id: customerLink.id },
+    const consumed = await prisma.customerMagicLink.updateMany({
+      where: { id: customerLink.id, usedAt: null, expiresAt: { gt: new Date() } },
       data: { usedAt: new Date() },
     });
-    return { id: customerLink.customerId, type: 'customer' };
+    return consumed.count === 1 ? { id: customerLink.customerId, type: 'customer' } : null;
   }
 
   return null;

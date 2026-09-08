@@ -12,7 +12,7 @@
 export interface CSVColumn<T> {
   key: keyof T | string;
   label: string;
-  format?: (value: any, row: T) => string;
+  format?: (value: unknown, row: T) => string;
 }
 
 function escapeCSV(value: string): string {
@@ -22,11 +22,11 @@ function escapeCSV(value: string): string {
   return value;
 }
 
-function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj);
+function getNestedValue(obj: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, key) => current && typeof current === 'object' ? (current as Record<string, unknown>)[key] : undefined, obj);
 }
 
-export function generateCSV<T extends Record<string, any>>(
+export function generateCSV<T extends object>(
   data: T[],
   columns: CSVColumn<T>[]
 ): string {

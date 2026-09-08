@@ -1,5 +1,6 @@
 "use client";
 
+import HistoryPagination, { type HistoryPaginationProps } from "@/components/account/HistoryPagination";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
 import { getRelativeTimeShort } from "@/lib/format";
@@ -37,17 +38,17 @@ function getEventIcon(type: string): string {
   }
 }
 
-export default function NotificationsClient({ events }: { events: TimelineEvent[] }) {
+export default function NotificationsClient({ events, page, hasMore }: { events: TimelineEvent[] } & HistoryPaginationProps) {
   return (
     <AccountContainer
       headerProps={{
-        title: "Notifications",
+        title: "Activity", showBackButton: true,
         backHref: "/account",
       }}
     >
       {events.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px 20px", color: "#6B7280" }}>
-          <p style={{ fontSize: "16px", fontWeight: 500, margin: "0 0 8px 0" }}>No notifications yet</p>
+          <p className="text-base font-medium mb-2">No activity yet</p>
           <p style={{ fontSize: "14px", margin: 0 }}>Activity from your kits will appear here.</p>
         </div>
       ) : (
@@ -94,7 +95,7 @@ export default function NotificationsClient({ events }: { events: TimelineEvent[
                       display: "inline-block",
                       marginTop: "6px",
                       fontSize: "12px",
-                      color: "#AD7B2A",
+                      color: "var(--brand-primary)",
                       textDecoration: "none",
                     }}
                   >
@@ -106,6 +107,7 @@ export default function NotificationsClient({ events }: { events: TimelineEvent[
           ))}
         </div>
       )}
+      <HistoryPagination page={page} hasMore={hasMore} />
     </AccountContainer>
   );
 }

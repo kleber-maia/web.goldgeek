@@ -46,8 +46,6 @@ export default function MotionFxImage({
 
   useEffect(() => {
     if (disableOnMobile && isMobile) {
-      setTranslateY(0);
-      setRotation(0);
       return;
     }
 
@@ -96,8 +94,8 @@ export default function MotionFxImage({
   ]);
 
   const transforms: string[] = [];
-  if (enableTranslateY && translateY !== 0) transforms.push(`translateY(${translateY}px)`);
-  if (enableRotateZ && rotation !== 0) transforms.push(`rotate(${rotation}deg)`);
+  if (!(disableOnMobile && isMobile) && enableTranslateY && translateY !== 0) transforms.push(`translateY(${translateY}px)`);
+  if (!(disableOnMobile && isMobile) && enableRotateZ && rotation !== 0) transforms.push(`rotate(${rotation}deg)`);
 
   return (
     <div

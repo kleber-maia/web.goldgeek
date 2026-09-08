@@ -76,7 +76,7 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
   const [zipCode, setZipCode] = useState(defaultAddress?.zipCode || "");
 
   const totalPaid = customer.payments
-    .filter((p) => p.status === "COMPLETED")
+    .filter((p) => p.status === "COMPLETED" || p.status === "SENT")
     .reduce((sum, p) => sum + parseFloat(p.amount?.toString() || "0"), 0);
 
   const offersAccepted = customer.kits.filter((k) => k.status === "ACCEPTED" || k.status === "PAID").length;
@@ -521,6 +521,17 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
         {/* Payment History */}
         <div className="admin-section">
           <div className="admin-section-title">Payment History ({customer.payments.length})</div>
+          <div className="grid gap-3 lg:hidden">
+            {customer.payments.length === 0 && <p>No payments yet</p>}
+            {customer.payments.map(payment => (
+              <article key={payment.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="flex flex-wrap justify-between gap-2"><strong>{payment.paymentNumber}</strong><strong>{formatCurrency(Number(payment.amount))}</strong></div>
+                <p className="mt-2 break-words">{payment.offer.kit.kitNumber}</p>
+                <p>{formatStatus(payment.method)} · {formatDate(payment.completedAt || payment.createdAt)}</p>
+                <span className={`admin-badge ${getStatusBadgeClass(payment.status)}`}>{formatStatus(payment.status)}</span>
+              </article>
+            ))}
+          </div>
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead>

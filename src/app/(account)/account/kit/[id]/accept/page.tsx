@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import KitDestination from "@/components/account/KitDestination";
 import Link from "next/link";
 import { AccountContainer, PaymentOption } from "@/components/account";
 import { AlertDialog } from "@/components/shared";
@@ -19,15 +20,8 @@ const PAYMENT_OPTIONS: { method: PaymentMethod; label: string }[] = [
   { method: "PAYPAL", label: "PayPal" },
   { method: "ZELLE", label: "Zelle" },
   { method: "ACH", label: "Bank Transfer" },
+  { method: "VENMO", label: "Venmo" },
 ];
-
-const PAYMENT_DETAILS: Record<PaymentMethod, string> = {
-  CHECK: "Mailed to your address",
-  PAYPAL: "PayPal email on file",
-  ZELLE: "Zelle phone/email on file",
-  ACH: "Bank account on file",
-  VENMO: "Venmo handle on file",
-};
 
 interface OfferSummary {
   kitId: string;
@@ -36,6 +30,8 @@ interface OfferSummary {
   offerValue: number;
   offerExpiresAt?: string;
   defaultPaymentMethod?: PaymentMethod;
+  paymentDestinations: Record<string, string>;
+  mailingAddress: string;
 }
 
 export default function AcceptOfferPage() {
@@ -45,9 +41,11 @@ export default function AcceptOfferPage() {
 
   const [summary, setSummary] = useState<OfferSummary | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("CHECK");
+  const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorAlert, setErrorAlert] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -55,7 +53,7 @@ export default function AcceptOfferPage() {
     const loadSummary = async () => {
       const result = await getKitOfferSummary(kitId);
       if (!result.success || !result.data) {
-        router.replace("/account");
+        if (isMounted) { setLoadError(result.error || "Unable to load this offer."); setIsLoading(false); }
         return;
       }
       if (!isMounted) return;
@@ -85,10 +83,13 @@ export default function AcceptOfferPage() {
       }
     } catch (error) {
       console.error("Error accepting offer:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Unable to accept the offer. Please try again.");
       setErrorAlert(true);
       setIsSubmitting(false);
     }
   };
+
+  if (loadError) return <AccountContainer headerProps={{ title: "Offer unavailable", showBackButton: true, backHref: `/account/kit/${kitId}` }}><p role="alert">{loadError}</p><Link href={`/account/kit/${kitId}`} className="underline">View the latest kit status</Link><button type="button" onClick={() => window.location.reload()} className="block underline mt-4">Try again</button></AccountContainer>;
 
   if (isLoading || !summary) {
     return (
@@ -114,6 +115,7 @@ export default function AcceptOfferPage() {
         title: "Accept Offer",
       }}
     >
+      <KitDestination kitId={kitId} address={summary.mailingAddress} onUpdated={async () => { const result = await getKitOfferSummary(kitId); if (result.success && result.data) setSummary(result.data); }} />
       {/* Offer Details */}
       <div className="account-section">
         <div className="account-section-title">Offer Details</div>
@@ -145,7 +147,7 @@ export default function AcceptOfferPage() {
             key={option.method}
             method={option.method}
             label={option.label}
-            detail={PAYMENT_DETAILS[option.method]}
+            detail={option.method === "CHECK" ? summary.mailingAddress : option.method === "ACH" ? (summary.paymentDestinations.bankAccount ? `Bank account ${summary.paymentDestinations.bankAccount}` : "Add bank details in Settings") : summary.paymentDestinations[option.method === "PAYPAL" ? "paypalEmail" : option.method === "ZELLE" ? "zellePhone" : "venmoHandle"] || "Add payment details in Settings"}
             selected={selectedPayment === option.method}
             onChange={setSelectedPayment}
           />
@@ -195,7 +197,7 @@ export default function AcceptOfferPage() {
       <AlertDialog
         isOpen={errorAlert}
         title="Error"
-        message="Something went wrong. Please try again."
+        message={errorMessage}
         onClose={() => setErrorAlert(false)}
       />
     </AccountContainer>

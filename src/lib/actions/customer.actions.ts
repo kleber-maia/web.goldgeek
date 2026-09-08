@@ -1,17 +1,18 @@
 'use server';
+import { historyQuery, HISTORY_PAGE_SIZE, type HistoryQuery } from '@/lib/account/history';
 
-import { headers } from 'next/headers';
-import { createMagicLink, requireAuth, requireCustomer } from '@/lib/auth';
+import { canPrepareDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
+import { customerActivity } from '@/lib/account/customer-activity';
+import { z } from 'zod';
+import { requireAuth, requireCustomer } from '@/lib/auth';
+import { AppraisalRequestService } from '@/lib/services/appraisal-request.service';
 import { CustomerService } from '@/lib/services/customer.service';
 import { KitService } from '@/lib/services/kit.service';
 import { OfferService } from '@/lib/services/offer.service';
-import { ReturnService } from '@/lib/services/return.service';
-import { PaymentService } from '@/lib/services/payment.service';
+import { PaymentDetailsService } from '@/lib/services/payment-details.service';
 import { SettingsService } from '@/lib/services/settings.service';
 import { ShippingService } from '@/lib/services/shipping.service';
-import { FedExClient } from '@/lib/fedex/client';
 import type { NearbyFedExLocation } from '@/lib/fedex/types';
-import { prisma } from '@/lib/db';
 import { serializePrismaData } from '@/lib/db/utils';
 import { PaymentMethod } from '@prisma/client';
 import {
@@ -22,10 +23,8 @@ import {
   type AddressInput,
   type PaymentPreferencesInput,
 } from '@/lib/validators/customer';
-import { sendOfferAcceptedAdminEmail, sendOfferDeclinedAdminEmail, sendKitCreatedEmail } from '@/lib/email';
-import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -36,7 +35,7 @@ export interface ActionResult<T = any> {
  */
 export async function updateProfile(
   data: CustomerProfileInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireCustomer();
 
@@ -45,10 +44,10 @@ export async function updateProfile(
 
     return {
       success: true,
-      data: serializePrismaData(customer),
+      data: { id: customer.id, firstName: customer.firstName, lastName: customer.lastName, phone: customer.phone },
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update profile';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to update profile';
     console.error('Error updating profile:', error);
     return {
       success: false,
@@ -60,7 +59,7 @@ export async function updateProfile(
 /**
  * Add address
  */
-export async function addAddress(data: AddressInput): Promise<ActionResult> {
+export async function addAddress(data: AddressInput) {
   try {
     const session = await requireCustomer();
 
@@ -72,7 +71,7 @@ export async function addAddress(data: AddressInput): Promise<ActionResult> {
       data: serializePrismaData(address),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to add address';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to add address';
     console.error('Error adding address:', error);
     return {
       success: false,
@@ -87,18 +86,18 @@ export async function addAddress(data: AddressInput): Promise<ActionResult> {
 export async function updateAddress(
   addressId: string,
   data: Partial<AddressInput>
-): Promise<ActionResult> {
+) {
   try {
-    await requireCustomer();
+    const session = await requireCustomer();
 
-    const address = await CustomerService.updateAddress(addressId, data);
+    const address = await CustomerService.updateAddress(addressId, session.id, data);
 
     return {
       success: true,
       data: serializePrismaData(address),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update address';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to update address';
     console.error('Error updating address:', error);
     return {
       success: false,
@@ -110,17 +109,17 @@ export async function updateAddress(
 /**
  * Delete address
  */
-export async function deleteAddress(addressId: string): Promise<ActionResult> {
+export async function deleteAddress(addressId: string) {
   try {
-    await requireCustomer();
+    const session = await requireCustomer();
 
-    await CustomerService.deleteAddress(addressId);
+    await CustomerService.deleteAddress(addressId, session.id);
 
     return {
       success: true,
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to delete address';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to delete address';
     console.error('Error deleting address:', error);
     return {
       success: false,
@@ -135,65 +134,18 @@ export async function deleteAddress(addressId: string): Promise<ActionResult> {
 export async function acceptOffer(
   offerId: string,
   paymentMethod?: PaymentMethod
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireCustomer();
 
-    const method = paymentMethod && Object.values(PaymentMethod).includes(paymentMethod)
-      ? paymentMethod
-      : 'CHECK';
-
-    // Pass undefined for userId — session.id is a Customer ID, not a User (admin) ID.
-    // TimelineEvent.userId is a FK to the User table (admins only).
-    const offer = await OfferService.accept(offerId, undefined);
-
-    const existingPayment = await prisma.payment.findUnique({
-      where: { offerId },
-      select: { id: true },
-    });
-
-    if (!existingPayment) {
-      await PaymentService.create(
-        {
-          offerId,
-          customerId: session.id,
-          amount: parseFloat(offer.totalValue.toString()),
-          method,
-        },
-        undefined
-      );
-    }
-
-    // Notify admins
-    const offerWithKit = await OfferService.getById(offerId);
-    if (offerWithKit) {
-      const adminUsers = await prisma.user.findMany({ select: { email: true } });
-      const adminEmails = adminUsers.map((u) => u.email);
-      if (adminEmails.length > 0) {
-        const baseUrl = resolveBaseUrl(
-          buildBaseUrlFromHeaders(await headers()),
-          process.env.NEXT_PUBLIC_APP_URL
-        );
-        const customerName = offerWithKit.kit.customer
-          ? `${offerWithKit.kit.customer.firstName} ${offerWithKit.kit.customer.lastName}`.trim()
-          : 'Customer';
-        sendOfferAcceptedAdminEmail(
-          adminEmails,
-          offerWithKit.offerNumber,
-          offerWithKit.kit.kitNumber,
-          customerName,
-          parseFloat(offerWithKit.totalValue.toString()),
-          baseUrl,
-        ).catch(err => console.error('Failed to send offer accepted admin email:', err));
-      }
-    }
+    const offer = await OfferService.accept(offerId, session.id, paymentMethod);
 
     return {
       success: true,
-      data: serializePrismaData(offer),
+      data: { id: offer.id, status: offer.status },
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to accept offer';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to accept offer';
     console.error('Error accepting offer:', error);
     return {
       success: false,
@@ -205,51 +157,19 @@ export async function acceptOffer(
 /**
  * Decline offer
  */
-export async function declineOffer(offerId: string): Promise<ActionResult> {
+export async function declineOffer(offerId: string) {
   try {
     const session = await requireCustomer();
 
     // Pass undefined for userId — session.id is a Customer ID, not a User (admin) ID.
-    const offer = await OfferService.decline(offerId, undefined);
-
-    // Create return for declined offer
-    const offerWithKit = await OfferService.getById(offerId);
-    if (offerWithKit) {
-      await ReturnService.create(
-        {
-          kitId: offerWithKit.kitId,
-          reason: 'Customer declined offer',
-        },
-        undefined
-      );
-
-      // Notify admins
-      const adminUsers = await prisma.user.findMany({ select: { email: true } });
-      const adminEmails = adminUsers.map((u) => u.email);
-      if (adminEmails.length > 0) {
-        const baseUrl = resolveBaseUrl(
-          buildBaseUrlFromHeaders(await headers()),
-          process.env.NEXT_PUBLIC_APP_URL
-        );
-        const customerName = offerWithKit.kit.customer
-          ? `${offerWithKit.kit.customer.firstName} ${offerWithKit.kit.customer.lastName}`.trim()
-          : 'Customer';
-        sendOfferDeclinedAdminEmail(
-          adminEmails,
-          offerWithKit.offerNumber,
-          offerWithKit.kit.kitNumber,
-          customerName,
-          baseUrl,
-        ).catch(err => console.error('Failed to send offer declined admin email:', err));
-      }
-    }
+    const offer = await OfferService.decline(offerId, session.id);
 
     return {
       success: true,
-      data: serializePrismaData(offer),
+      data: { id: offer.id, status: offer.status },
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to decline offer';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to decline offer';
     console.error('Error declining offer:', error);
     return {
       success: false,
@@ -263,28 +183,16 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
  */
 export async function updatePaymentPreferences(
   data: PaymentPreferencesInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireCustomer();
 
     const validated = paymentPreferencesSchema.parse(data);
 
-    await prisma.customer.update({
-      where: { id: session.id },
-      data: {
-        paymentPreferences: {
-          method: validated.method,
-          accountInfo: validated.accountInfo || {},
-        },
-      },
-    });
-
-    return {
-      success: true,
-      data: validated,
-    };
+    const saved = await PaymentDetailsService.save(session.id, validated.method, validated.accountInfo || {});
+    return { success: true, data: saved };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update payment preferences';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to update payment preferences';
     console.error('Error updating payment preferences:', error);
     return {
       success: false,
@@ -299,7 +207,7 @@ export async function updatePaymentPreferences(
 export async function updateKitType(
   kitId: string,
   type: 'PHYSICAL' | 'DIGITAL'
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireCustomer();
 
@@ -331,7 +239,7 @@ export async function updateKitType(
       data: serializePrismaData(updated),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update kit type';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to update kit type';
     console.error('Error updating kit type:', error);
     return {
       success: false,
@@ -343,18 +251,23 @@ export async function updateKitType(
 /**
  * Get customer kits
  */
-export async function getMyKits(): Promise<ActionResult> {
+export async function getMyKits(input: HistoryQuery = {}) {
   try {
     const session = await requireCustomer();
 
-    const kits = await CustomerService.getKits(session.id);
+    const kits = await CustomerService.getKits(session.id, input);
 
     return {
       success: true,
-      data: serializePrismaData(kits),
+      hasMore: kits.length > HISTORY_PAGE_SIZE,
+      data: serializePrismaData(kits.slice(0, HISTORY_PAGE_SIZE).map(kit => ({ id: kit.id, kitNumber: kit.kitNumber, type: kit.type, status: kit.status, createdAt: kit.createdAt,
+        items: kit.items.map(item => ({ id: item.id, quantity: item.quantity })),
+        offers: kit.offers.map(offer => ({ status: offer.status, totalValue: offer.totalValue, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt })),
+        shippingLabels: kit.shippingLabels.map(label => ({ type: label.type, status: label.status })),
+      }))),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get kits';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get kits';
     console.error('Error getting kits:', error);
     return {
       success: false,
@@ -366,7 +279,7 @@ export async function getMyKits(): Promise<ActionResult> {
 /**
  * Get kit details
  */
-export async function getKitDetails(kitId: string): Promise<ActionResult> {
+export async function getKitDetails(kitId: string) {
   try {
     const session = await requireAuth();
 
@@ -383,10 +296,18 @@ export async function getKitDetails(kitId: string): Promise<ActionResult> {
 
     return {
       success: true,
-      data: serializePrismaData(kit),
+      data: serializePrismaData({
+        id: kit.id, kitNumber: kit.kitNumber, type: kit.type, status: kit.status,
+        createdAt: kit.createdAt, estimatedValue: kit.estimatedValue, shippingAddress: kit.shippingAddress,
+        items: kit.items.map(item => ({ id: item.id, type: item.type, description: item.description, quantity: item.quantity, metalType: item.metalType, weight: item.weight, purity: item.purity, finalValue: null })),
+        offers: kit.offers.filter(offer => offer.status !== 'DRAFT').map(offer => ({ id: offer.id, status: offer.status, totalValue: offer.totalValue, itemBreakdown: offer.itemBreakdown, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt, payment: offer.payment ? { id: offer.payment.id, method: offer.payment.method, status: offer.payment.status, amount: offer.payment.amount } : null })),
+        shippingLabels: kit.shippingLabels.filter(label => label.status !== 'VOIDED').map(label => ({ id: label.id, type: label.type, carrier: label.carrier, trackingNumber: label.trackingNumber, status: label.status, createdAt: label.createdAt, shippedAt: label.shippedAt, deliveredAt: label.deliveredAt })),
+        returns: kit.returns.map(item => ({ id: item.id, returnNumber: item.returnNumber, status: item.status, createdAt: item.createdAt, trackingNumber: item.trackingNumber, shippedAt: item.shippedAt, deliveredAt: item.deliveredAt })),
+        timeline: kit.timeline.map(customerActivity).filter(Boolean),
+      }),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get kit details';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get kit details';
     console.error('Error getting kit details:', error);
     return {
       success: false,
@@ -402,6 +323,8 @@ export interface KitOfferSummary {
   offerValue: number;
   offerExpiresAt?: string;
   defaultPaymentMethod?: PaymentMethod;
+  paymentDestinations: Record<string, string>;
+  mailingAddress: string;
 }
 
 type OfferLike = {
@@ -410,6 +333,7 @@ type OfferLike = {
   totalValue: { toString(): string };
   expiresAt?: Date | null;
   createdAt: Date;
+  sentAt?: Date | null;
 };
 
 export async function getKitOfferSummary(
@@ -428,25 +352,16 @@ export async function getKitOfferSummary(
     }
 
     const offers = (kit.offers || []) as OfferLike[];
-    const sortedOffers = [...offers].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    const activeOffer = sortedOffers.find((offer) => offer.status === 'SENT');
+    const sortedOffers = [...offers].sort(compareOffers);
+    const activeOffer = sortedOffers.find(offer => isActionableOffer(offer));
 
-    if (!activeOffer) {
+    if (!activeOffer || kit.status !== 'OFFER_SENT') {
       return { success: false, error: 'No pending offer available' };
     }
 
-    const lastPayment = await prisma.payment.findFirst({
-      where: { customerId: session.id },
-      orderBy: { createdAt: 'desc' },
-      select: { method: true },
-    });
-    const allowedMethods = new Set<PaymentMethod>(['CHECK', 'PAYPAL', 'ZELLE', 'ACH']);
-    const defaultMethod =
-      lastPayment?.method && allowedMethods.has(lastPayment.method)
-        ? lastPayment.method
-        : 'CHECK';
+    const preferences = PaymentDetailsService.preferences(kit.customer.paymentPreferences);
+    const defaultMethod = preferences.method;
+    const paymentDestinations = PaymentDetailsService.mask(preferences.accountInfo);
 
     return {
       success: true,
@@ -457,10 +372,12 @@ export async function getKitOfferSummary(
         offerValue: parseFloat(activeOffer.totalValue.toString()),
         offerExpiresAt: activeOffer.expiresAt?.toISOString(),
         defaultPaymentMethod: defaultMethod,
+        paymentDestinations,
+        mailingAddress: kit.shippingAddress ? (() => { const a = kit.shippingAddress as Record<string, string>; return [a.street1, a.street2, a.city, a.state, a.zipCode, a.country].filter(Boolean).join(', '); })() : 'Add a shipping address in Settings',
       },
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get offer summary';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get offer summary';
     console.error('Error getting offer summary:', error);
     return {
       success: false,
@@ -529,30 +446,8 @@ export async function getShippingLabelData(
       return { success: false, error: 'Shipping address not found' };
     }
 
-    let inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
-
-    // Auto-generate FedEx inbound label for digital kits when none exists
-    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status)) {
-      const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.trim();
-      const addr = shippingSnapshot || defaultAddress;
-      if (addr) {
-        const generated = await ShippingService.generateFedExLabel(kitId, 'INBOUND', {
-          name: customerName || 'Customer',
-          phone: kit.customer.phone ?? undefined,
-          street1: addr.street1,
-          street2: addr.street2 ?? undefined,
-          city: addr.city,
-          state: addr.state,
-          zipCode: addr.zipCode,
-        });
-        inboundLabel = generated;
-      }
-    }
-
-    const trackingNumber =
-      inboundLabel?.trackingNumber ||
-      kit.trackingNumber ||
-      '';
+    const inboundLabel = await ShippingService.printableInbound(kit, fromAddress);
+    const trackingNumber = inboundLabel.trackingNumber;
 
     // Use saved company settings for the "To" address
     const companyInfo = await SettingsService.getCompanyInfo();
@@ -584,7 +479,7 @@ export async function getShippingLabelData(
       },
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get shipping label data';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get shipping label data';
     console.error('Error getting shipping label data:', error);
     return {
       success: false,
@@ -628,28 +523,19 @@ export interface DigitalKitData {
 /**
  * Get customer's payment history
  */
-export async function getMyPayments(): Promise<ActionResult> {
+export async function getMyPayments(page = 1) {
   try {
     const session = await requireCustomer();
 
-    const payments = await prisma.payment.findMany({
-      where: { customerId: session.id },
-      include: {
-        offer: {
-          include: {
-            kit: { select: { id: true, kitNumber: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const payments = await CustomerService.getPayments(session.id, historyQuery({ page }).page);
 
     return {
       success: true,
-      data: serializePrismaData(payments),
+      hasMore: payments.length > HISTORY_PAGE_SIZE,
+      data: serializePrismaData(payments.slice(0, HISTORY_PAGE_SIZE).map(payment => ({ id: payment.id, paymentNumber: payment.paymentNumber, amount: payment.amount, method: payment.method, status: payment.status, createdAt: payment.createdAt, completedAt: payment.completedAt, trackingNumber: payment.trackingNumber, checkNumber: payment.checkNumber, offer: { kit: payment.offer.kit } }))),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get payments';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get payments';
     console.error('Error getting payments:', error);
     return { success: false, error: message };
   }
@@ -658,26 +544,19 @@ export async function getMyPayments(): Promise<ActionResult> {
 /**
  * Get customer's returns
  */
-export async function getMyReturns(): Promise<ActionResult> {
+export async function getMyReturns(page = 1) {
   try {
     const session = await requireCustomer();
 
-    const returns = await prisma.return.findMany({
-      where: {
-        kit: { customerId: session.id },
-      },
-      include: {
-        kit: { select: { id: true, kitNumber: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const returns = await CustomerService.getReturns(session.id, historyQuery({ page }).page);
 
     return {
       success: true,
-      data: serializePrismaData(returns),
+      hasMore: returns.length > HISTORY_PAGE_SIZE,
+      data: serializePrismaData(returns.slice(0, HISTORY_PAGE_SIZE).map(item => ({ id: item.id, returnNumber: item.returnNumber, status: item.status, trackingNumber: item.trackingNumber, createdAt: item.createdAt, shippedAt: item.shippedAt, deliveredAt: item.deliveredAt, kit: item.kit }))),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get returns';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get returns';
     console.error('Error getting returns:', error);
     return { success: false, error: message };
   }
@@ -687,6 +566,7 @@ export async function getMyReturns(): Promise<ActionResult> {
  * Create a kit from the logged-in customer dashboard
  */
 export async function createKitFromAccount(data: {
+  requestId?: string;
   kitType: 'PHYSICAL' | 'DIGITAL';
   estimatedValue?: number;
   notes?: string;
@@ -700,75 +580,17 @@ export async function createKitFromAccount(data: {
     country?: string;
     isDefault?: boolean;
   };
-}): Promise<ActionResult> {
+}) {
   try {
     const session = await requireCustomer();
-
-    const customer = await CustomerService.getById(session.id);
-    if (!customer) {
-      return { success: false, error: 'Customer not found' };
-    }
-
-    // Add address if customer has none, or use the provided one
-    const existingShipping = customer.addresses.find(
-      (a) => a.type === 'shipping'
-    );
-    if (!existingShipping && data.shippingAddress) {
-      await CustomerService.addAddress(session.id, {
-        type: data.shippingAddress.type,
-        street1: data.shippingAddress.street1,
-        street2: data.shippingAddress.street2,
-        city: data.shippingAddress.city,
-        state: data.shippingAddress.state,
-        zipCode: data.shippingAddress.zipCode,
-        country: data.shippingAddress.country || 'US',
-        isDefault: true,
-      });
-    }
-
-    const kit = await KitService.create({
-      customerId: session.id,
-      type: data.kitType,
-      estimatedValue: data.estimatedValue,
-      notes: data.notes,
-      shippingAddress: {
-        street1: data.shippingAddress.street1,
-        street2: data.shippingAddress.street2,
-        city: data.shippingAddress.city,
-        state: data.shippingAddress.state,
-        zipCode: data.shippingAddress.zipCode,
-        country: data.shippingAddress.country || 'US',
-      },
-    });
-
-    // Send confirmation email
-    if (customer.email) {
-      const baseUrl = resolveBaseUrl(
-        buildBaseUrlFromHeaders(await headers()),
-        process.env.NEXT_PUBLIC_APP_URL
-      );
-      const result = await createMagicLink(customer.email);
-      const actionUrl = buildAbsoluteUrl(
-        baseUrl,
-        appRoutes.authVerify(result.token, appRoutes.accountKit(kit.id))
-      );
-      sendKitCreatedEmail(
-        customer.email,
-        kit.kitNumber,
-        data.kitType,
-        {
-          baseUrl,
-          actionUrl,
-        }
-      ).catch(err => console.error('Failed to send kit created email:', err));
-    }
+    const kit = await AppraisalRequestService.createFromAccount(session.id, data);
 
     return {
       success: true,
       data: serializePrismaData(kit),
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to create kit';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to create kit';
     console.error('Error creating kit from account:', error);
     return { success: false, error: message };
   }
@@ -789,6 +611,10 @@ export async function getDigitalKitData(
       return { success: false, error: 'Unauthorized' };
     }
 
+    if (!canPrepareDigitalKit(kit)) {
+      return { success: false, error: 'Digital Kit documents are available only for digital kits awaiting shipment.' };
+    }
+
     const customerName = `${kit.customer.firstName} ${kit.customer.lastName}`.trim();
 
     const shippingSnapshot = kit.shippingAddress as
@@ -805,26 +631,8 @@ export async function getDigitalKitData(
       return { success: false, error: 'Shipping address not found' };
     }
 
-    let inboundLabel = kit.shippingLabels?.find((label) => label.type === 'INBOUND');
-
-    // Auto-generate FedEx inbound label for digital kits when none exists
-    if (!inboundLabel && kit.type === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status)) {
-      const addr = shippingSnapshot || defaultAddress;
-      if (addr) {
-        const generated = await ShippingService.generateFedExLabel(kitId, 'INBOUND', {
-          name: customerName || 'Customer',
-          phone: kit.customer.phone ?? undefined,
-          street1: addr.street1,
-          street2: addr.street2 ?? undefined,
-          city: addr.city,
-          state: addr.state,
-          zipCode: addr.zipCode,
-        });
-        inboundLabel = generated;
-      }
-    }
-
-    const trackingNumber = inboundLabel?.trackingNumber || kit.trackingNumber || '';
+    const inboundLabel = await ShippingService.printableInbound(kit, fromAddress);
+    const trackingNumber = inboundLabel.trackingNumber;
 
     // Company settings
     const companyInfo = await SettingsService.getCompanyInfo();
@@ -839,18 +647,8 @@ export async function getDigitalKitData(
       zip: companyInfo.zipCode,
     };
 
-    // Fetch nearby FedEx locations (non-blocking)
-    let fedexLocations: NearbyFedExLocation[] = [];
-    try {
-      fedexLocations = await FedExClient.searchLocations(
-        fromAddress.zipCode,
-        fromAddress.state,
-        fromAddress.city,
-        4
-      );
-    } catch (err) {
-      console.error('FedEx location search failed (non-fatal):', err);
-    }
+    // Location search is optional; the carrier locator link works independently.
+    const fedexLocations: NearbyFedExLocation[] = [];
 
     return {
       success: true,
@@ -878,11 +676,21 @@ export async function getDigitalKitData(
       },
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to get digital kit data';
+    const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to get digital kit data';
     console.error('Error getting digital kit data:', error);
     return {
       success: false,
       error: message,
     };
+  }
+}
+
+export async function applyCurrentShippingAddress(kitId: string): Promise<ActionResult> {
+  try {
+    const session = await requireCustomer();
+    await KitService.applyProfileDestination(kitId, session.id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unable to change the destination.' };
   }
 }

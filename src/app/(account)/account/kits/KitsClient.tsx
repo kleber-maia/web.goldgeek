@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import HistoryPagination from "@/components/account/HistoryPagination";
 import { AccountContainer, KitCard } from "@/components/account";
-import { normalizeKitType } from "@/lib/account";
 
 interface KitData {
   id: string;
@@ -16,40 +16,12 @@ interface KitData {
   needsShippingLabel: boolean;
 }
 
-type FilterTab = "all" | "active" | "completed";
 
-export default function KitsClient({ kits }: { kits: KitData[] }) {
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
-  const [search, setSearch] = useState("");
-
-  const activeStatuses = [
-    "PENDING", "SHIPPED", "EVALUATING",
-    "OFFER_SENT", "ACCEPTED", "DECLINED",
-  ];
-  const completedStatuses = ["PAID", "RETURNED", "CANCELLED"];
-
-  const filtered = kits.filter((kit) => {
-    // Tab filter
-    if (activeTab === "active" && !activeStatuses.includes(kit.status)) return false;
-    if (activeTab === "completed" && !completedStatuses.includes(kit.status)) return false;
-
-    // Search filter
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return kit.kitNumber.toLowerCase().includes(q);
-    }
-    return true;
-  });
-
-  const activeCount = kits.filter((k) => activeStatuses.includes(k.status)).length;
-  const completedCount = kits.filter((k) => completedStatuses.includes(k.status)).length;
-
-  const tabs: { key: FilterTab; label: string; count: number }[] = [
-    { key: "all", label: "All", count: kits.length },
-    { key: "active", label: "Active", count: activeCount },
-    { key: "completed", label: "Completed", count: completedCount },
-  ];
-
+export default function KitsClient({ kits, page, hasMore, query }: { kits: KitData[]; page: number; hasMore: boolean; query: { q: string; status: string } }) {
+  const activeTab = query.status;
+  const search = query.q;
+  const tabs = [{ key: 'all', label: 'All' }, { key: 'active', label: 'Active' }, { key: 'completed', label: 'Completed' }];
+  const filterHref = (status: string) => `/account/kits?${new URLSearchParams({ status, q: search })}`;
   return (
     <AccountContainer
       headerProps={{
@@ -58,16 +30,20 @@ export default function KitsClient({ kits }: { kits: KitData[] }) {
       }}
     >
       {/* Search */}
-      <div style={{ marginBottom: 12 }}>
+      <form action="/account/kits" style={{ marginBottom: 12 }} className="flex gap-2">
+        <input type="hidden" name="status" value={activeTab} />
         <input
           type="text"
           placeholder="Search by kit number..."
+          aria-label="Search by kit number"
           className="account-form-input"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          name="q"
+          defaultValue={search}
+          key={search}
           style={{ fontSize: 14 }}
         />
-      </div>
+        <button type="submit" className="account-btn account-btn-primary">Search</button>
+      </form>
 
       {/* Filter Tabs */}
       <div style={{
@@ -78,36 +54,38 @@ export default function KitsClient({ kits }: { kits: KitData[] }) {
         paddingBottom: 0,
       }}>
         {tabs.map((tab) => (
-          <button
+          <Link
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            href={filterHref(tab.key)}
+            aria-current={activeTab === tab.key ? "page" : undefined}
             style={{
               padding: "8px 16px",
               fontSize: 13,
               fontWeight: activeTab === tab.key ? 600 : 400,
-              color: activeTab === tab.key ? "#AD7B2A" : "#6B7280",
+              color: activeTab === tab.key ? "var(--brand-primary)" : "var(--status-gray)",
               background: "none",
               border: "none",
-              borderBottom: activeTab === tab.key ? "2px solid #AD7B2A" : "2px solid transparent",
+              borderBottom: activeTab === tab.key ? "2px solid var(--brand-primary)" : "2px solid transparent",
               cursor: "pointer",
               marginBottom: -1,
             }}
           >
-            {tab.label} ({tab.count})
-          </button>
+            {tab.label}
+          </Link>
         ))}
       </div>
 
       {/* Kit List */}
-      {filtered.length === 0 ? (
+      {kits.length === 0 ? (
         <p style={{ color: "var(--status-gray)", fontSize: 14, textAlign: "center", padding: "40px 0" }}>
           {search ? "No kits match your search" : "No kits in this category"}
         </p>
       ) : (
-        filtered.map((kit) => (
-          <KitCard key={kit.id} kit={kit} />
+        kits.map((kit) => (
+          <KitCard key={kit.id} kit={kit} returnTo={`/account/kits?${new URLSearchParams({ status: activeTab, q: search, page: String(page) })}`} />
         ))
       )}
+      <HistoryPagination page={page} hasMore={hasMore} />
     </AccountContainer>
   );
 }

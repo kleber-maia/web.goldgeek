@@ -1,5 +1,6 @@
 export type KitStatusKey =
   | 'pending'
+  | 'shipped'
   | 'kit_sent'
   | 'in_transit'
   | 'received'
@@ -118,6 +119,7 @@ export interface StatusConfig {
 
 export const STATUSES: Record<KitStatusKey, StatusConfig> = {
   pending: { label: 'Pending', userLabel: 'Requested', badgeClass: 'pending' },
+  shipped: { label: 'Shipped', userLabel: 'Shipping', badgeClass: 'in-progress' },
   kit_sent: { label: 'Kit Sent', userLabel: 'Kit On The Way', badgeClass: 'purple' },
   in_transit: { label: 'In Transit', userLabel: 'Shipping to Us', badgeClass: 'in-progress' },
   received: { label: 'Received', userLabel: 'Received', badgeClass: 'in-progress' },
@@ -125,7 +127,7 @@ export const STATUSES: Record<KitStatusKey, StatusConfig> = {
   offer_sent: { label: 'Offer Sent', userLabel: 'Offer Ready', badgeClass: 'pending' },
   accepted: { label: 'Accepted', userLabel: 'Accepted', badgeClass: 'success' },
   declined: { label: 'Declined', userLabel: 'Declined', badgeClass: 'gray' },
-  paid: { label: 'Paid', userLabel: 'Payment Complete', badgeClass: 'success' },
+  paid: { label: 'Paid', userLabel: 'Payment Sent', badgeClass: 'success' },
   returned: { label: 'Returned', userLabel: 'Items Returned', badgeClass: 'gray' },
   cancelled: { label: 'Cancelled', userLabel: 'Cancelled', badgeClass: 'gray' },
 };

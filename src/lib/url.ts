@@ -17,31 +17,24 @@ export function resolveBaseUrl(
   return '';
 }
 
-export function buildBaseUrlFromHeaders(headers: HeaderSource): string {
-  const host = headers.get('x-forwarded-host') || headers.get('host');
-  if (!host) return '';
-
-  const proto =
-    headers.get('x-forwarded-proto') ||
-    (host.includes('localhost') ? 'http' : 'https');
-
-  return normalizeBaseUrl(`${proto}://${host}`);
+function configuredOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
+  if (configured) {
+    const url = new URL(configured);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid application URL');
+    return url.origin;
+  }
+  if (process.env.NODE_ENV === 'production') throw new Error('Application URL is not configured');
+  return 'http://localhost:3000';
 }
 
-export function buildBaseUrlFromRequest(request: Request): string {
-  const forwardedHost =
-    request.headers.get('x-forwarded-host') || request.headers.get('host');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
+// Email links must never trust user-controlled Host, Origin or forwarding headers.
+export function buildBaseUrlFromHeaders(_headers: HeaderSource): string {
+  return configuredOrigin();
+}
 
-  const forwardedBase = forwardedHost
-    ? `${forwardedProto || (forwardedHost.includes('localhost') ? 'http' : 'https')}://${forwardedHost}`
-    : null;
-
-  return resolveBaseUrl(
-    forwardedBase,
-    request.headers.get('origin'),
-    new URL(request.url).origin
-  );
+export function buildBaseUrlFromRequest(_request: Request): string {
+  return configuredOrigin();
 }
 
 export function buildAbsoluteUrl(baseUrl: string, path: string): string {

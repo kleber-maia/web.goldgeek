@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AccountContainer } from "@/components/account";
 import { createKitFromAccount } from "@/lib/actions/customer.actions";
@@ -33,6 +33,7 @@ const US_STATES = [
 
 export default function RequestKitClient({ defaultAddress }: Props) {
   const router = useRouter();
+  const requestId = useRef<string | null>(null);
   const [kitType, setKitType] = useState<"PHYSICAL" | "DIGITAL">("DIGITAL");
   const [estimatedValue, setEstimatedValue] = useState("");
   const [notes, setNotes] = useState("");
@@ -55,7 +56,9 @@ export default function RequestKitClient({ defaultAddress }: Props) {
     setError("");
 
     try {
+      requestId.current ||= crypto.randomUUID();
       const result = await createKitFromAccount({
+        requestId: requestId.current,
         kitType,
         estimatedValue: estimatedValue ? parseFloat(estimatedValue) : undefined,
         notes: notes || undefined,
@@ -71,7 +74,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
         },
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         router.push(`/account/kit/${result.data.id}`);
       } else {
         setError(result.error || "Failed to create kit request");
@@ -147,7 +150,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
     typeBtn: (active: boolean) => ({
       flex: 1,
       padding: "12px",
-      border: active ? "2px solid #AD7B2A" : "1px solid #D1D5DB",
+      border: active ? "2px solid var(--brand-primary)" : "1px solid var(--account-border)",
       borderRadius: "8px",
       background: active ? "#FFFDF7" : "#FFFFFF",
       cursor: "pointer",
@@ -156,7 +159,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
     typeBtnTitle: (active: boolean) => ({
       fontSize: "14px",
       fontWeight: 600,
-      color: active ? "#AD7B2A" : "#2E1F0C",
+      color: active ? "var(--brand-primary)" : "var(--brand-text)",
       margin: "0 0 4px 0",
     }),
     typeBtnDesc: {
@@ -167,7 +170,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
     submitBtn: {
       width: "100%",
       padding: "14px",
-      background: submitting ? "#D1C4A9" : "#AD7B2A",
+      background: submitting ? "var(--account-disabled)" : "var(--brand-primary)",
       color: "#FFFFFF",
       border: "none",
       borderRadius: "8px",
@@ -200,7 +203,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
         Request a new appraisal kit. We&apos;ll evaluate your items and send you an offer.
       </p>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div role="alert" style={styles.error}>{error}</div>}
 
       <form onSubmit={handleSubmit} style={styles.form}>
         {/* Kit Type */}
@@ -209,6 +212,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
           <div style={styles.typeToggle}>
             <button
               type="button"
+              aria-pressed={kitType === "DIGITAL"}
               style={styles.typeBtn(kitType === "DIGITAL")}
               onClick={() => setKitType("DIGITAL")}
             >
@@ -217,6 +221,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
             </button>
             <button
               type="button"
+              aria-pressed={kitType === "PHYSICAL"}
               style={styles.typeBtn(kitType === "PHYSICAL")}
               onClick={() => setKitType("PHYSICAL")}
             >
@@ -230,39 +235,39 @@ export default function RequestKitClient({ defaultAddress }: Props) {
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Shipping Address</h3>
           <div style={styles.field}>
-            <label style={styles.label}>Street Address *</label>
+            <label htmlFor="request-street1" style={styles.label}>Street Address *</label>
             <input
               style={styles.input}
-              value={street1}
+              id="request-street1" value={street1}
               onChange={(e) => setStreet1(e.target.value)}
               placeholder="123 Main Street"
               required
             />
           </div>
           <div style={styles.field}>
-            <label style={styles.label}>Apt / Suite</label>
+            <label htmlFor="request-street2" style={styles.label}>Apt / Suite</label>
             <input
               style={styles.input}
-              value={street2}
+              id="request-street2" value={street2}
               onChange={(e) => setStreet2(e.target.value)}
               placeholder="Apt 4B"
             />
           </div>
-          <div style={styles.row3}>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div>
-              <label style={styles.label}>City *</label>
+              <label htmlFor="request-city" style={styles.label}>City *</label>
               <input
                 style={styles.input}
-                value={city}
+                id="request-city" value={city}
                 onChange={(e) => setCity(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label style={styles.label}>State *</label>
+              <label htmlFor="request-state" style={styles.label}>State *</label>
               <select
                 style={styles.select}
-                value={state}
+                id="request-state" value={state}
                 onChange={(e) => setState(e.target.value)}
                 required
               >
@@ -273,10 +278,10 @@ export default function RequestKitClient({ defaultAddress }: Props) {
               </select>
             </div>
             <div>
-              <label style={styles.label}>ZIP *</label>
+              <label htmlFor="request-zipCode" style={styles.label}>ZIP *</label>
               <input
                 style={styles.input}
-                value={zipCode}
+                id="request-zipCode" value={zipCode}
                 onChange={(e) => setZipCode(e.target.value)}
                 maxLength={10}
                 required
@@ -289,23 +294,23 @@ export default function RequestKitClient({ defaultAddress }: Props) {
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Details (Optional)</h3>
           <div style={styles.field}>
-            <label style={styles.label}>Estimated Value</label>
+            <label htmlFor="request-estimatedValue" style={styles.label}>Estimated Value</label>
             <input
               style={styles.input}
               type="number"
               min="0"
               step="0.01"
-              value={estimatedValue}
+              id="request-estimatedValue" value={estimatedValue}
               onChange={(e) => setEstimatedValue(e.target.value)}
               placeholder="$0.00"
             />
             <p style={styles.hint}>Your best guess — this helps us prioritize.</p>
           </div>
           <div>
-            <label style={styles.label}>Notes</label>
+            <label htmlFor="request-notes" style={styles.label}>Notes</label>
             <textarea
               style={{ ...styles.input, minHeight: "80px", resize: "vertical" as const }}
-              value={notes}
+              id="request-notes" value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Describe what you're sending (e.g., 3 gold rings, 1 necklace)"
             />

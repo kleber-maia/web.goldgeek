@@ -112,3 +112,20 @@ Production uses real FedEx keys, but **real labels won't transmit until FedEx's 
 validation (Bar Code Analysis) approves them** — submit test labels per the FedEx Shipper
 Validation guide. Approval is **per service type**, so re-submit if you change the configured
 service in Admin → Settings. FedEx caps jewelry/precious-metals liability at **$1,000/package**.
+
+
+## September 2026 dashboard security/workflow release
+
+Before deploying this change, provision a persistent random `PAYMENT_DATA_KEY` containing exactly 64 hexadecimal characters in each environment. Keep an encrypted backup. Never commit it or rotate it without re-encrypting stored payment envelopes. `NEXT_PUBLIC_APP_URL` must be the canonical HTTPS origin in deployed environments; incoming Host/Origin headers are not trusted for sign-in links. `CRON_SECRET` is required for both cron endpoints, and FedEx webhook verification must have its signing secret configured.
+
+Apply these additive migrations using the environment's unpooled URL before code deployment: `20260908000000_add_auth_sessions`, `20260908010000_auth_request_limits`, `20260908020000_workflow_delivery`, `20260908030000_kit_request_identity`, and `20260908040000_shipping_operations`. They have been applied to development only. Existing legacy sessions will require sign-in again.
+
+Use `npx tsx scripts/encrypt-payment-data.ts` for the read-only legacy payout migration assessment, then the script's explicit apply mode after the destination key and backup are confirmed. The development dry run found zero plaintext records; it does not describe production. New writes are encrypted, and browser-facing DTOs are masked/minimized during the transition.
+
+`/api/cron/notifications` drains bounded jobs for email, tracking subscription and carrier cancellation. Jobs have retries, leases and stable idempotency keys. `/api/cron/expire-offers` remains a six-hour sweep; request-time deadline enforcement is immediate. Both routes fail closed without the exact bearer secret and return 503 on failed processing. Verify deployed cron execution and inspect unsent outbox jobs after release. Never run a test queue drain using live credentials.
+
+Unknown carrier creation results must be reconciled with FedEx before resetting a generation request. If a result is saved, retry to recover it. Staff can attach a missing original PDF to the same CREATED label using matching tracking/carrier details. A pending carrier cancellation blocks replacement until confirmation.
+
+Run `npm ci`, `npm run prisma:generate`, `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build` and `npm audit` before promotion. Tests require local PostgreSQL binaries (`initdb`, `pg_ctl`, `createdb`) on PATH and create isolated loopback databases. The GitHub workflow performs the same regression gates on pull requests and master/production pushes. No hosted CI run or production release was performed during the local audit.
+
+For acceptance boundaries and the original 43 findings, see [Dashboard remediation report](dashboard-remediation-report.md).

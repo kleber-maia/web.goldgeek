@@ -1,4 +1,5 @@
 "use client";
+import type { ReturnStatus } from "@prisma/client";
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
@@ -24,14 +25,14 @@ interface Return {
       firstName: string;
       lastName: string;
     };
-    items: any[];
+    items: { id: string }[];
   };
 }
 
 interface DeclinedOffer {
   id: string;
   offerNumber: string;
-  totalValue: any;
+  totalValue: { toString(): string };
   respondedAt: Date | string | null;
   kit: {
     id: string;
@@ -40,7 +41,7 @@ interface DeclinedOffer {
       firstName: string;
       lastName: string;
     };
-    items: any[];
+    items: { id: string }[];
   };
 }
 
@@ -126,7 +127,7 @@ export default function ReturnsClient({
     setUpdatingId(returnId);
     setErrorMsg("");
     try {
-      const result = await updateReturnStatus(returnId, newStatus as any);
+      const result = await updateReturnStatus(returnId, newStatus as ReturnStatus);
       if (result.success) {
         setSuccessMsg(`Return status updated successfully`);
         router.refresh();

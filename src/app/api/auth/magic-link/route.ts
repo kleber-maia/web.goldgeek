@@ -3,18 +3,29 @@ import { createMagicLink } from '@/lib/auth';
 import { sendMagicLinkEmail } from '@/lib/email';
 import { z } from 'zod';
 import { appRoutes, buildAbsoluteUrl, buildBaseUrlFromRequest, resolveBaseUrl } from '@/lib/url';
+import { safeLoginDestination } from '@/lib/auth/redirect';
+import { AuthRateLimitService } from '@/lib/services/auth-rate-limit.service';
 
 const requestSchema = z.object({
   email: z.string().email('Invalid email address'),
+  type: z.enum(['customer', 'admin']).default('customer'),
+  next: z.string().optional(),
 });
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email } = requestSchema.parse(body);
+    const { email, type, next } = requestSchema.parse(body);
+    const identityAllowed = await AuthRateLimitService.allow(`email:${type}:${email.trim().toLowerCase()}`, 5);
+    // Vercel supplies this trusted connection header. Local runs share one bucket.
+    const remote = process.env.VERCEL ? request.headers.get('x-vercel-forwarded-for') || 'unknown' : 'local';
+    const remoteAllowed = await AuthRateLimitService.allow(`ip:${remote}`, 20);
+    if (!identityAllowed || !remoteAllowed) {
+      return NextResponse.json({ success: false, error: 'Too many sign-in requests. Please wait 15 minutes.' }, { status: 429, headers: { 'Retry-After': '900' } });
+    }
 
     // Create magic link (returns token and type)
-    const result = await createMagicLink(email);
+    const result = await createMagicLink(email, type);
 
     // Build magic link URL
     const baseUrl =
@@ -22,7 +33,7 @@ export async function POST(request: Request) {
         buildBaseUrlFromRequest(request),
         process.env.NEXT_PUBLIC_APP_URL
       ) || 'http://localhost:3000';
-    const magicLinkUrl = buildAbsoluteUrl(baseUrl, appRoutes.authVerify(result.token));
+    const magicLinkUrl = buildAbsoluteUrl(baseUrl, appRoutes.authVerify(result.token, safeLoginDestination(next, type)));
 
     // Send the magic link email
     const emailSent = await sendMagicLinkEmail(email, magicLinkUrl, baseUrl);

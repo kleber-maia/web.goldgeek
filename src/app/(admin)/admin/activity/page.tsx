@@ -10,7 +10,7 @@ export default async function ActivityLogPage() {
 
   return (
     <ActivityClient
-      events={serializePrismaData(result.events) as any}
+      events={serializePrismaData(result.events)}
       total={result.total}
     />
   );

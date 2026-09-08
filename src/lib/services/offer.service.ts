@@ -1,11 +1,9 @@
+import { OfferDecisionService } from './offer-decision.service';
 import { prisma } from '@/lib/db';
 import { generateOfferNumber, calculateOfferExpiration } from '@/lib/db/utils';
-import type { Offer, OfferStatus } from '@prisma/client';
+import type { Offer, OfferStatus, PaymentMethod, Prisma } from '@prisma/client';
 import type { OfferInput } from '@/lib/validators/offer';
-import { ActivityService } from './activity.service';
-import { sendOfferReadyEmail } from '@/lib/email';
-import { SettingsService } from './settings.service';
-import { appRoutes, buildAbsoluteUrl, resolveBaseUrl } from '@/lib/url';
+import { NotificationService } from './notification.service';
 
 export class OfferService {
   /**
@@ -19,26 +17,14 @@ export class OfferService {
     const offerNumber = generateOfferNumber();
     const expiresAt = calculateOfferExpiration();
 
-    const offer = await prisma.offer.create({
-      data: {
-        kitId,
-        offerNumber,
-        totalValue: data.totalValue,
-        itemBreakdown: data.itemBreakdown,
-        notes: data.notes,
-        expiresAt,
-        status: 'DRAFT',
-      },
-    });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId,
-      userId,
-      type: 'OFFER_GENERATED',
-      title: 'Offer Generated',
-      description: `Offer ${offerNumber} generated for $${data.totalValue}`,
-      metadata: { offerId: offer.id },
+    const offer = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Kit" WHERE "id" = ${kitId} FOR UPDATE`;
+      const kit = await tx.kit.findUniqueOrThrow({ where: { id: kitId } });
+      if (!['EVALUATING', 'OFFER_SENT'].includes(kit.status)) throw new Error('This kit is not available for a new offer.');
+      await tx.offer.updateMany({ where: { kitId, status: 'DRAFT' }, data: { status: 'EXPIRED' } });
+      const created = await tx.offer.create({ data: { kitId, offerNumber, totalValue: data.totalValue, itemBreakdown: data.itemBreakdown, notes: data.notes, expiresAt, status: 'DRAFT' } });
+      await tx.timelineEvent.create({ data: { kitId, userId, type: 'OFFER_GENERATED', title: 'Offer generated', metadata: { offerId: created.id } } });
+      return created;
     });
 
     return offer;
@@ -106,52 +92,18 @@ export class OfferService {
     userId?: string,
     baseUrl?: string
   ): Promise<Offer> {
-    const offer = await prisma.offer.update({
-      where: { id: offerId },
-      data: {
-        status: 'SENT',
-        sentAt: new Date(),
-      },
-      include: {
-        kit: { include: { customer: true } },
-      },
+    const offer = await prisma.$transaction(async (tx) => {
+      const initial = await tx.offer.findUniqueOrThrow({ where: { id: offerId } });
+      await tx.$queryRaw`SELECT "id" FROM "Kit" WHERE "id" = ${initial.kitId} FOR UPDATE`;
+      const current = await tx.offer.findUniqueOrThrow({ where: { id: offerId }, include: { kit: true } });
+      if (current.status !== 'DRAFT' || !['EVALUATING', 'OFFER_SENT'].includes(current.kit.status)) throw new Error('Only a draft offer for an available kit can be sent.');
+      await tx.offer.updateMany({ where: { kitId: current.kitId, status: 'SENT', id: { not: offerId } }, data: { status: 'EXPIRED' } });
+      const sent = await tx.offer.update({ where: { id: offerId }, data: { status: 'SENT', sentAt: new Date(), expiresAt: calculateOfferExpiration() }, include: { kit: { include: { customer: true } } } });
+      await tx.kit.update({ where: { id: current.kitId }, data: { status: 'OFFER_SENT' } });
+      await tx.timelineEvent.create({ data: { kitId: current.kitId, userId, type: 'OFFER_SENT', title: 'Offer sent', metadata: { offerId } } });
+      await NotificationService.enqueue(tx, "OFFER:SENT", offerId, `offer:${offerId}:sent`);
+      return sent;
     });
-
-    // Update kit status
-    await prisma.kit.update({
-      where: { id: offer.kitId },
-      data: { status: 'OFFER_SENT' },
-    });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId: offer.kitId,
-      userId,
-      type: 'OFFER_SENT',
-      title: 'Offer Sent',
-      description: `Offer ${offer.offerNumber} sent to customer`,
-      metadata: { offerId: offer.id },
-    });
-
-    // Send email to customer
-    const customerEmail = offer.kit.customer?.email;
-    if (customerEmail) {
-      const companyInfo = await SettingsService.getCompanyInfo();
-      const appUrl = resolveBaseUrl(
-        baseUrl,
-        companyInfo.websiteUrl,
-        process.env.NEXT_PUBLIC_APP_URL
-      );
-      const offerUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKit(offer.kitId));
-      const totalValue = parseFloat(offer.totalValue.toString());
-      sendOfferReadyEmail(
-        customerEmail,
-        offer.offerNumber,
-        totalValue,
-        offerUrl,
-        appUrl
-      ).catch(err => console.error('Failed to send offer ready email:', err));
-    }
 
     return offer;
   }
@@ -159,69 +111,12 @@ export class OfferService {
   /**
    * Customer accepts offer
    */
-  static async accept(offerId: string, userId?: string): Promise<Offer> {
-    const offer = await prisma.offer.update({
-      where: { id: offerId },
-      data: {
-        status: 'ACCEPTED',
-        respondedAt: new Date(),
-      },
-      include: {
-        kit: true,
-      },
-    });
-
-    // Update kit status
-    await prisma.kit.update({
-      where: { id: offer.kitId },
-      data: { status: 'ACCEPTED' },
-    });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId: offer.kitId,
-      userId,
-      type: 'OFFER_ACCEPTED',
-      title: 'Offer Accepted',
-      description: `Offer ${offer.offerNumber} accepted by customer`,
-      metadata: { offerId: offer.id },
-    });
-
-    return offer;
+  static async accept(offerId: string, customerId: string, method?: PaymentMethod): Promise<Offer> {
+    return OfferDecisionService.respond(offerId, customerId, 'ACCEPTED', method);
   }
 
-  /**
-   * Customer declines offer
-   */
-  static async decline(offerId: string, userId?: string): Promise<Offer> {
-    const offer = await prisma.offer.update({
-      where: { id: offerId },
-      data: {
-        status: 'DECLINED',
-        respondedAt: new Date(),
-      },
-      include: {
-        kit: true,
-      },
-    });
-
-    // Update kit status
-    await prisma.kit.update({
-      where: { id: offer.kitId },
-      data: { status: 'DECLINED' },
-    });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId: offer.kitId,
-      userId,
-      type: 'OFFER_DECLINED',
-      title: 'Offer Declined',
-      description: `Offer ${offer.offerNumber} declined by customer`,
-      metadata: { offerId: offer.id },
-    });
-
-    return offer;
+  static async decline(offerId: string, customerId: string): Promise<Offer> {
+    return OfferDecisionService.respond(offerId, customerId, 'DECLINED');
   }
 
   /**
@@ -238,19 +133,19 @@ export class OfferService {
    * Mark expired offers
    */
   static async markExpired(): Promise<number> {
-    const result = await prisma.offer.updateMany({
-      where: {
-        status: 'SENT',
-        expiresAt: {
-          lt: new Date(),
-        },
-      },
-      data: {
-        status: 'EXPIRED',
-      },
-    });
-
-    return result.count;
+    const candidates = await prisma.offer.findMany({ where: { status: 'SENT', expiresAt: { lte: new Date() } }, select: { id: true, kitId: true }, take: 500, orderBy: { expiresAt: 'asc' } });
+    let count = 0;
+    for (const candidate of candidates) {
+      count += await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Kit" WHERE "id" = ${candidate.kitId} FOR UPDATE`;
+        const changed = await tx.offer.updateMany({ where: { id: candidate.id, status: 'SENT', expiresAt: { lte: new Date() } }, data: { status: 'EXPIRED' } });
+        if (!changed.count) return 0;
+        await tx.timelineEvent.create({ data: { kitId: candidate.kitId, type: 'STATUS_CHANGED', title: 'Offer expired', metadata: { offerId: candidate.id } } });
+        await NotificationService.enqueue(tx, 'OFFER:EXPIRED', candidate.id, `offer:${candidate.id}:expired`);
+        return 1;
+      });
+    }
+    return count;
   }
 
   /**
@@ -298,7 +193,7 @@ export class OfferService {
     status?: OfferStatus;
     kitId?: string;
   }) {
-    const where: any = {};
+    const where: Prisma.OfferWhereInput = {};
 
     if (filters?.status) {
       where.status = filters.status;

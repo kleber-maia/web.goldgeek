@@ -1,42 +1,55 @@
+import { addressSchema } from '@/lib/validators/customer';
 import { prisma } from '@/lib/db';
 import { generateKitNumber } from '@/lib/db/utils';
-import type { Kit, KitStatus, KitType } from '@prisma/client';
+import type { Kit, KitStatus, KitType, Prisma } from '@prisma/client';
+import { NotificationService } from './notification.service';
 import { ActivityService } from './activity.service';
 
 export interface CreateKitInput {
   customerId: string;
+  requestId?: string;
   type: KitType;
   estimatedValue?: number;
   notes?: string;
-  shippingAddress: any; // JSON snapshot of address
+  shippingAddress: Prisma.InputJsonObject; // Address snapshot
 }
 
 export class KitService {
+  static async applyProfileDestination(kitId: string, customerId: string) {
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
+      const kit = await tx.kit.findUniqueOrThrow({ where: { id: kitId, customerId } });
+      if (!['OFFER_SENT', 'DECLINED'].includes(kit.status)) throw new Error('This destination is locked. Contact support for shipping changes.');
+      if (await tx.shippingLabel.findFirst({ where: { kitId, type: 'RETURN', OR: [{ status: { not: 'VOIDED' } }, { voidedAt: null }] } })) throw new Error('The return label is already being prepared. Contact support before changing the destination.');
+      if (await tx.shippingOperation.findFirst({ where: { kitId, type: 'RETURN', status: { not: 'READY' } } })) throw new Error('A carrier request is in progress. Contact support.');
+      const address = await tx.address.findFirst({ where: { customerId, type: 'shipping', isDefault: true } });
+      if (!address) throw new Error('Save your current shipping address in Settings first.');
+      const parsed = addressSchema.parse({ ...address, street2: address.street2 ?? undefined });
+      await tx.kit.update({ where: { id: kitId }, data: { shippingAddress: parsed } });
+      await tx.timelineEvent.create({ data: { kitId, type: 'NOTE_ADDED', title: 'Customer corrected return/check destination', description: 'The customer explicitly applied their current shipping address before payout or return label preparation.', metadata: { address: parsed } } });
+      return parsed;
+    });
+  }
+
   /**
    * Create a new kit
    */
   static async create(data: CreateKitInput): Promise<Kit> {
-    const kitNumber = generateKitNumber();
+    return prisma.$transaction(tx => this.createInTransaction(tx, data));
+  }
 
-    const kit = await prisma.kit.create({
-      data: {
-        customerId: data.customerId,
-        kitNumber,
-        type: data.type,
-        estimatedValue: data.estimatedValue,
-        notes: data.notes,
-        shippingAddress: data.shippingAddress,
-      },
-    });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId: kit.id,
-      type: 'KIT_CREATED',
-      title: 'Kit Created',
-      description: `${data.type} kit ${kitNumber} created`,
-    });
-
+  static async createInTransaction(tx: Prisma.TransactionClient, data: CreateKitInput): Promise<Kit> {
+    await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${data.customerId} FOR UPDATE`;
+    if (data.requestId) {
+      const existing = await tx.kit.findUnique({ where: { requestId: data.requestId } });
+      if (existing) {
+        if (existing.customerId !== data.customerId) throw new Error('Invalid kit request');
+        return existing;
+      }
+    }
+    const kit = await tx.kit.create({ data: { ...data, kitNumber: generateKitNumber() } });
+    await tx.timelineEvent.create({ data: { kitId: kit.id, type: 'KIT_CREATED', title: 'Kit requested' } });
+    await NotificationService.enqueue(tx, 'KIT:CREATED', kit.id, `kit:${kit.id}:created`);
     return kit;
   }
 
@@ -54,15 +67,17 @@ export class KitService {
         },
         items: true,
         offers: {
+          orderBy: [{ sentAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }, { id: 'desc' }],
           include: {
             payment: true,
           },
         },
         shippingLabels: true,
+        shippingOperations: { select: { id: true, type: true, status: true, updatedAt: true } },
         returns: true,
         timeline: {
           include: {
-            user: true,
+            user: { select: { id: true, email: true } },
           },
           orderBy: {
             createdAt: 'desc',
@@ -84,7 +99,7 @@ export class KitService {
         offers: true,
         timeline: {
           include: {
-            user: true,
+            user: { select: { id: true, email: true } },
           },
           orderBy: {
             createdAt: 'desc',
@@ -102,40 +117,31 @@ export class KitService {
     status: KitStatus,
     userId?: string
   ): Promise<Kit> {
-    const updates: any = { status };
-
-    // Set timestamps based on status
-    switch (status) {
-      case 'SHIPPED':
-        updates.kitSentAt = new Date();
-        break;
-      case 'EVALUATING':
-        updates.receivedAt = new Date();
-        updates.evaluationStartAt = new Date();
-        break;
-      case 'PAID':
-      case 'RETURNED':
-      case 'CANCELLED':
-        updates.completedAt = new Date();
-        break;
-    }
-
-    const kit = await prisma.kit.update({
-      where: { id: kitId },
-      data: updates,
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
+      const previous = await tx.kit.findUniqueOrThrow({ where: { id: kitId } });
+      if (previous.status === status) return previous;
+      const transitions: Partial<Record<KitStatus, KitStatus[]>> = { PENDING: ['SHIPPED', 'EVALUATING', 'CANCELLED'], SHIPPED: ['EVALUATING', 'CANCELLED'] };
+      if (!transitions[previous.status]?.includes(status)) throw new Error('Complete the offer, payment, or return workflow to change this status.');
+      const now = new Date();
+      if (status === 'CANCELLED') {
+        if (await tx.shippingOperation.count({ where: { kitId, status: { in: ['STARTED', 'UNKNOWN'] } } })) throw new Error('Resolve the pending carrier request before cancelling this kit.');
+        const labels = await tx.shippingLabel.findMany({ where: { kitId, status: { not: 'VOIDED' } } });
+        if (labels.some(label => label.type === 'INBOUND' && ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'].includes(label.status))) throw new Error('Items are already on their way. Complete the appraisal or return workflow.');
+        for (const label of labels.filter(label => label.status === 'CREATED')) {
+          await tx.shippingLabel.update({ where: { id: label.id }, data: { status: 'VOIDED', ...(label.carrier !== 'FEDEX' ? { voidedAt: now } : {}) } });
+          if (label.carrier === 'FEDEX') await NotificationService.enqueue(tx, 'CARRIER:VOID', label.id, `label:${label.id}:void`);
+        }
+        await tx.offer.updateMany({ where: { kitId, status: { in: ['DRAFT', 'SENT'] } }, data: { status: 'EXPIRED' } });
+      }
+      const kit = await tx.kit.update({ where: { id: kitId }, data: { status,
+        ...(status === 'SHIPPED' ? { kitSentAt: now } : {}),
+        ...(status === 'EVALUATING' ? { receivedAt: now, evaluationStartAt: now } : {}),
+        ...(status === 'CANCELLED' ? { completedAt: now } : {}),
+      } });
+      await tx.timelineEvent.create({ data: { kitId, userId, type: 'STATUS_CHANGED', title: 'Status updated', metadata: { oldStatus: previous.status, newStatus: status } } });
+      return kit;
     });
-
-    // Log activity
-    await ActivityService.logEvent({
-      kitId,
-      userId,
-      type: 'STATUS_CHANGED',
-      title: 'Status Updated',
-      description: `Kit status changed to ${status}`,
-      metadata: { oldStatus: kit.status, newStatus: status },
-    });
-
-    return kit;
   }
 
   /**
@@ -170,7 +176,7 @@ export class KitService {
     customerId?: string;
     search?: string;
   }) {
-    const where: any = {};
+    const where: Prisma.KitWhereInput = {};
 
     if (filters?.status) {
       where.status = filters.status;
@@ -212,19 +218,14 @@ export class KitService {
    * Update kit type (PHYSICAL/DIGITAL)
    */
   static async updateType(kitId: string, type: KitType): Promise<Kit> {
-    const kit = await prisma.kit.update({
-      where: { id: kitId },
-      data: { type },
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
+      const current = await tx.kit.findUniqueOrThrow({ where: { id: kitId } });
+      if (!['PENDING', 'SHIPPED'].includes(current.status) || await tx.shippingLabel.count({ where: { kitId, status: { not: 'VOIDED' } } }) || await tx.shippingOperation.count({ where: { kitId, status: { in: ['STARTED', 'UNKNOWN'] } } })) throw new Error('Kit type cannot change after shipping preparation has started.');
+      const kit = await tx.kit.update({ where: { id: kitId }, data: { type } });
+      await tx.timelineEvent.create({ data: { kitId, type: 'NOTE_ADDED', title: 'Kit type changed' } });
+      return kit;
     });
-
-    await ActivityService.logEvent({
-      kitId,
-      type: 'NOTE_ADDED',
-      title: 'Kit Type Changed',
-      description: `Kit type changed to ${type}`,
-    });
-
-    return kit;
   }
 
   /**

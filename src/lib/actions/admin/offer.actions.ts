@@ -9,7 +9,7 @@ import { offerSchema, type OfferInput } from '@/lib/validators/offer';
 import type { OfferStatus } from '@prisma/client';
 import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -18,7 +18,7 @@ export interface ActionResult<T = any> {
 /**
  * Generate offer from kit items (admin only)
  */
-export async function generateOffer(kitId: string): Promise<ActionResult> {
+export async function generateOffer(kitId: string) {
   try {
     const session = await requireAdmin();
 
@@ -39,6 +39,7 @@ export async function generateOffer(kitId: string): Promise<ActionResult> {
     const itemBreakdown = items.map((item) => ({
       itemId: item.id,
       description: item.description,
+      quantity: item.quantity,
       value: (item.finalValue || item.estimatedValue || 0).toString(),
     }));
 
@@ -53,11 +54,11 @@ export async function generateOffer(kitId: string): Promise<ActionResult> {
       success: true,
       data: serializePrismaData(offer),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating offer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to generate offer',
+      error: error instanceof Error ? error.message : 'Failed to generate offer',
     };
   }
 }
@@ -68,7 +69,7 @@ export async function generateOffer(kitId: string): Promise<ActionResult> {
 export async function createOffer(
   kitId: string,
   data: OfferInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -79,11 +80,11 @@ export async function createOffer(
       success: true,
       data: serializePrismaData(offer),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating offer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to create offer',
+      error: error instanceof Error ? error.message : 'Failed to create offer',
     };
   }
 }
@@ -91,7 +92,7 @@ export async function createOffer(
 /**
  * Send offer to customer (admin only)
  */
-export async function sendOffer(offerId: string): Promise<ActionResult> {
+export async function sendOffer(offerId: string) {
   try {
     const session = await requireAdmin();
     const baseUrl = resolveBaseUrl(
@@ -104,11 +105,11 @@ export async function sendOffer(offerId: string): Promise<ActionResult> {
       success: true,
       data: serializePrismaData(offer),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending offer:', error);
     return {
       success: false,
-      error: error.message || 'Failed to send offer',
+      error: error instanceof Error ? error.message : 'Failed to send offer',
     };
   }
 }
@@ -119,7 +120,7 @@ export async function sendOffer(offerId: string): Promise<ActionResult> {
 export async function updateOfferStatus(
   offerId: string,
   status: OfferStatus
-): Promise<ActionResult> {
+) {
   try {
     await requireAdmin();
 
@@ -129,11 +130,11 @@ export async function updateOfferStatus(
       success: true,
       data: serializePrismaData(offer),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating offer status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update offer status',
+      error: error instanceof Error ? error.message : 'Failed to update offer status',
     };
   }
 }
@@ -144,7 +145,7 @@ export async function updateOfferStatus(
 export async function getAllOffers(filters?: {
   status?: OfferStatus;
   kitId?: string;
-}): Promise<ActionResult> {
+}) {
   try {
     await requireAdmin();
 
@@ -154,11 +155,11 @@ export async function getAllOffers(filters?: {
       success: true,
       data: serializePrismaData(offers),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting offers:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get offers',
+      error: error instanceof Error ? error.message : 'Failed to get offers',
     };
   }
 }
@@ -166,35 +167,35 @@ export async function getAllOffers(filters?: {
 /**
  * Get accepted offers without payment (for Payments funnel page).
  */
-export async function getAcceptedOffersWithoutPayment(): Promise<ActionResult> {
+export async function getAcceptedOffersWithoutPayment() {
   try {
     await requireAdmin();
     const offers = await OfferService.getAcceptedWithoutPayment();
     return { success: true, data: serializePrismaData(offers) };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting unpaid offers:', error);
-    return { success: false, error: error.message || 'Failed to get unpaid offers' };
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get unpaid offers' };
   }
 }
 
 /**
  * Get declined offers without return record (for Returns funnel page).
  */
-export async function getDeclinedOffersWithoutReturn(): Promise<ActionResult> {
+export async function getDeclinedOffersWithoutReturn() {
   try {
     await requireAdmin();
     const offers = await OfferService.getDeclinedWithoutReturn();
     return { success: true, data: serializePrismaData(offers) };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting unreturned offers:', error);
-    return { success: false, error: error.message || 'Failed to get unreturned offers' };
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get unreturned offers' };
   }
 }
 
 /**
  * Get offer details (admin only)
  */
-export async function getOfferDetails(offerId: string): Promise<ActionResult> {
+export async function getOfferDetails(offerId: string) {
   try {
     await requireAdmin();
 
@@ -208,11 +209,11 @@ export async function getOfferDetails(offerId: string): Promise<ActionResult> {
       success: true,
       data: serializePrismaData(offer),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting offer details:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get offer details',
+      error: error instanceof Error ? error.message : 'Failed to get offer details',
     };
   }
 }

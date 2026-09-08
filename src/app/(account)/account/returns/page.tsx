@@ -1,11 +1,11 @@
+import { historyQuery } from '@/lib/account/history';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
-import { AccountContainer } from "@/components/account";
 import { getMyReturns } from "@/lib/actions/customer.actions";
 import ReturnsClient from "./ReturnsClient";
 
-export default async function CustomerReturnsPage() {
+export default async function CustomerReturnsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
 
   if (!session) {
@@ -16,22 +16,10 @@ export default async function CustomerReturnsPage() {
     return <AccessDenied userType={session.type} />;
   }
 
-  const result = await getMyReturns();
+  const { page } = historyQuery(await searchParams);
+  const result = await getMyReturns(page);
 
-  if (!result.success) {
-    return (
-      <AccountContainer
-        headerProps={{
-          title: "My Returns",
-          showBackButton: true,
-        }}
-      >
-        <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <p style={{ color: "red" }}>Error loading returns</p>
-        </div>
-      </AccountContainer>
-    );
-  }
+  if (!result.success) throw new Error("Unable to load history. Please try again.");
 
-  return <ReturnsClient returns={result.data || []} />;
+  return <ReturnsClient page={page} hasMore={result.hasMore ?? false} returns={result.data || []} />;
 }

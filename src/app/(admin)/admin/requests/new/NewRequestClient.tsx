@@ -105,7 +105,7 @@ export default function NewRequestClient({ customers }: { customers: Customer[] 
         },
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         router.push(`/admin/requests/${result.data.id}`);
       } else {
         setError(result.error || "Failed to create kit");

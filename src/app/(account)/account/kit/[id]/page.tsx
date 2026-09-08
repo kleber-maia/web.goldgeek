@@ -1,3 +1,5 @@
+import KitDestination from "@/components/account/KitDestination";
+import { canPrepareDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, Badge, Timeline, OfferBanner, KitTypeToggle } from "@/components/account";
@@ -6,19 +8,23 @@ import AccessDenied from "@/components/AccessDenied";
 import { getKitDetails } from "@/lib/actions/customer.actions";
 import { formatCurrency, formatWeight } from "@/lib/db/utils";
 import { formatDate } from "@/lib/account";
+import { itemBreakdownSchema } from "@/lib/validators/offer";
 import { SettingsService } from "@/lib/services/settings.service";
 
 type OfferLike = {
   id: string;
   status: string;
+  itemBreakdown: unknown;
+  payment?: { status: string } | null;
   totalValue: { toString(): string };
-  expiresAt?: Date | null;
-  createdAt: Date;
+  expiresAt?: string | null;
+  createdAt: string;
+  sentAt?: string | null;
 };
 
 type TimelineLike = {
   title: string;
-  createdAt: Date;
+  createdAt: string;
   description?: string | null;
 };
 
@@ -30,6 +36,7 @@ type ItemLike = {
   weight: { toString(): string } | null;
   purity: string | null;
   finalValue: { toString(): string } | null;
+  quantity?: number;
 };
 
 type ShippingLabelLike = {
@@ -38,17 +45,7 @@ type ShippingLabelLike = {
   carrier: string;
   trackingNumber: string;
   status: string;
-  createdAt: Date;
-};
-
-type ReturnLike = {
-  id: string;
-  returnNumber: string;
-  status: string;
-  trackingNumber: string | null;
-  createdAt: Date;
-  shippedAt: Date | null;
-  deliveredAt: Date | null;
+  createdAt: string;
 };
 
 function formatMetalInfo(metalType: string | null, purity: string | null): string {
@@ -112,11 +109,14 @@ function formatReturnStatus(status: string): { label: string; badgeClass: string
 }
 
 export default async function KitDetailPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }) {
   const { id } = await params;
+  const { returnTo } = await searchParams;
+  const backHref = returnTo && /^\/account\/kits(?:\?|$)/.test(returnTo) ? returnTo : "/account/kits";
   const session = await getSession();
 
   if (!session) {
@@ -130,28 +130,25 @@ export default async function KitDetailPage({
   const result = await getKitDetails(id);
 
   if (!result.success || !result.data) {
-    redirect("/account");
+    throw new Error("Unable to load this kit. Please try again.");
   }
 
-  const kit = result.data as any;
+  const kit = result.data;
   const company = await SettingsService.getCompanyInfo();
 
-  const offers = (kit.offers || []) as OfferLike[];
-  const sortedOffers = [...offers].sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const offers = ((kit.offers || []) as OfferLike[]).filter(offer => offer.status !== "DRAFT");
+  const sortedOffers = [...offers].sort(compareOffers);
   const activeOffer =
     sortedOffers.find((offer) => offer.status === "SENT") ||
     sortedOffers[0] ||
     null;
 
   const showOfferBanner =
-    kit.status === "OFFER_SENT" && activeOffer?.status === "SENT";
+    kit.status === "OFFER_SENT" && isActionableOffer(activeOffer);
   const hasLabels = (kit.shippingLabels || []).length > 0;
   const canChangeType = ["PENDING", "SHIPPED"].includes(kit.status) && !hasLabels;
   const showShippingLabel =
-    kit.type === "DIGITAL" && ["PENDING", "SHIPPED"].includes(kit.status);
+    canPrepareDigitalKit(kit);
   const showPhysicalKitMessage =
     kit.type === "PHYSICAL" && kit.status === "SHIPPED";
 
@@ -164,21 +161,17 @@ export default async function KitDetailPage({
 
   // Item/Offer breakdown data
   const items = (kit.items || []) as ItemLike[];
-  const evaluatedItems = items.filter(
-    (item) => item.finalValue && parseFloat(item.finalValue.toString()) > 0
-  );
+  const snapshot = itemBreakdownSchema.array().safeParse(activeOffer?.itemBreakdown);
+  const evaluatedItems: ItemLike[] = activeOffer && snapshot.success ? snapshot.data.map((entry) => ({ id: entry.itemId, description: entry.description, quantity: entry.quantity || 1, type: 'OTHER', metalType: null, weight: null, purity: null, finalValue: entry.value })) : items.map(item => ({ ...item, finalValue: null }));
   const showItemBreakdown = evaluatedItems.length > 0;
-  const itemsTotal = evaluatedItems.reduce(
-    (sum, item) => sum + parseFloat(item.finalValue!.toString()),
-    0
-  );
+  const itemsTotal = activeOffer ? Number(activeOffer.totalValue.toString()) : 0;
 
   // Shipping labels
   const shippingLabels = (kit.shippingLabels || []) as ShippingLabelLike[];
   const showShippingTracking = shippingLabels.length > 0;
 
   // Returns
-  const returns = (kit.returns || []) as ReturnLike[];
+  const returns = kit.returns || [];
   const showReturnTracking =
     returns.length > 0 &&
     ["DECLINED", "RETURNED"].includes(kit.status);
@@ -187,14 +180,17 @@ export default async function KitDetailPage({
     <AccountContainer
       headerProps={{
         showBackButton: true,
-        backHref: "/account",
+        backHref,
         title: `Kit ${kit.kitNumber}`,
       }}
     >
+      <Link href={backHref} className="hidden md:inline-block underline mb-4">Back to kits</Link>
+      {kit.status === 'DECLINED' && <KitDestination kitId={kit.id} address={kit.shippingAddress && typeof kit.shippingAddress === 'object' && !Array.isArray(kit.shippingAddress) ? ['street1', 'street2', 'city', 'state', 'zipCode', 'country'].map(key => kit.shippingAddress && typeof kit.shippingAddress === 'object' && !Array.isArray(kit.shippingAddress) ? kit.shippingAddress[key] : '').filter(Boolean).join(', ') : 'No destination saved'} />}
       {/* Status Badge */}
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <Badge
           status={kit.status.toLowerCase()}
+          label={kit.status === 'OFFER_SENT' && !showOfferBanner ? 'Awaiting updated offer' : activeOffer?.payment?.status === 'COMPLETED' ? 'Payment Completed' : undefined}
           style={{ fontSize: 14, padding: "8px 16px" }}
         />
       </div>
@@ -262,7 +258,7 @@ export default async function KitDetailPage({
               d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          Offer accepted! Payment processing...
+          {activeOffer?.payment?.status === "FAILED" ? "Payment needs attention. Our team will follow up; you do not need to accept again." : activeOffer?.payment?.status === "PROCESSING" ? "Your payment is being processed." : "Offer accepted. Your payment is queued."}
         </div>
       )}
 
@@ -283,7 +279,7 @@ export default async function KitDetailPage({
               d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          Payment complete:{" "}
+          {activeOffer.payment?.status === "COMPLETED" ? "Payment completed:" : "Payment sent:"}{" "}
           {formatCurrency(parseFloat(activeOffer.totalValue.toString()))}
         </div>
       )}
@@ -295,7 +291,7 @@ export default async function KitDetailPage({
             Choose your kit type
           </div>
         )}
-        <KitTypeToggle kitId={kit.id} currentType={kit.type} disabled={!canChangeType} />
+        {canChangeType && <KitTypeToggle kitId={kit.id} currentType={kit.type} />}
       </div>
 
       {/* Physical Kit Info — only after kit has been shipped */}
@@ -354,7 +350,7 @@ export default async function KitDetailPage({
           <div className="account-kit-summary-row">
             <span className="account-kit-summary-label">Total Items</span>
             <span className="account-kit-summary-value">
-              {kit.items?.length || 0} items
+              {items.reduce((total, item) => total + (item.quantity || 1), 0)} items
             </span>
           </div>
           <div className="account-kit-summary-row">
@@ -371,17 +367,7 @@ export default async function KitDetailPage({
               </span>
             </div>
           )}
-          {kit.trackingNumber && (
-            <div className="account-kit-summary-row">
-              <span className="account-kit-summary-label">Tracking</span>
-              <span
-                className="account-kit-summary-value"
-                style={{ fontFamily: "monospace" }}
-              >
-                {kit.trackingNumber}
-              </span>
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -472,7 +458,7 @@ export default async function KitDetailPage({
               const weight = item.weight
                 ? parseFloat(item.weight.toString())
                 : null;
-              const value = parseFloat(item.finalValue!.toString());
+              const value = item.finalValue == null ? 0 : Number(item.finalValue.toString());
 
               return (
                 <div
@@ -494,7 +480,7 @@ export default async function KitDetailPage({
                         marginBottom: 2,
                       }}
                     >
-                      {item.description}
+                      {item.description}{(item.quantity || 1) > 1 ? ` × ${item.quantity}` : ""}
                     </div>
                     {metalInfo && (
                       <div
@@ -526,7 +512,7 @@ export default async function KitDetailPage({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {formatCurrency(value)}
+                    {activeOffer ? formatCurrency(value) : "Awaiting appraisal"}
                   </div>
                 </div>
               );
@@ -549,7 +535,7 @@ export default async function KitDetailPage({
                 color: "var(--brand-text)",
               }}
             >
-              Total Appraised Value
+              {activeOffer ? "Total Appraised Value" : "Inventory recorded"}
             </span>
             <span
               style={{
@@ -558,7 +544,7 @@ export default async function KitDetailPage({
                 color: "var(--brand-primary)",
               }}
             >
-              {formatCurrency(itemsTotal)}
+              {activeOffer ? formatCurrency(itemsTotal) : `${evaluatedItems.reduce((sum, item) => sum + (item.quantity || 1), 0)} items`}
             </span>
           </div>
         </div>

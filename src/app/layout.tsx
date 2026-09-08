@@ -20,8 +20,6 @@ const alegreyaSans = Alegreya_Sans({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 const SITE_DESCRIPTION =

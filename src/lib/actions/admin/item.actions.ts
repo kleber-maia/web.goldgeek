@@ -5,7 +5,7 @@ import { ItemService } from '@/lib/services/item.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { itemSchema, updateItemSchema, type ItemInput, type UpdateItemInput } from '@/lib/validators/item';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -17,7 +17,7 @@ export interface ActionResult<T = any> {
 export async function addItemToKit(
   kitId: string,
   data: ItemInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -28,11 +28,11 @@ export async function addItemToKit(
       success: true,
       data: serializePrismaData(item),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error adding item:', error);
     return {
       success: false,
-      error: error.message || 'Failed to add item',
+      error: error instanceof Error ? error.message : 'Failed to add item',
     };
   }
 }
@@ -43,7 +43,7 @@ export async function addItemToKit(
 export async function updateItem(
   itemId: string,
   data: UpdateItemInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -54,11 +54,11 @@ export async function updateItem(
       success: true,
       data: serializePrismaData(item),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating item:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update item',
+      error: error instanceof Error ? error.message : 'Failed to update item',
     };
   }
 }
@@ -66,7 +66,7 @@ export async function updateItem(
 /**
  * Delete item (admin only)
  */
-export async function deleteItem(itemId: string): Promise<ActionResult> {
+export async function deleteItem(itemId: string) {
   try {
     const session = await requireAdmin();
 
@@ -75,11 +75,11 @@ export async function deleteItem(itemId: string): Promise<ActionResult> {
     return {
       success: true,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting item:', error);
     return {
       success: false,
-      error: error.message || 'Failed to delete item',
+      error: error instanceof Error ? error.message : 'Failed to delete item',
     };
   }
 }
@@ -87,7 +87,7 @@ export async function deleteItem(itemId: string): Promise<ActionResult> {
 /**
  * Get items for kit (admin only)
  */
-export async function getKitItems(kitId: string): Promise<ActionResult> {
+export async function getKitItems(kitId: string) {
   try {
     await requireAdmin();
 
@@ -97,11 +97,11 @@ export async function getKitItems(kitId: string): Promise<ActionResult> {
       success: true,
       data: serializePrismaData(items),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting items:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get items',
+      error: error instanceof Error ? error.message : 'Failed to get items',
     };
   }
 }

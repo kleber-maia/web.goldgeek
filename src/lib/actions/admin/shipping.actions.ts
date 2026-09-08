@@ -10,7 +10,7 @@ import { serializePrismaData } from '@/lib/db/utils';
 import type { ShippingCarrier, ShippingLabelType, ShippingLabelStatus, ReturnStatus } from '@prisma/client';
 import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -26,52 +26,37 @@ export interface CreateLabelInput {
   cost?: number;
 }
 
+export async function resetCarrierRequest(kitId: string, type: ShippingLabelType, confirmedNoShipment: boolean) {
+  try {
+    const session = await requireAdmin();
+    if (confirmedNoShipment !== true) return { success: false, error: 'Check FedEx and confirm that no shipment exists first.' };
+    await ShippingService.resetGeneration(kitId, type, session.id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unable to reset carrier request' };
+  }
+}
+
 /**
  * Create shipping label (admin only)
  */
 export async function createShippingLabel(
   data: CreateLabelInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
     const label = await ShippingService.createLabel(data, session.id);
 
-    // If this is a return label, create/update return record
-    if (data.type === 'RETURN') {
-      const existingReturn = await ReturnService.getAll({ kitId: data.kitId });
-
-      if (existingReturn.length === 0) {
-        await ReturnService.create(
-          {
-            kitId: data.kitId,
-            notes: 'Return label created',
-          },
-          session.id
-        );
-      }
-
-      // Update return status
-      const returns = await ReturnService.getAll({ kitId: data.kitId });
-      if (returns.length > 0) {
-        await ReturnService.updateStatus(
-          returns[0].id,
-          'LABEL_CREATED',
-          session.id
-        );
-        await ReturnService.updateTracking(returns[0].id, data.trackingNumber);
-      }
-    }
-
     return {
       success: true,
       data: serializePrismaData(label),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating shipping label:', error);
     return {
       success: false,
-      error: error.message || 'Failed to create shipping label',
+      error: error instanceof Error ? error.message : 'Failed to create shipping label',
     };
   }
 }
@@ -82,7 +67,7 @@ export async function createShippingLabel(
 export async function updateLabelStatus(
   labelId: string,
   status: ShippingLabelStatus
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
     const baseUrl = resolveBaseUrl(
@@ -101,11 +86,11 @@ export async function updateLabelStatus(
       success: true,
       data: serializePrismaData(label),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating label status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update label status',
+      error: error instanceof Error ? error.message : 'Failed to update label status',
     };
   }
 }
@@ -113,7 +98,7 @@ export async function updateLabelStatus(
 /**
  * Void shipping label (admin only)
  */
-export async function voidShippingLabel(labelId: string): Promise<ActionResult> {
+export async function voidShippingLabel(labelId: string) {
   try {
     const session = await requireAdmin();
 
@@ -123,11 +108,11 @@ export async function voidShippingLabel(labelId: string): Promise<ActionResult> 
       success: true,
       data: serializePrismaData(label),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error voiding shipping label:', error);
     return {
       success: false,
-      error: error.message || 'Failed to void shipping label',
+      error: error instanceof Error ? error.message : 'Failed to void shipping label',
     };
   }
 }
@@ -140,7 +125,7 @@ export async function getAllShippingLabels(filters?: {
   carrier?: ShippingCarrier;
   status?: ShippingLabelStatus;
   kitId?: string;
-}): Promise<ActionResult> {
+}) {
   try {
     await requireAdmin();
 
@@ -150,11 +135,11 @@ export async function getAllShippingLabels(filters?: {
       success: true,
       data: serializePrismaData(labels),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting shipping labels:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get shipping labels',
+      error: error instanceof Error ? error.message : 'Failed to get shipping labels',
     };
   }
 }
@@ -162,7 +147,7 @@ export async function getAllShippingLabels(filters?: {
 /**
  * Get all returns (admin only)
  */
-export async function getAllReturns(): Promise<ActionResult> {
+export async function getAllReturns() {
   try {
     await requireAdmin();
 
@@ -172,11 +157,11 @@ export async function getAllReturns(): Promise<ActionResult> {
       success: true,
       data: serializePrismaData(returns),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting returns:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get returns',
+      error: error instanceof Error ? error.message : 'Failed to get returns',
     };
   }
 }
@@ -184,7 +169,7 @@ export async function getAllReturns(): Promise<ActionResult> {
 /**
  * Get return by ID (admin only)
  */
-export async function getReturnById(returnId: string): Promise<ActionResult> {
+export async function getReturnById(returnId: string) {
   try {
     await requireAdmin();
 
@@ -198,11 +183,11 @@ export async function getReturnById(returnId: string): Promise<ActionResult> {
       success: true,
       data: serializePrismaData(returnRecord),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting return details:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get return details',
+      error: error instanceof Error ? error.message : 'Failed to get return details',
     };
   }
 }
@@ -213,7 +198,7 @@ export async function getReturnById(returnId: string): Promise<ActionResult> {
 export async function updateReturnStatus(
   returnId: string,
   status: ReturnStatus
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -227,11 +212,11 @@ export async function updateReturnStatus(
       success: true,
       data: serializePrismaData(returnRecord),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating return status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update return status',
+      error: error instanceof Error ? error.message : 'Failed to update return status',
     };
   }
 }
@@ -246,7 +231,7 @@ export async function updateReturnStatus(
  */
 export async function generatePhysicalKitFedExLabels(
   kitId: string
-): Promise<ActionResult<{ kitDelivery: any; inbound: any }>> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -274,9 +259,9 @@ export async function generatePhysicalKitFedExLabels(
         inbound: serializePrismaData(inboundLabel),
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating physical kit FedEx labels:', error);
-    return { success: false, error: error.message || 'Failed to generate labels' };
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to generate labels' };
   }
 }
 
@@ -285,7 +270,7 @@ export async function generatePhysicalKitFedExLabels(
  */
 export async function generateReturnFedExLabel(
   kitId: string
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -318,9 +303,9 @@ export async function generateReturnFedExLabel(
     }
 
     return { success: true, data: serializePrismaData(label) };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating return FedEx label:', error);
-    return { success: false, error: error.message || 'Failed to generate return label' };
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to generate return label' };
   }
 }
 
@@ -333,14 +318,14 @@ export async function validateAddressWithFedEx(address: {
   city: string;
   state: string;
   zipCode: string;
-}): Promise<ActionResult> {
+}) {
   try {
     await requireAdmin();
     const result = await FedExClient.validateAddress(address);
     return { success: true, data: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error validating address:', error);
-    return { success: false, error: error.message || 'Address validation failed' };
+    return { success: false, error: error instanceof Error ? error.message : 'Address validation failed' };
   }
 }
 

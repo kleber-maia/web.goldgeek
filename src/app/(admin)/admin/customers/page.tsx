@@ -22,7 +22,7 @@ export default async function CustomersPage() {
     firstName: string;
     lastName: string;
     phone: string | null;
-    createdAt: Date;
+    createdAt: string;
     addresses: unknown[];
     kits: unknown[];
     payments: Array<{ amount?: { toString(): string } }>;

@@ -6,7 +6,7 @@ export default async function NewRequestPage() {
   await requireAdmin();
 
   const result = await getAllCustomers();
-  const customers = result.success ? (result.data as any[]) : [];
+  const customers = result.success ? (result.data ?? []) : [];
 
   return <NewRequestClient customers={customers} />;
 }

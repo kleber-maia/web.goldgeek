@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, FormEvent } from "react";
+import React, { useState, useRef, FormEvent } from "react";
 import { createAppraisalRequest } from "@/lib/actions/kit.actions";
 import { useRouter } from "next/navigation";
 import { setPendingEmail, setPendingMagicLink } from "@/lib/account";
@@ -41,6 +41,7 @@ const TOTAL_STEPS = 4;
 
 export default function RequestAppraisalPage() {
   const router = useRouter();
+  const requestId = useRef<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     items: [],
@@ -108,7 +109,9 @@ export default function RequestAppraisalPage() {
     const customerEmail = formData.email;
 
     try {
+      requestId.current ||= crypto.randomUUID();
       const result = await createAppraisalRequest({
+        requestId: requestId.current,
         kitType: "DIGITAL",
         estimatedValue: undefined,
         notes: `Items: ${formData.items.join(", ")}\n\nDescription: ${formData.description}`,
@@ -141,7 +144,7 @@ export default function RequestAppraisalPage() {
           setPendingMagicLink(result.data.magicLinkUrl);
         }
         router.push(
-          `/account/check-email?email=${encodeURIComponent(customerEmail)}&source=appraisal`
+          `/account/check-email?email=${encodeURIComponent(customerEmail)}&source=appraisal&delivery=${result.data?.emailSent ? 'sent' : 'failed'}`
         );
       } else {
         setSubmitMessage({
@@ -513,7 +516,7 @@ export default function RequestAppraisalPage() {
                           </button>
                         )}
                         {currentStep < 4 ? (
-                          <button
+                          <button key="next-step"
                             type="button"
                             className="elementor-button elementor-size-sm e-form__buttons__wrapper__button-next"
                             onClick={nextStep}
@@ -525,7 +528,7 @@ export default function RequestAppraisalPage() {
                             </span>
                           </button>
                         ) : (
-                          <button
+                          <button key="submit-request"
                             className="elementor-button elementor-size-sm"
                             type="submit"
                             disabled={isSubmitting}

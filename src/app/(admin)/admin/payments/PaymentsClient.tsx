@@ -1,4 +1,5 @@
 "use client";
+import type { PaymentStatus } from "@prisma/client";
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
@@ -14,7 +15,7 @@ import { updatePaymentStatus } from "@/lib/actions/admin/payment.actions";
 interface Payment {
   id: string;
   paymentNumber: string;
-  amount: any;
+  amount: { toString(): string };
   method: string;
   status: string;
   createdAt: Date | string;
@@ -36,7 +37,7 @@ interface Payment {
 interface UnpaidOffer {
   id: string;
   offerNumber: string;
-  totalValue: any;
+  totalValue: { toString(): string };
   respondedAt: Date | string | null;
   kit: {
     id: string;
@@ -141,7 +142,7 @@ export default function PaymentsClient({
     setUpdatingId(paymentId);
     setErrorMsg("");
     try {
-      const result = await updatePaymentStatus(paymentId, newStatus as any);
+      const result = await updatePaymentStatus(paymentId, newStatus as PaymentStatus);
       if (result.success) {
         setSuccessMsg(`Payment ${statusLabel.toLowerCase()}ed successfully`);
         router.refresh();

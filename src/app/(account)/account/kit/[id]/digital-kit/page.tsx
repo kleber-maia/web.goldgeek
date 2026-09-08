@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
+import { appendCarrierLabel } from "@/lib/account/digital-kit-pdf";
 import { useParams } from "next/navigation";
 import { AccountContainer } from "@/components/account";
 import { getDigitalKitData } from "@/lib/actions/customer.actions";
@@ -13,9 +15,15 @@ export default function DigitalKitPage() {
   const [data, setData] = useState<DigitalKitData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [labelImgSrc, setLabelImgSrc] = useState<string | null>(null);
+  const [labelImages, setLabelImages] = useState<string[]>([]);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [packetUrl, setPacketUrl] = useState<string | null>(null);
   const [labelRenderFailed, setLabelRenderFailed] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => () => {
+    if (packetUrl) URL.revokeObjectURL(packetUrl);
+  }, [packetUrl]);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,8 +63,7 @@ export default function DigitalKitPage() {
 
     const renderPdf = async () => {
       try {
-        // @ts-expect-error -- pdfjs-dist/build/pdf.mjs has no type declarations
-        const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+        const pdfjsLib = await import("pdfjs-dist");
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
         const binary = atob(data.labelData!);
@@ -64,23 +71,25 @@ export default function DigitalKitPage() {
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
         const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-        const page = await pdf.getPage(1);
-        const scale = 2;
-        const viewport = page.getViewport({ scale });
+        const images: string[] = [];
+        try {
+          for (let number = 1; number <= pdf.numPages; number++) {
+            if (cancelled) return;
+            const page = await pdf.getPage(number);
+            const viewport = page.getViewport({ scale: 3 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Unable to render carrier label');
+            await page.render({ canvasContext: context, viewport, canvas }).promise;
+            images.push(canvas.toDataURL('image/png'));
+            page.cleanup();
+          }
+          clearTimeout(timeout);
+          if (!cancelled) setLabelImages(images);
+        } finally { await pdf.destroy(); }
 
-        const canvas = canvasRef.current;
-        if (!canvas || cancelled) return;
-
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
-        clearTimeout(timeout);
-        if (!cancelled) {
-          setLabelImgSrc(canvas.toDataURL("image/png"));
-        }
       } catch (err) {
         console.error("PDF rendering failed:", err);
         clearTimeout(timeout);
@@ -105,18 +114,32 @@ export default function DigitalKitPage() {
     const element = wrapperRef.current;
     if (!element) return;
 
-    const html2pdf = (await import("html2pdf.js")).default;
-    await html2pdf()
-      .set({
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: 816 },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], before: ".dk-page-break" },
-      })
-      .from(element)
-      .save();
+    if (!data?.labelData || isDownloading) return;
+    setIsDownloading(true);
+    setDownloadError(null);
+    const clone = element.cloneNode(true) as HTMLDivElement;
+    clone.querySelectorAll('.dk-label-page').forEach(page => page.remove());
+    clone.classList.add('dk-export');
+    clone.style.width = '7.5in';
+    clone.style.minWidth = '7.5in';
+    try {
+      await document.fonts.ready;
+      const html2pdf = (await import("html2pdf.js")).default;
+      const instructions = await html2pdf().set({ margin: [0.5, 0.5, 0.5, 0.5], image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, windowWidth: 816 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'], before: '.dk-page-break' } }).from(clone).outputPdf('arraybuffer');
+      const packet = await appendCarrierLabel(instructions, data.labelData);
+      const url = URL.createObjectURL(new Blob([new Uint8Array(packet)], { type: 'application/pdf' }));
+      setPacketUrl(url);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Appraisal Kit - ${data.kitNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      setDownloadError('Unable to create the packet. Retry, or download the original shipping label below.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isLoading) {
@@ -127,7 +150,7 @@ export default function DigitalKitPage() {
         <div style={{ textAlign: "center", padding: "60px 0" }}>
           <div style={{
             width: 32, height: 32,
-            border: "3px solid #e5e7eb", borderTopColor: "var(--brand-primary, #AD7B2A)",
+            border: "3px solid var(--account-border)", borderTopColor: "var(--brand-primary)",
             borderRadius: "50%", animation: "spin 0.8s linear infinite",
             margin: "0 auto 12px",
           }} />
@@ -153,6 +176,8 @@ export default function DigitalKitPage() {
           <p style={{ color: "var(--status-gray)", fontSize: 14 }}>
             {error || "No data available"}
           </p>
+          <button type="button" className="account-btn account-btn-primary" onClick={() => window.location.reload()}>Retry</button>
+          <Link className="account-btn account-btn-secondary" href={`/account/kit/${kitId}`}>Back to kit</Link>
         </div>
       </AccountContainer>
     );
@@ -168,12 +193,14 @@ export default function DigitalKitPage() {
     <AccountContainer
       headerProps={{ showBackButton: true, backHref: `/account/kit/${kitId}`, title: "Digital Kit" }}
     >
+      {downloadError && <p role="alert" className="account-alert account-alert-error">{downloadError}</p>}
+      {packetUrl && <a className="digital-kit-original-label account-btn account-btn-secondary" href={packetUrl} download={`Appraisal Kit - ${data.kitNumber}.pdf`}>Save prepared Digital Kit PDF</a>}
       {/* Hidden canvas for PDF rendering */}
-      <canvas ref={canvasRef} style={{ display: "none" }} />
 
+      {data.labelData && <a className="digital-kit-original-label account-btn account-btn-secondary" href={`data:application/pdf;base64,${data.labelData}`} download={`Carrier Label - ${data.kitNumber}.pdf`}>Download original shipping label</a>}
       {/* Action buttons — responsive, outside fixed-width document */}
       <div className="digital-kit-actions">
-        <button onClick={handlePrint} className="account-btn account-btn-primary">
+        <button onClick={handlePrint} disabled={labelImages.length === 0 || isDownloading} className="account-btn account-btn-primary">
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
           </svg>
@@ -181,12 +208,13 @@ export default function DigitalKitPage() {
         </button>
         <button
           onClick={handleDownloadPdf}
+          disabled={!data.labelData || isDownloading}
           className="account-btn account-btn-secondary"
         >
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
-          Download Digital Kit
+          {isDownloading ? "Preparing download..." : "Download Digital Kit"}
         </button>
       </div>
 
@@ -219,16 +247,15 @@ export default function DigitalKitPage() {
 
             <ul>
               <li>
-                <strong>Prepaid FedEx shipping label included</strong> — print the last page
-                of this kit and attach it to your package.
+                <strong>Prepaid FedEx shipping label included</strong> — print the included carrier label pages
+                and follow the carrier instructions when attaching the label to your package.
               </li>
               <li>
-                <strong>FedEx drop-off locations nearby</strong> — see the table below for
-                convenient locations near you.
+                <strong>FedEx drop-off locations</strong> — use the <a href="https://local.fedex.com/en/staffed-drop-off" target="_blank" rel="noopener noreferrer">FedEx location finder</a> to choose a staffed drop-off location near you.
               </li>
               <li>
                 <strong>Insurance coverage</strong> — your shipment is automatically insured
-                for up to $5,000.
+                for up to $1,000.
               </li>
               <li>
                 <strong>Satisfaction guarantee</strong> — if you&apos;re not happy with our offer,
@@ -354,26 +381,8 @@ export default function DigitalKitPage() {
             </div>
 
             <div className="dk-payment">
-              <h4>Payment Preference</h4>
-              <div className="dk-payment-options">
-                <label><input type="checkbox" readOnly /> Check</label>
-                <label className="dk-payment-inline"><input type="checkbox" readOnly /> PayPal / Zelle: <span className="dk-inline-line" /></label>
-                <label><input type="checkbox" readOnly /> Direct Deposit (ACH)</label>
-              </div>
-              <div className="dk-bank-info">
-                <div className="dk-signature-line">
-                  <div className="dk-line" />
-                  <span>Bank Name</span>
-                </div>
-                <div className="dk-signature-line">
-                  <div className="dk-line" />
-                  <span>Routing Number</span>
-                </div>
-                <div className="dk-signature-line">
-                  <div className="dk-line" />
-                  <span>Account Number</span>
-                </div>
-              </div>
+              <h4>Payment preference</h4>
+              <p>Choose and confirm your payment destination securely in your dashboard when you accept your offer. Do not write bank account details on this card.</p>
             </div>
           </div>
 
@@ -420,10 +429,9 @@ export default function DigitalKitPage() {
         </div>
 
         {/* ============ PAGE 4: FedEx Shipping Label ============ */}
-        <div className="digital-kit-page dk-label-page dk-page-break">
-          {labelImgSrc ? (
-            <img src={labelImgSrc} alt="FedEx Shipping Label" />
-          ) : data.labelData && !labelRenderFailed ? (
+        {labelImages.map((source, index) => <div key={index} className="digital-kit-page dk-label-page dk-page-break"><img src={source} alt={`FedEx Shipping Label page ${index + 1}`} /></div>)}
+        {labelImages.length === 0 && <div className="digital-kit-page dk-label-page dk-page-break">
+          {data.labelData && !labelRenderFailed ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "var(--status-gray)" }}>
               Rendering shipping label...
             </div>
@@ -440,56 +448,9 @@ export default function DigitalKitPage() {
               </p>
             </>
           ) : (
-            /* Fallback text-based label */
-            <div className="dk-label-fallback">
-              <div className="dk-label-fallback-header">
-                <svg width="80" height="24" viewBox="0 0 80 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <text x="0" y="18" fill="#4D148C" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="16">FedEx</text>
-                </svg>
-                <span style={{ fontSize: 12, color: "var(--status-gray)", textTransform: "uppercase", letterSpacing: 1 }}>
-                  Pre-Paid Shipping Label
-                </span>
-              </div>
-
-              <div className="dk-label-fallback-addresses">
-                <div className="dk-label-address-box">
-                  <div className="dk-label-address-label">From:</div>
-                  <div className="dk-label-address-text">
-                    {data.customer.firstName} {data.customer.lastName}<br />
-                    {data.customer.address.street1}
-                    {data.customer.address.street2 && (<><br />{data.customer.address.street2}</>)}
-                    <br />
-                    {data.customer.address.city}, {data.customer.address.state} {data.customer.address.zip}
-                  </div>
-                </div>
-
-                <div className="dk-label-address-box">
-                  <div className="dk-label-address-label">To:</div>
-                  <div className="dk-label-address-text">
-                    <strong>{data.company.name}</strong><br />
-                    {data.company.street1}
-                    {data.company.street2 && (<><br />{data.company.street2}</>)}
-                    <br />
-                    {data.company.city}, {data.company.state} {data.company.zip}
-                  </div>
-                </div>
-              </div>
-
-              <div className="dk-label-barcode">
-                <div style={{
-                  height: 60,
-                  background: "repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 5px, #fff 5px, #fff 8px)",
-                  marginBottom: 8,
-                }} />
-                <div className="dk-label-tracking">{data.trackingNumber}</div>
-              </div>
-
-              <div style={{ textAlign: "center", fontSize: 12, color: "var(--status-gray)", marginTop: 16 }}>
-                Reference: Kit #{data.kitNumber}
-              </div>
-            </div>
+            <p role="alert">Your carrier label is unavailable. Retry or contact support before shipping.</p>
           )}
-        </div>
+        </div>}
       </div>
       </div>
     </AccountContainer>

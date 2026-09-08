@@ -1,5 +1,6 @@
 "use client";
 
+import HistoryPagination, { type HistoryPaginationProps } from "@/components/account/HistoryPagination";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
 import { formatCurrency } from "@/lib/db/utils";
@@ -12,15 +13,15 @@ interface Payment {
   method: string;
   status: string;
   createdAt: string;
-  completedAt?: string;
-  trackingNumber?: string;
-  checkNumber?: string;
+  completedAt?: string | null;
+  trackingNumber?: string | null;
+  checkNumber?: string | null;
   offer: {
     kit: { id: string; kitNumber: string };
   };
 }
 
-interface PaymentsClientProps {
+interface PaymentsClientProps extends HistoryPaginationProps {
   payments: Payment[];
 }
 
@@ -45,7 +46,7 @@ function getPaymentAmount(amount: number | { toString(): string }): number {
   return parseFloat(amount.toString());
 }
 
-export default function PaymentsClient({ payments }: PaymentsClientProps) {
+export default function PaymentsClient({ payments, page, hasMore }: PaymentsClientProps) {
   return (
     <AccountContainer
       headerProps={{
@@ -205,6 +206,7 @@ export default function PaymentsClient({ payments }: PaymentsClientProps) {
           })}
         </>
       )}
+      <HistoryPagination page={page} hasMore={hasMore} />
     </AccountContainer>
   );
 }

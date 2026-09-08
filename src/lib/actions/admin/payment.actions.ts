@@ -7,7 +7,7 @@ import { serializePrismaData } from '@/lib/db/utils';
 import type { PaymentMethod, PaymentStatus } from '@prisma/client';
 import { buildBaseUrlFromHeaders, resolveBaseUrl } from '@/lib/url';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -18,8 +18,17 @@ export interface ProcessPaymentInput {
   customerId: string;
   amount: number;
   method: PaymentMethod;
-  accountInfo?: any;
+  accountInfo?: Record<string, string>;
   notes?: string;
+}
+
+export async function getPaymentDestination(paymentId: string): Promise<ActionResult<Record<string, string>>> {
+  try {
+    const session = await requireAdmin();
+    return { success: true, data: await PaymentService.getDestination(paymentId, session.id) };
+  } catch {
+    return { success: false, error: 'Unable to load payout details. Check secure payment storage before sending payment.' };
+  }
 }
 
 /**
@@ -27,7 +36,7 @@ export interface ProcessPaymentInput {
  */
 export async function processPayment(
   data: ProcessPaymentInput
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
 
@@ -37,11 +46,11 @@ export async function processPayment(
       success: true,
       data: serializePrismaData(payment),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error processing payment:', error);
     return {
       success: false,
-      error: error.message || 'Failed to process payment',
+      error: error instanceof Error ? error.message : 'Failed to process payment',
     };
   }
 }
@@ -52,7 +61,7 @@ export async function processPayment(
 export async function updatePaymentStatus(
   paymentId: string,
   status: PaymentStatus
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
     const baseUrl = resolveBaseUrl(
@@ -71,11 +80,11 @@ export async function updatePaymentStatus(
       success: true,
       data: serializePrismaData(payment),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating payment status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update payment status',
+      error: error instanceof Error ? error.message : 'Failed to update payment status',
     };
   }
 }
@@ -87,7 +96,7 @@ export async function updatePaymentTracking(
   paymentId: string,
   trackingNumber: string,
   checkNumber?: string
-): Promise<ActionResult> {
+) {
   try {
     await requireAdmin();
 
@@ -101,11 +110,11 @@ export async function updatePaymentTracking(
       success: true,
       data: serializePrismaData(payment),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating payment tracking:', error);
     return {
       success: false,
-      error: error.message || 'Failed to update payment tracking',
+      error: error instanceof Error ? error.message : 'Failed to update payment tracking',
     };
   }
 }
@@ -117,7 +126,7 @@ export async function getAllPayments(filters?: {
   status?: PaymentStatus;
   customerId?: string;
   method?: PaymentMethod;
-}): Promise<ActionResult> {
+}) {
   try {
     await requireAdmin();
 
@@ -127,11 +136,11 @@ export async function getAllPayments(filters?: {
       success: true,
       data: serializePrismaData(payments),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting payments:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get payments',
+      error: error instanceof Error ? error.message : 'Failed to get payments',
     };
   }
 }
@@ -142,7 +151,7 @@ export async function getAllPayments(filters?: {
 export async function bulkUpdatePaymentStatus(
   paymentIds: string[],
   status: PaymentStatus
-): Promise<ActionResult> {
+) {
   try {
     const session = await requireAdmin();
     const baseUrl = resolveBaseUrl(
@@ -163,11 +172,11 @@ export async function bulkUpdatePaymentStatus(
       success: true,
       data: { succeeded, failed, total: paymentIds.length },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error bulk updating payment status:', error);
     return {
       success: false,
-      error: error.message || 'Failed to bulk update payments',
+      error: error instanceof Error ? error.message : 'Failed to bulk update payments',
     };
   }
 }
@@ -177,7 +186,7 @@ export async function bulkUpdatePaymentStatus(
  */
 export async function getPaymentDetails(
   paymentId: string
-): Promise<ActionResult> {
+) {
   try {
     await requireAdmin();
 
@@ -191,11 +200,11 @@ export async function getPaymentDetails(
       success: true,
       data: serializePrismaData(payment),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting payment details:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get payment details',
+      error: error instanceof Error ? error.message : 'Failed to get payment details',
     };
   }
 }

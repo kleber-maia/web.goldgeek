@@ -7,5 +7,5 @@ export default async function ShippingLabelsPage() {
 
   const result = await getAllShippingLabels();
 
-  return <ShippingClient labels={result.success ? result.data : []} />;
+  return <ShippingClient labels={result.success ? (result.data ?? []) : []} />;
 }

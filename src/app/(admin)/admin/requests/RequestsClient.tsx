@@ -16,7 +16,7 @@ interface Kit {
   type: string;
   status: string;
   createdAt: Date | string;
-  estimatedValue: any;
+  estimatedValue: { toString(): string } | null;
   customer: {
     firstName: string;
     lastName: string;
@@ -145,9 +145,9 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                   { key: "customer.lastName", label: "Last Name" },
                   { key: "customer.email", label: "Email" },
                   { key: "type", label: "Kit Type" },
-                  { key: "status", label: "Status", format: (v: string) => formatStatus(v) },
-                  { key: "createdAt", label: "Date", format: (v: any) => formatDate(v) },
-                  { key: "estimatedValue", label: "Value", format: (v: any) => v ? `$${parseFloat(v).toFixed(2)}` : "" },
+                  { key: "status", label: "Status", format: (v) => formatStatus(String(v)) },
+                  { key: "createdAt", label: "Date", format: (v) => formatDate(String(v)) },
+                  { key: "estimatedValue", label: "Value", format: (v) => v ? `$${parseFloat(String(v)).toFixed(2)}` : "" },
                 ]);
                 downloadCSV(csv, `kit-requests-${new Date().toISOString().slice(0, 10)}.csv`);
               }}

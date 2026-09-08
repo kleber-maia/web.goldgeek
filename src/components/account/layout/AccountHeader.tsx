@@ -19,7 +19,7 @@ export default function AccountHeader({
   return (
     <header className="account-header">
       {showBackButton ? (
-        <Link href={backHref} className="account-back-btn">
+        <Link href={backHref} aria-label="Back" className="account-back-btn">
           <svg
             width="24"
             height="24"
@@ -48,7 +48,7 @@ export default function AccountHeader({
         </Link>
       )}
 
-      {title && <span className="account-header-title">{title}</span>}
+      {title && <h1 className="account-header-title m-0">{title}</h1>}
 
       {rightAction ? (
         rightAction

@@ -1,8 +1,7 @@
 'use server';
 
-import { prisma } from '@/lib/db';
-import { KitService } from '@/lib/services/kit.service';
-import { CustomerService } from '@/lib/services/customer.service';
+import { AppraisalRequestService } from '@/lib/services/appraisal-request.service';
+import { AuthRateLimitService } from '@/lib/services/auth-rate-limit.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { headers } from 'next/headers';
 import { z } from 'zod';
@@ -11,10 +10,10 @@ import {
   appraisalRequestSchema,
   type AppraisalRequestInput,
 } from '@/lib/validators/appraisal-request';
-import { createMagicLink } from '@/lib/auth';
-import { sendMagicLinkEmail, sendKitCreatedEmail } from '@/lib/email';
+import { createMagicLink, getSession } from '@/lib/auth';
+import { sendMagicLinkEmail } from '@/lib/email';
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -26,73 +25,15 @@ export interface ActionResult<T = any> {
  */
 export async function createAppraisalRequest(
   data: AppraisalRequestInput
-): Promise<ActionResult> {
+) {
   try {
     // Validate input
     const validated = appraisalRequestSchema.parse(data);
     const normalizedEmail = validated.customer.email.toLowerCase().trim();
 
-    // Find or create customer
-    let customer = await prisma.customer.findUnique({
-      where: { email: normalizedEmail },
-      include: { addresses: true },
-    });
-
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: {
-          email: normalizedEmail,
-          firstName: validated.customer.firstName,
-          lastName: validated.customer.lastName,
-          phone: validated.customer.phone,
-          companyName: validated.customer.companyName,
-        },
-        include: { addresses: true },
-      });
-    } else {
-      // Update customer profile if needed
-      customer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: {
-          firstName: validated.customer.firstName || customer.firstName,
-          lastName: validated.customer.lastName || customer.lastName,
-          phone: validated.customer.phone || customer.phone,
-          companyName: validated.customer.companyName || customer.companyName,
-        },
-        include: { addresses: true },
-      });
-    }
-
-    // Add shipping address if not exists
-    const existingAddresses = customer.addresses.filter(
-      (addr) => addr.type === 'shipping'
-    );
-
-    let shippingAddress;
-    if (existingAddresses.length === 0) {
-      shippingAddress = await CustomerService.addAddress(customer.id, {
-        ...validated.shippingAddress,
-        isDefault: true,
-      });
-    } else {
-      shippingAddress = existingAddresses[0];
-    }
-
-    // Create kit
-    const kit = await KitService.create({
-      customerId: customer.id,
-      type: validated.kitType,
-      estimatedValue: validated.estimatedValue,
-      notes: validated.notes,
-      shippingAddress: {
-        street1: validated.shippingAddress.street1,
-        street2: validated.shippingAddress.street2,
-        city: validated.shippingAddress.city,
-        state: validated.shippingAddress.state,
-        zipCode: validated.shippingAddress.zipCode,
-        country: validated.shippingAddress.country || 'US',
-      },
-    });
+    const session = await getSession();
+    if (!await AuthRateLimitService.allow(`intake:${normalizedEmail}`, 5)) return { success: false, error: 'Too many requests. Please try again in 15 minutes.' };
+    const { kit } = await AppraisalRequestService.create(validated, session?.type === 'customer' ? session.id : undefined);
 
     const headerList = await headers();
     const baseUrl =
@@ -109,17 +50,6 @@ export async function createAppraisalRequest(
       appRoutes.authVerify(result.token, nextPath)
     );
 
-    // Send kit created confirmation email
-    sendKitCreatedEmail(
-      normalizedEmail,
-      kit.kitNumber,
-      validated.kitType,
-      {
-        baseUrl,
-        actionUrl: magicLinkUrl,
-      }
-    ).catch(err => console.error('Failed to send kit created email:', err));
-
     // Send magic link email to customer
     const emailSent = await sendMagicLinkEmail(normalizedEmail, magicLinkUrl, baseUrl);
     if (!emailSent) {
@@ -130,6 +60,7 @@ export async function createAppraisalRequest(
       success: true,
       data: {
         kit: serializePrismaData(kit),
+        emailSent,
         magicLinkUrl: process.env.NODE_ENV === 'development' ? magicLinkUrl : undefined,
       },
     };
@@ -139,7 +70,8 @@ export async function createAppraisalRequest(
       const message = firstIssue?.message || 'Please check your form inputs and try again.';
       return { success: false, error: message };
     }
-    const message = error instanceof Error ? error.message : 'Failed to create appraisal request';
+    const message = error instanceof Error && error.message === 'Please sign in to request another kit for this email address.'
+      ? error.message : 'Unable to submit your request. Please retry or contact support.';
     console.error('Error creating appraisal request:', error);
     return {
       success: false,

@@ -32,7 +32,7 @@ function AdminLoginPageInner() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, type: "admin", next: searchParams.get("redirect") || undefined }),
       });
 
       const data = await response.json();
@@ -40,7 +40,6 @@ function AdminLoginPageInner() {
       if (data.success) {
         setSuccess(true);
         if (data.magicLinkUrl) {
-          console.log("Admin Magic Link (dev only):", data.magicLinkUrl);
           setDevMagicLink(data.magicLinkUrl);
         }
       } else {

@@ -1,17 +1,19 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { getPendingEmail, getPendingMagicLink } from "@/lib/account";
 
+const subscribe = () => () => {};
+
 function CheckEmailPageInner() {
   const searchParams = useSearchParams();
-  const [email] = useState<string | null>(() =>
-    searchParams.get("email") || getPendingEmail()
-  );
-  const [magicLink] = useState<string>(() => getPendingMagicLink() || "");
+  const deliveryFailed = searchParams.get('delivery') === 'failed';
+  const pendingEmail = useSyncExternalStore(subscribe, getPendingEmail, () => null);
+  const email = searchParams.get("email") || pendingEmail;
+  const magicLink = useSyncExternalStore(subscribe, getPendingMagicLink, () => null);
 
   return (
     <div className="account-login-container">
@@ -41,21 +43,21 @@ function CheckEmailPageInner() {
           />
         </svg>
 
-        <h1 className="account-login-title">Check Your Email</h1>
+        <h1 className="account-login-title">{deliveryFailed ? 'Request Received' : 'Check Your Email'}</h1>
         <p className="account-login-subtitle">
-          We sent a magic link to:
+          {deliveryFailed ? 'Your kit request is saved, but we could not send a sign-in email to:' : 'We sent a magic link to:'}
         </p>
         {email && <p className="account-email-display">{email}</p>}
         <p className="account-login-subtitle">
-          Click the link in the email to access your dashboard.
+          {deliveryFailed ? 'Request a new sign-in link below. You do not need to submit another kit request.' : 'Click the link in the email to access your dashboard.'}
         </p>
 
         <Link
-          href="/account/login"
+          href={deliveryFailed && email ? `/account/login?email=${encodeURIComponent(email)}` : '/account/login'}
           className="account-btn account-btn-secondary account-btn-full"
           style={{ marginTop: 16 }}
         >
-          Use a different email
+          {deliveryFailed ? 'Request a sign-in link' : 'Use a different email'}
         </Link>
 
         {magicLink && (

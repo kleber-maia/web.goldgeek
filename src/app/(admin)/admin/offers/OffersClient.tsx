@@ -13,7 +13,7 @@ interface Offer {
   id: string;
   offerNumber: string;
   status: string;
-  totalValue: any;
+  totalValue: { toString(): string };
   sentAt: Date | string | null;
   expiresAt: Date | string;
   respondedAt: Date | string | null;
@@ -40,7 +40,7 @@ interface EvalKit {
     firstName: string;
     lastName: string;
   };
-  items: any[];
+  items: { id: string }[];
 }
 
 const FILTER_TABS = ["all", "ready_for_eval", "sent", "completed"] as const;

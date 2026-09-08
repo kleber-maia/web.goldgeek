@@ -1,6 +1,33 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useId } from "react";
+
+function useModalFocus(isOpen: boolean, onClose: () => void) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!isOpen || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'));
+    controls()[0]?.focus();
+    document.body.style.overflow = 'hidden';
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
+      if (event.key !== 'Tab') return;
+      const nodes = controls();
+      const first = nodes[0]; const last = nodes.at(-1);
+      if (!first) { event.preventDefault(); dialog.focus(); return; }
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', keydown);
+    return () => { document.removeEventListener('keydown', keydown); document.body.style.overflow = previousOverflow; if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [isOpen]);
+  return dialogRef;
+}
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -41,28 +68,8 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      confirmRef.current?.focus();
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, onCancel]);
+  const dialogRef = useModalFocus(isOpen, onCancel);
+  const titleId = useId();
 
   if (!isOpen) return null;
 
@@ -93,9 +100,10 @@ export default function ConfirmDialog({
 
       {/* Dialog */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        aria-labelledby={titleId}
         style={{
           position: "relative",
           backgroundColor: "#FFFFFF",
@@ -148,7 +156,7 @@ export default function ConfirmDialog({
 
         {/* Title */}
         <h3
-          id="confirm-dialog-title"
+          id={titleId}
           style={{
             margin: "0 0 8px",
             fontSize: "17px",
@@ -192,7 +200,6 @@ export default function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            ref={confirmRef}
             onClick={onConfirm}
             style={{
               flex: 1,
@@ -241,25 +248,8 @@ export function AlertDialog({
   variant = "error",
   onClose,
 }: AlertDialogProps) {
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Enter") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose]);
+  const dialogRef = useModalFocus(isOpen, onClose);
+  const titleId = useId();
 
   if (!isOpen) return null;
 
@@ -287,7 +277,9 @@ export function AlertDialog({
         }}
       />
       <div
+        ref={dialogRef}
         role="alertdialog"
+        aria-labelledby={titleId}
         aria-modal="true"
         style={{
           position: "relative",
@@ -329,7 +321,7 @@ export function AlertDialog({
             </svg>
           </div>
         </div>
-        <h3
+        <h3 id={titleId}
           style={{
             margin: "0 0 8px",
             fontSize: "17px",

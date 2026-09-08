@@ -1,5 +1,7 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { TimelineEvent, EventType } from '@prisma/client';
+import { customerActivity, customerEventTitles } from '@/lib/account/customer-activity';
 
 export interface LogEventInput {
   kitId: string;
@@ -7,7 +9,7 @@ export interface LogEventInput {
   type: EventType;
   title: string;
   description?: string;
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue;
 }
 
 export class ActivityService {
@@ -94,7 +96,7 @@ export class ActivityService {
     page?: number;
     pageSize?: number;
   }) {
-    const where: any = {};
+    const where: Prisma.TimelineEventWhereInput = {};
 
     if (filters?.type) {
       where.type = filters.type;
@@ -139,9 +141,12 @@ export class ActivityService {
   /**
    * Get all events for a customer's kits
    */
-  static async getCustomerEvents(customerId: string, limit: number = 50): Promise<TimelineEvent[]> {
-    return prisma.timelineEvent.findMany({
+  static async getCustomerEvents(customerId: string, limit: number = 20, page = 1) {
+    limit = Math.max(1, Math.min(50, Math.trunc(limit) || 20));
+    page = Math.max(1, Math.min(10000, Math.trunc(page) || 1));
+    const events = await prisma.timelineEvent.findMany({
       where: {
+        type: { in: Object.keys(customerEventTitles) as EventType[] },
         kit: {
           customerId,
         },
@@ -154,10 +159,10 @@ export class ActivityService {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: Math.min(50, limit) + 1,
+      skip: (Math.max(1, page) - 1) * Math.min(50, limit),
     });
+    return { hasMore: events.length > limit, events: events.slice(0, limit).flatMap(event => { const safe = customerActivity(event); return safe ? [{ ...safe, kit: event.kit }] : []; }) };
   }
 }

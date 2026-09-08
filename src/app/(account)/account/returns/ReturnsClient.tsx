@@ -1,5 +1,6 @@
 "use client";
 
+import HistoryPagination, { type HistoryPaginationProps } from "@/components/account/HistoryPagination";
 import Link from "next/link";
 import { AccountContainer } from "@/components/account";
 import { formatDate } from "@/lib/account";
@@ -19,7 +20,7 @@ interface ReturnItem {
   };
 }
 
-interface ReturnsClientProps {
+interface ReturnsClientProps extends HistoryPaginationProps {
   returns: ReturnItem[];
 }
 
@@ -33,7 +34,7 @@ const STATUS_BADGE_STYLES: Record<
   DELIVERED: { background: "#D1FAE5", color: "#065F46" },
 };
 
-export default function ReturnsClient({ returns }: ReturnsClientProps) {
+export default function ReturnsClient({ returns, page, hasMore }: ReturnsClientProps) {
   return (
     <AccountContainer
       headerProps={{
@@ -191,6 +192,7 @@ export default function ReturnsClient({ returns }: ReturnsClientProps) {
           })}
         </>
       )}
+      <HistoryPagination page={page} hasMore={hasMore} />
     </AccountContainer>
   );
 }

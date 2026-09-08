@@ -97,7 +97,7 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--brand-primary), #C4963E);
+    background: linear-gradient(135deg, var(--brand-primary), var(--account-gradient-end));
     color: white;
     display: flex;
     align-items: center;
@@ -140,17 +140,21 @@
   --account-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
 
   /* Brand colors */
-  --brand-primary: #AD7B2A;
+  --brand-primary: #8A611F;
+  --account-disabled: #D1C4A9;
+  --account-primary-hover: #96691F;
+  --account-hover: #FBF7EF;
+  --account-gradient-end: #946824;
   --brand-secondary: #57370D;
   --brand-accent: #FBEF9C;
   --brand-text: #2E1F0C;
 
   /* Status colors */
-  --status-pending: #F59E0B;
+  --status-pending: #92400E;
   --status-pending-bg: #FEF3C7;
-  --status-progress: #3B82F6;
+  --status-progress: #1E40AF;
   --status-progress-bg: #DBEAFE;
-  --status-success: #10B981;
+  --status-success: #065F46;
   --status-success-bg: #D1FAE5;
   --status-error: #EF4444;
   --status-error-bg: #FEE2E2;
@@ -1072,8 +1076,9 @@ a.account-btn-full {
 }
 
 .digital-kit-wrapper {
-  width: 7.5in;
-  min-width: 7.5in;
+  width: 100%;
+  max-width: 7.5in;
+  min-width: 0;
   margin: 0 auto;
 }
 
@@ -1088,6 +1093,16 @@ a.account-btn-full {
   color: #2E1F0C;
   line-height: 1.6;
   max-height: 999999px;
+}
+
+.digital-kit-page { overflow-wrap: anywhere; padding: 20px; }
+.dk-welcome-header { flex-direction: column; gap: 16px; }
+.dk-welcome-meta { text-align: left; }
+
+@media (min-width: 768px) {
+  .digital-kit-page { padding: 40px; }
+  .dk-welcome-header { flex-direction: row; }
+  .dk-welcome-meta { text-align: right; }
 }
 
 /* Page 1: Welcome Letter */
@@ -1600,7 +1615,10 @@ a.account-btn-full {
   }
 
   .digital-kit-actions,
+  .digital-kit-original-label,
+  .account-desktop-title,
   .account-header,
+  .account-top-nav,
   .account-bottom-nav {
     display: none !important;
   }
@@ -1643,4 +1661,27 @@ a.account-btn-full {
   .dk-coupon {
     background: linear-gradient(135deg, #FFFDF7 0%, #FBF7EF 50%, #FFF8E1 100%) !important;
   }
+}
+
+@media screen {
+  .digital-kit-wrapper .dk-info-grid,
+  .digital-kit-wrapper .dk-payment-options { grid-template-columns: minmax(0, 1fr); }
+  .digital-kit-wrapper .dk-welcome-header { flex-direction: column; }
+  .digital-kit-wrapper .dk-welcome-meta { text-align: left; }
+}
+@media screen and (min-width: 768px) {
+  .digital-kit-wrapper .dk-info-grid,
+  .digital-kit-wrapper .dk-payment-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .digital-kit-wrapper .dk-welcome-header { flex-direction: row; }
+  .digital-kit-wrapper .dk-welcome-meta { text-align: right; }
+}
+
+.dk-export .dk-info-grid, .dk-export .dk-payment-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dk-export .dk-welcome-header { flex-direction: row; }
+.dk-export .dk-welcome-meta { text-align: right; }
+.dk-export .digital-kit-page { padding: 40px; }
+
+.account-body :is(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--brand-secondary);
+  outline-offset: 3px;
 }
