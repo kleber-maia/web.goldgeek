@@ -26,7 +26,7 @@ function run(command, args, options = {}) {
 let started = false;
 try {
   run('initdb', ['-D', directory, '--auth=trust', '--no-locale', '--encoding=UTF8'], { stdio: 'pipe' });
-  run('pg_ctl', ['-D', directory, '-l', join(directory, 'server.log'), '-o', `-h 127.0.0.1 -p ${port}`, '-w', 'start'], { stdio: 'pipe' });
+  run('pg_ctl', ['-D', directory, '-l', join(directory, 'server.log'), '-o', `-h 127.0.0.1 -p ${port} -k ''`, '-w', 'start'], { stdio: 'pipe' });
   started = true;
   const requested = process.argv.slice(2);
   const files = requested.length ? requested : readdirSync('tests').filter((file) => file.endsWith('.test.ts')).map((file) => `tests/${file}`);

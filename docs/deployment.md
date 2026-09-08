@@ -126,6 +126,6 @@ Use `npx tsx scripts/encrypt-payment-data.ts` for the read-only legacy payout mi
 
 Unknown carrier creation results must be reconciled with FedEx before resetting a generation request. If a result is saved, retry to recover it. Staff can attach a missing original PDF to the same CREATED label using matching tracking/carrier details. A pending carrier cancellation blocks replacement until confirmation.
 
-Run `npm ci`, `npm run prisma:generate`, `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build` and `npm audit` before promotion. Tests require local PostgreSQL binaries (`initdb`, `pg_ctl`, `createdb`) on PATH and create isolated loopback databases. The GitHub workflow performs the same regression gates on pull requests and master/production pushes. No hosted CI run or production release was performed during the local audit.
+Run `npm ci`, `npm run prisma:generate`, `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build` and `npm audit` before promotion. Tests require local PostgreSQL binaries (`initdb`, `pg_ctl`, `createdb`) on PATH and create isolated loopback databases. Unix sockets are disabled for these test clusters so Linux runners do not need permission to write system socket directories. The GitHub workflow performs the same regression gates on pull requests and master/production pushes. No hosted CI run or production release was performed during the local audit.
 
 For acceptance boundaries and the original 43 findings, see [Dashboard remediation report](dashboard-remediation-report.md).
