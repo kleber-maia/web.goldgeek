@@ -44,18 +44,15 @@ function verifySignature(request: Request, body: string): boolean {
     return false;
   }
 
-  const signature = request.headers.get('x-fedex-signature') ??
-    request.headers.get('x-signature');
-
-  if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) {
-    return false;
-  }
-
-  const expected = createHmac('sha256', secret)
-    .update(body)
-    .digest('hex');
-
-  return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
+  const fedexSignature = request.headers.get('fdx-signature');
+  const signature = fedexSignature ?? request.headers.get('x-fedex-signature') ?? request.headers.get('x-signature');
+  if (!signature) return false;
+  const encoding = fedexSignature !== null ? 'base64' : 'hex';
+  const validFormat = encoding === 'base64' ? /^[A-Za-z0-9+/]{43}=$/.test(signature) : /^[a-f0-9]{64}$/i.test(signature);
+  if (!validFormat) return false;
+  const supplied = Buffer.from(signature, encoding);
+  const expected = createHmac('sha256', secret).update(body).digest();
+  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
 // ---------------------------------------------------------------------------

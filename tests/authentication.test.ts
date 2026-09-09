@@ -64,3 +64,17 @@ test('webhooks fail closed for missing secrets and malformed signatures', async 
     else process.env.FEDEX_WEBHOOK_SECRET = previous;
   }
 });
+
+test('documented FedEx base64 signatures authenticate the exact body without fallback', async () => {
+  const previous = process.env.FEDEX_WEBHOOK_SECRET;
+  process.env.FEDEX_WEBHOOK_SECRET = 'isolated-base64-secret';
+  const body = '{}';
+  const signature = createHmac('sha256', process.env.FEDEX_WEBHOOK_SECRET).update(body).digest('base64');
+  const legacy = createHmac('sha256', process.env.FEDEX_WEBHOOK_SECRET).update(body).digest('hex');
+  const send = (value: string, payload = body) => webhook(new Request('http://localhost/api/webhooks/fedex', { method: 'POST', body: payload, headers: { 'fdx-signature': value, 'x-fedex-signature': legacy } }));
+  try {
+    assert.equal((await send(signature)).status, 200);
+    assert.equal((await send(signature, '{"changed":true}')).status, 401);
+    for (const invalid of ['', 'short', signature.slice(0, -1), 'A'.repeat(43) + '=']) assert.equal((await send(invalid)).status, 401);
+  } finally { if (previous === undefined) delete process.env.FEDEX_WEBHOOK_SECRET; else process.env.FEDEX_WEBHOOK_SECRET = previous; }
+});
