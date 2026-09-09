@@ -1,6 +1,7 @@
 'use server';
 
 import { AppraisalRequestService } from '@/lib/services/appraisal-request.service';
+import { AwaitingShipmentKitError } from '@/lib/services/kit.service';
 import { AuthRateLimitService } from '@/lib/services/auth-rate-limit.service';
 import { serializePrismaData } from '@/lib/db/utils';
 import { headers } from 'next/headers';
@@ -65,6 +66,7 @@ export async function createAppraisalRequest(
       },
     };
   } catch (error: unknown) {
+    if (error instanceof AwaitingShipmentKitError) return { success: false, error: `${error.message} Open My Kits in your account to continue.` };
     if (error instanceof z.ZodError) {
       const firstIssue = error.issues[0];
       const message = firstIssue?.message || 'Please check your form inputs and try again.';

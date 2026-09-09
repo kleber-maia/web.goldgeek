@@ -6,8 +6,16 @@ export function isActionableOffer(offer: { status: string; expiresAt?: Date | st
 }
 
 export function canPrepareDigitalKit(kit: { type: string; status: string; shippingLabels?: { type: string; status: string }[] }): boolean {
-  return kit.type.toUpperCase() === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status) &&
+  return kit.type.toUpperCase() === 'DIGITAL' && isAwaitingCustomerShipment(kit);
+}
+
+export function isAwaitingCustomerShipment(kit: { status: string; shippingLabels?: { type: string; status: string }[] }): boolean {
+  return ['PENDING', 'SHIPPED'].includes(kit.status) &&
     !kit.shippingLabels?.some(label => label.type === 'INBOUND' && ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'].includes(label.status));
+}
+
+export function canCancelCustomerKit(kit: { status: string; shippingLabels?: { type: string; status: string }[]; shippingOperations?: { status: string }[] }): boolean {
+  return isAwaitingCustomerShipment(kit) && !kit.shippingOperations?.some(operation => ['STARTED', 'UNKNOWN'].includes(operation.status));
 }
 
 export function hasAccessedDigitalKit(kit: { shippingLabels?: { type: string; status: string; packetAccessedAt?: Date | string | null }[] }): boolean {

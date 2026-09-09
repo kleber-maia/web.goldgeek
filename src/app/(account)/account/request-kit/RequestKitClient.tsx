@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from 'next/link';
 import { AccountContainer } from "@/components/account";
 import { createKitFromAccount } from "@/lib/actions/customer.actions";
 
@@ -44,6 +45,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
   const [zipCode, setZipCode] = useState(defaultAddress?.zipCode || "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [existingKitId, setExistingKitId] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +80,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
         router.push(`/account/kit/${result.data.id}`);
       } else {
         setError(result.error || "Failed to create kit request");
+        setExistingKitId(result.existingKitId || null);
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -204,8 +207,9 @@ export default function RequestKitClient({ defaultAddress }: Props) {
       </p>
 
       {error && <div role="alert" style={styles.error}>{error}</div>}
+      {existingKitId && <Link href={`/account/kit/${existingKitId}`} className="account-btn account-btn-primary mb-4">View your existing kit</Link>}
 
-      <form onSubmit={handleSubmit} style={styles.form}>
+      {!existingKitId && <form onSubmit={handleSubmit} style={styles.form}>
         {/* Kit Type */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Kit Type</h3>
@@ -320,7 +324,7 @@ export default function RequestKitClient({ defaultAddress }: Props) {
         <button type="submit" style={styles.submitBtn} disabled={submitting}>
           {submitting ? "Submitting..." : "Request Kit"}
         </button>
-      </form>
+      </form>}
     </AccountContainer>
   );
 }

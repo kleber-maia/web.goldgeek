@@ -14,7 +14,22 @@ export interface CreateKitInput {
   shippingAddress: Prisma.InputJsonObject; // Address snapshot
 }
 
+export class AwaitingShipmentKitError extends Error {
+  constructor(public readonly kitId: string, kitNumber: string) {
+    super(`Kit ${kitNumber} is still awaiting shipment. Ship your items or cancel that kit before requesting another.`);
+    this.name = 'AwaitingShipmentKitError';
+  }
+}
+
 export class KitService {
+  static async getAwaitingShipment(customerId: string, db: Pick<Prisma.TransactionClient, 'kit'> = prisma) {
+    return db.kit.findFirst({
+      where: { customerId, status: { in: ['PENDING', 'SHIPPED'] }, shippingLabels: { none: { type: 'INBOUND', status: { in: ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'] } } } },
+      select: { id: true, kitNumber: true, type: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   static async applyProfileDestination(kitId: string, customerId: string) {
     return prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
@@ -47,6 +62,8 @@ export class KitService {
         return existing;
       }
     }
+    const awaiting = await this.getAwaitingShipment(data.customerId, tx);
+    if (awaiting) throw new AwaitingShipmentKitError(awaiting.id, awaiting.kitNumber);
     const kit = await tx.kit.create({ data: { ...data, kitNumber: generateKitNumber() } });
     await tx.timelineEvent.create({ data: { kitId: kit.id, type: 'KIT_CREATED', title: 'Kit requested' } });
     await NotificationService.enqueue(tx, 'KIT:CREATED', kit.id, `kit:${kit.id}:created`);
@@ -120,28 +137,42 @@ export class KitService {
     return prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
       const previous = await tx.kit.findUniqueOrThrow({ where: { id: kitId } });
-      if (previous.status === status) return previous;
-      const transitions: Partial<Record<KitStatus, KitStatus[]>> = { PENDING: ['SHIPPED', 'EVALUATING', 'CANCELLED'], SHIPPED: ['EVALUATING', 'CANCELLED'] };
-      if (!transitions[previous.status]?.includes(status)) throw new Error('Complete the offer, payment, or return workflow to change this status.');
-      const now = new Date();
-      if (status === 'CANCELLED') {
-        if (await tx.shippingOperation.count({ where: { kitId, status: { in: ['STARTED', 'UNKNOWN'] } } })) throw new Error('Resolve the pending carrier request before cancelling this kit.');
-        const labels = await tx.shippingLabel.findMany({ where: { kitId, status: { not: 'VOIDED' } } });
-        if (labels.some(label => label.type === 'INBOUND' && ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'].includes(label.status))) throw new Error('Items are already on their way. Complete the appraisal or return workflow.');
-        for (const label of labels.filter(label => label.status === 'CREATED')) {
-          await tx.shippingLabel.update({ where: { id: label.id }, data: { status: 'VOIDED', ...(label.carrier !== 'FEDEX' ? { voidedAt: now } : {}) } });
-          if (label.carrier === 'FEDEX') await NotificationService.enqueue(tx, 'CARRIER:VOID', label.id, `label:${label.id}:void`);
-        }
-        await tx.offer.updateMany({ where: { kitId, status: { in: ['DRAFT', 'SENT'] } }, data: { status: 'EXPIRED' } });
-      }
-      const kit = await tx.kit.update({ where: { id: kitId }, data: { status,
-        ...(status === 'SHIPPED' ? { kitSentAt: now } : {}),
-        ...(status === 'EVALUATING' ? { receivedAt: now, evaluationStartAt: now } : {}),
-        ...(status === 'CANCELLED' ? { completedAt: now } : {}),
-      } });
-      await tx.timelineEvent.create({ data: { kitId, userId, type: 'STATUS_CHANGED', title: 'Status updated', metadata: { oldStatus: previous.status, newStatus: status } } });
-      return kit;
+      return this.transitionInTransaction(tx, previous, status, userId);
     });
+  }
+
+  static async cancelForCustomer(kitId: string, customerId: string): Promise<Kit> {
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
+      const previous = await tx.kit.findUnique({ where: { id: kitId, customerId } });
+      if (!previous) throw new Error('Kit not found');
+      return this.transitionInTransaction(tx, previous, 'CANCELLED');
+    });
+  }
+
+  private static async transitionInTransaction(tx: Prisma.TransactionClient, previous: Kit, status: KitStatus, userId?: string): Promise<Kit> {
+    const kitId = previous.id;
+    if (previous.status === status) return previous;
+    const transitions: Partial<Record<KitStatus, KitStatus[]>> = { PENDING: ['SHIPPED', 'EVALUATING', 'CANCELLED'], SHIPPED: ['EVALUATING', 'CANCELLED'] };
+    if (!transitions[previous.status]?.includes(status)) throw new Error('Complete the offer, payment, or return workflow to change this status.');
+    const now = new Date();
+    if (status === 'CANCELLED') {
+      if (await tx.shippingOperation.count({ where: { kitId, status: { in: ['STARTED', 'UNKNOWN'] } } })) throw new Error('Resolve the pending carrier request before cancelling this kit.');
+      const labels = await tx.shippingLabel.findMany({ where: { kitId, status: { not: 'VOIDED' } }, select: { id: true, type: true, status: true, carrier: true } });
+      if (labels.some(label => label.type === 'INBOUND' && ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'].includes(label.status))) throw new Error('Items are already on their way. Complete the appraisal or return workflow.');
+      for (const label of labels.filter(label => label.status === 'CREATED')) {
+        await tx.shippingLabel.update({ where: { id: label.id }, data: { status: 'VOIDED', ...(label.carrier !== 'FEDEX' ? { voidedAt: now } : {}) }, select: { id: true } });
+        if (label.carrier === 'FEDEX') await NotificationService.enqueue(tx, 'CARRIER:VOID', label.id, `label:${label.id}:void`);
+      }
+      await tx.offer.updateMany({ where: { kitId, status: { in: ['DRAFT', 'SENT'] } }, data: { status: 'EXPIRED' } });
+    }
+    const kit = await tx.kit.update({ where: { id: kitId }, data: { status,
+      ...(status === 'SHIPPED' ? { kitSentAt: now } : {}),
+      ...(status === 'EVALUATING' ? { receivedAt: now, evaluationStartAt: now } : {}),
+      ...(status === 'CANCELLED' ? { completedAt: now } : {}),
+    } });
+    await tx.timelineEvent.create({ data: { kitId, userId, type: 'STATUS_CHANGED', title: 'Status updated', metadata: { oldStatus: previous.status, newStatus: status } } });
+    return kit;
   }
 
   /**

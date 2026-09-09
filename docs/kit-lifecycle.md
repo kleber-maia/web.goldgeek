@@ -239,7 +239,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
   │                                                                  │
   │  What happens next:                                              │
   │    → Admin can generate a NEW offer (restart Phase 3 offer step) │
-  │    → Or admin can cancel the kit                                 │
+  │    → Cancellation unavailable after appraisal begins             │
   │    → Or customer contacts support to negotiate                   │
   │                                                                  │
   │  NON-TERMINAL: Awaiting admin/customer action                    │
@@ -248,19 +248,15 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 
 ### Cancellation (PENDING/SHIPPED only, before inbound shipment)
 
-```
-  ┌──────────────────── CANCELLATION ───────────────────────────────┐
-  │                                                                  │
-  │  WHO: Admin only                                                 │
-  │  WHEN: Any state (PENDING through DECLINED)                      │
-  │                                                                  │
-  │  → Kit status: CANCELLED                                         │
-  │  → No automatic email (admin communicates manually)              │
-  │  → No automatic cleanup of in-flight offers, payments, returns   │
-  │                                                                  │
-  │  TERMINAL STATE: CANCELLED                                       │
-  └──────────────────────────────────────────────────────────────────┘
-```
+Customers can cancel an owned kit from its detail page after confirming the decision. Staff use the same transition. Cancellation is available only from `PENDING` or `SHIPPED`, before any inbound label reaches `IN_TRANSIT`, `DELIVERED`, or `EXCEPTION`. Sending a physical kit box to the customer does not count as the customer shipping their items.
+
+Unresolved `STARTED` or `UNKNOWN` carrier operations temporarily block cancellation. The customer sees an explanation and support link. Cancellation marks the kit `CANCELLED`, records completion and timeline history, expires unused offers, and voids unused labels. FedEx voids use the durable retry queue. Later carrier callbacks cannot reopen a cancelled kit. There is no dedicated cancellation email.
+
+### One request awaiting shipment
+
+A customer cannot create another kit while any existing kit is `PENDING` or `SHIPPED` without inbound carrier movement. The dashboard shows **Continue your kit**; direct request URLs explain the restriction. A stale form submission shows an inline error and link to the existing kit. Account, public, and staff creation share the guard under a customer row lock; simultaneous different request IDs cannot bypass it. Retries with the same request ID remain idempotent.
+
+Cancellation or inbound shipment permits another request, unless another legacy kit still awaits shipment. Existing duplicates are not cancelled automatically. Packing instructions remain on the kit detail and digital packet; the dashboard does not repeat them in a separate “Next steps” panel.
 
 ---
 
@@ -352,7 +348,7 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 |---|----------|-------------|
 | 5 | Offer expires → admin sends new offer → customer accepts | PAID |
 | 6 | Offer expires → admin sends new offer → customer declines | RETURNED |
-| 7 | Offer expires → admin cancels kit | CANCELLED |
+| 7 | Offer expires → cancellation rejected; admin must resolve offer/return | OFFER_SENT |
 | 8 | Admin creates draft offer, adjusts, then sends final version | OFFER_SENT → ... |
 | 9 | Multiple offers over time (expire → new → expire → new → accept) | PAID |
 
@@ -369,14 +365,14 @@ A high-level guide to every scenario in the appraisal kit process, for QA and bu
 
 ### Cancellation Scenarios
 
-| # | Scenario | Cancelled From |
+| # | Scenario | Expected Result |
 |---|----------|----------------|
-| 16 | Cancel before any shipping | PENDING |
-| 17 | Cancel after kit box shipped (physical) | SHIPPED |
-| 18 | Cancel while items are in transit | IN_TRANSIT |
-| 19 | Cancel during evaluation | EVALUATING |
-| 20 | Cancel after offer sent (customer hasn't responded) | OFFER_SENT |
-| 21 | Cancel during return process | DECLINED |
+| 16 | Customer/admin cancel before inbound shipping | CANCELLED |
+| 17 | Cancel after physical kit box shipped, before inbound items move | CANCELLED |
+| 18 | Cancel while items are in transit | Rejected; remains SHIPPED |
+| 19 | Cancel during evaluation | Rejected; remains EVALUATING |
+| 20 | Cancel after offer sent | Rejected; remains OFFER_SENT |
+| 21 | Cancel during return process | Rejected; remains DECLINED |
 
 ### Return Edge Cases
 
@@ -422,7 +418,7 @@ The September 2026 remediation supersedes older scenario assumptions above. See 
 - Digital Kit loading may create an eligible inbound FedEx label. A persistent reservation prevents concurrent purchases. Unknown carrier responses require staff reconciliation; saved responses can be recovered without another purchase. Void confirmation must finish before replacement. The packet requires a valid original PDF and preserves all carrier pages.
 - Inbound IN_TRANSIT advances the kit to SHIPPED; inbound DELIVERED advances it to EVALUATING. Return delivery updates the return and kit RETURNED atomically on both manual and webhook paths. Duplicate/older events cannot undo delivery or cancellation.
 - Payment retries reuse the unique payment record. Accepted amount/method/destination are immutable snapshots. SENT changes the kit to PAID; a failure reopens payment work on ACCEPTED. Customer messages distinguish sending from settlement.
-- Cancellation is allowed only from PENDING or SHIPPED, before inbound items are travelling or received and after uncertain carrier creation is resolved. Unused labels are queued for cancellation; later callbacks cannot reopen the kit. Appraisal, accepted payments and returns must finish through their own workflows. Cancellation does not send a dedicated customer email; staff must contact the customer.
+- Cancellation is allowed only from PENDING or SHIPPED, before inbound items are travelling or received and after uncertain carrier creation is resolved. Unused labels are queued for cancellation; later callbacks cannot reopen the kit. Appraisal, accepted payments and returns must finish through their own workflows. Customers can cancel their own eligible kits with confirmation; staff use the same transition. Cancellation does not send a dedicated customer email.
 - Customer profile edits do not rewrite kit snapshots. Before payout or return label preparation, the customer can explicitly apply their current shipping address. A prepared/shipped return or accepted payment protects its saved destination.
 - Notification and carrier side effects use a durable retry queue; a successful domain mutation does not imply email/carrier completion. The notification cron requires CRON_SECRET.
 - Insurance defaults to $1,000. The operator retained the existing bonus and turnaround wording. No automatic bonus eligibility system is claimed.

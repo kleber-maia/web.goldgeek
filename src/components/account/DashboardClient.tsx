@@ -36,6 +36,7 @@ interface PaymentSummary {
 }
 
 export interface DashboardData {
+  awaitingShipmentKit: { id: string; kitNumber: string } | null;
   firstName: string;
   customerInitial: string;
   stats: {
@@ -45,7 +46,6 @@ export interface DashboardData {
     totalEarned: number;
   };
   actionRequired: ActionItem[];
-  preparedKits: { id: string; kitNumber: string }[];
   recentKits: KitSummary[];
   recentPayments: PaymentSummary[];
 }
@@ -230,16 +230,6 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
         </section>
       )}
 
-      {data.preparedKits.length > 0 && (
-        <section className="account-section mb-6" aria-label="Next steps">
-          <h2 className="text-base font-semibold mb-2">Next: pack and drop off</h2>
-          <p className="text-sm mb-3">Place your items and customer information card inside a sturdy package. Attach the prepaid label, then take it to a staffed FedEx location and keep your receipt.</p>
-          <div className="flex flex-wrap gap-4">
-            {data.preparedKits.map(kit => <Link key={kit.id} href={`/account/kit/${kit.id}`} className="text-sm underline">Kit {kit.kitNumber}: instructions and tracking</Link>)}
-          </div>
-        </section>
-      )}
-
       {/* Two-Column: Kits + Payments */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
         {/* Recent Kits */}
@@ -325,14 +315,13 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
       {/* Quick Actions */}
       <section className="flex flex-col sm:flex-row gap-3 mb-6">
         <Link
-          href="/account/request-kit"
+          href={data.awaitingShipmentKit ? `/account/kit/${data.awaitingShipmentKit.id}` : '/account/request-kit'}
           className="flex-1 flex items-center justify-center gap-2 bg-[var(--brand-primary)] text-white font-semibold text-sm py-3.5 px-6 rounded-xl no-underline hover:bg-[var(--account-primary-hover)] transition-colors"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
+            {data.awaitingShipmentKit ? <polyline points="9 5 16 12 9 19" /> : <><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>}
           </svg>
-          Request New Kit
+          {data.awaitingShipmentKit ? 'Continue your kit' : 'Request New Kit'}
         </Link>
         <Link
           href="mailto:support@goldgeek.com?subject=Referral%20program"

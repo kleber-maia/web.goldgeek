@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
+import { KitService } from "@/lib/services/kit.service";
 import RequestKitClient from "./RequestKitClient";
 import { serializePrismaData } from "@/lib/db/utils";
 import Link from 'next/link';
@@ -22,6 +23,17 @@ export default async function RequestKitPage() {
 
   if (!customer) {
     redirect("/account/login");
+  }
+
+  const awaiting = await KitService.getAwaitingShipment(session.id);
+  if (awaiting) {
+    return <AccountContainer headerProps={{ title: 'Your existing kit', showBackButton: true, backHref: '/account' }}>
+      <section className="account-section">
+        <h2 className="text-lg font-semibold mb-2">You already have a kit to send</h2>
+        <p className="text-sm mb-4">Kit {awaiting.kitNumber} is waiting for preparation or shipment. Continue with that kit, or cancel it before requesting another.</p>
+        <Link className="account-btn account-btn-primary" href={`/account/kit/${awaiting.id}`}>View your kit</Link>
+      </section>
+    </AccountContainer>;
   }
 
   if (!customer.firstName.trim() || !customer.lastName.trim()) {

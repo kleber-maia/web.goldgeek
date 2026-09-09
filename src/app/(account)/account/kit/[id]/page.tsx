@@ -1,5 +1,6 @@
 import KitDestination from "@/components/account/KitDestination";
-import { canPrepareDigitalKit, hasAccessedDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
+import CancelKit from '@/components/account/CancelKit';
+import { canPrepareDigitalKit, isAwaitingCustomerShipment, hasAccessedDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, Badge, Timeline, OfferBanner, KitTypeToggle } from "@/components/account";
@@ -146,7 +147,7 @@ export default async function KitDetailPage({
   const showOfferBanner =
     kit.status === "OFFER_SENT" && isActionableOffer(activeOffer);
   const hasLabels = (kit.shippingLabels || []).length > 0;
-  const canChangeType = ["PENDING", "SHIPPED"].includes(kit.status) && !hasLabels;
+  const canChangeType = kit.canCancel && !hasLabels;
   const showShippingLabel =
     canPrepareDigitalKit(kit);
   const showPhysicalKitMessage =
@@ -196,6 +197,12 @@ export default async function KitDetailPage({
       </div>
 
       {/* Offer Banner */}
+      {kit.status === 'CANCELLED' && <section className="account-section">
+        <h2 className="text-lg font-semibold mb-2">This kit is cancelled</h2>
+        <p className="text-sm mb-4">Do not use this kit’s shipping label. Your kit history remains available below.</p>
+        <Link href="/account/request-kit" className="account-btn account-btn-primary">Request another kit</Link>
+      </section>}
+
       {showOfferBanner && activeOffer && (
         <>
           <OfferBanner
@@ -328,8 +335,20 @@ export default async function KitDetailPage({
             <a href="https://local.fedex.com/en/staffed-drop-off" target="_blank" rel="noopener noreferrer" className="account-btn account-btn-secondary">Find a drop-off location</a>
           </div>
           <p className="text-sm mt-3 mb-0">Tracking updates after FedEx scans your package.</p>
+          {kit.canCancel && <CancelKit kitId={kit.id} kitNumber={kit.kitNumber} />}
         </section>
       )}
+
+      {kit.canCancel && !showShippingLabel && <section className="account-section">
+        <h2 className="text-base font-semibold">Your kit request</h2>
+        <CancelKit kitId={kit.id} kitNumber={kit.kitNumber} />
+      </section>}
+
+      {isAwaitingCustomerShipment(kit) && !kit.canCancel && <section className="account-section">
+        <h2 className="text-base font-semibold mb-2">Shipping preparation is being confirmed</h2>
+        <p className="text-sm mb-2">Cancellation is temporarily unavailable while we confirm a carrier request. Please try again shortly.</p>
+        <p className="text-sm mb-0">If this continues, {company.supportEmail ? <a className="underline" href={`mailto:${company.supportEmail}`}>contact support</a> : 'contact our support team'} so we can resolve it and help cancel your kit.</p>
+      </section>}
 
       {/* Kit Summary */}
       <div className="account-section">

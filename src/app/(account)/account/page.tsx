@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { CustomerService } from "@/lib/services/customer.service";
+import { KitService } from "@/lib/services/kit.service";
 import { serializePrismaData } from "@/lib/db/utils";
 import DashboardClient from "@/components/account/DashboardClient";
 import type { DashboardData } from "@/components/account/DashboardClient";
@@ -37,7 +38,9 @@ export default async function AccountDashboardPage() {
   const firstName = customer.firstName || customer.email.split("@")[0];
   const customerInitial = firstName.charAt(0).toUpperCase();
 
-  const { kits, payments, actionKits, stats } = await CustomerService.getDashboard(session.id);
+  const [{ kits, payments, actionKits, stats }, awaitingShipmentKit] = await Promise.all([
+    CustomerService.getDashboard(session.id), KitService.getAwaitingShipment(session.id),
+  ]);
   const kitsWithOffer = actionKits.filter(k => k.status === 'OFFER_SENT' && k.offers.some(offer => isActionableOffer(offer)));
   const kitsNeedingLabel = actionKits.filter(kit => canPrepareDigitalKit(kit) && !hasAccessedDigitalKit(kit));
 
@@ -83,10 +86,10 @@ export default async function AccountDashboardPage() {
 
   const data: DashboardData = {
     firstName,
+    awaitingShipmentKit,
     customerInitial,
     stats,
     actionRequired,
-    preparedKits: actionKits.filter(kit => canPrepareDigitalKit(kit) && hasAccessedDigitalKit(kit)).map(kit => ({ id: kit.id, kitNumber: kit.kitNumber })),
     recentKits,
     recentPayments,
   };

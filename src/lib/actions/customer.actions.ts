@@ -2,13 +2,13 @@
 import { revalidatePath } from 'next/cache';
 import { historyQuery, HISTORY_PAGE_SIZE, type HistoryQuery } from '@/lib/account/history';
 
-import { canPrepareDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
+import { canPrepareDigitalKit, canCancelCustomerKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
 import { customerActivity } from '@/lib/account/customer-activity';
 import { z } from 'zod';
 import { requireAuth, requireCustomer } from '@/lib/auth';
 import { AppraisalRequestService } from '@/lib/services/appraisal-request.service';
 import { CustomerService } from '@/lib/services/customer.service';
-import { KitService } from '@/lib/services/kit.service';
+import { KitService, AwaitingShipmentKitError } from '@/lib/services/kit.service';
 import { OfferService } from '@/lib/services/offer.service';
 import { PaymentDetailsService } from '@/lib/services/payment-details.service';
 import { SettingsService } from '@/lib/services/settings.service';
@@ -299,6 +299,7 @@ export async function getKitDetails(kitId: string) {
       success: true,
       data: serializePrismaData({
         id: kit.id, kitNumber: kit.kitNumber, type: kit.type, status: kit.status,
+        canCancel: canCancelCustomerKit(kit),
         createdAt: kit.createdAt, estimatedValue: kit.estimatedValue, shippingAddress: kit.shippingAddress,
         items: kit.items.map(item => ({ id: item.id, type: item.type, description: item.description, quantity: item.quantity, metalType: item.metalType, weight: item.weight, purity: item.purity, finalValue: null })),
         offers: kit.offers.filter(offer => offer.status !== 'DRAFT').map(offer => ({ id: offer.id, status: offer.status, totalValue: offer.totalValue, itemBreakdown: offer.itemBreakdown, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt, payment: offer.payment ? { id: offer.payment.id, method: offer.payment.method, status: offer.payment.status, amount: offer.payment.amount } : null })),
@@ -593,9 +594,29 @@ export async function createKitFromAccount(data: {
       data: serializePrismaData(kit),
     };
   } catch (error: unknown) {
+    if (error instanceof AwaitingShipmentKitError) return { success: false, error: error.message, existingKitId: error.kitId };
     const message = error instanceof z.ZodError ? error.issues[0]?.message || "Please check your entries." : error instanceof Error ? error.message : 'Failed to create kit';
     console.error('Error creating kit from account:', error);
     return { success: false, error: message };
+  }
+}
+
+export async function cancelCustomerKit(kitId: string): Promise<ActionResult> {
+  try {
+    const session = await requireCustomer();
+    const id = z.string().min(1).max(128).parse(kitId);
+    await KitService.cancelForCustomer(id, session.id);
+    revalidatePath('/account');
+    revalidatePath('/account/kits');
+    revalidatePath('/account/request-kit');
+    revalidatePath(`/account/kit/${id}`);
+    revalidatePath('/admin');
+    revalidatePath('/admin/requests');
+    revalidatePath(`/admin/requests/${id}`);
+    revalidatePath('/admin/shipping');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unable to cancel this kit. Please try again.' };
   }
 }
 
