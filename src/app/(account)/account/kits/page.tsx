@@ -1,4 +1,5 @@
 import { historyQuery } from '@/lib/account/history';
+import { formatCustomerKitStatus } from '@/lib/account/utils';
 import { isActionableOffer, canPrepareDigitalKit } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
@@ -21,7 +22,7 @@ type KitLike = {
   createdAt: string;
   items?: { id: string; quantity: number }[];
   offers?: OfferLike[];
-  shippingLabels?: {type: string; status: string}[];
+  shippingLabels?: {type: string; status: string; packetAccessedAt?: string | null}[];
 };
 
 export default async function ManageKitsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -60,6 +61,7 @@ export default async function ManageKitsPage({ searchParams }: { searchParams: P
       kitNumber: kit.kitNumber,
       type: kit.type,
       status: kit.status,
+      statusLabel: formatCustomerKitStatus(kit),
       createdAt: String(kit.createdAt),
       itemCount: kit.items?.reduce((total, item) => total + (item.quantity || 1), 0) ?? 0,
       offerValue: offerForValue

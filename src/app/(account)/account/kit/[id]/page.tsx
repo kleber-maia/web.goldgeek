@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
 import { getKitDetails } from "@/lib/actions/customer.actions";
 import { formatCurrency, formatWeight } from "@/lib/db/utils";
-import { formatDate } from "@/lib/account";
+import { formatDate, formatCustomerKitStatus } from "@/lib/account";
 import { itemBreakdownSchema } from "@/lib/validators/offer";
 import { SettingsService } from "@/lib/services/settings.service";
 
@@ -190,7 +190,7 @@ export default async function KitDetailPage({
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <Badge
           status={kit.status.toLowerCase()}
-          label={kit.status === 'OFFER_SENT' && !showOfferBanner ? 'Awaiting updated offer' : activeOffer?.payment?.status === 'COMPLETED' ? 'Payment Completed' : undefined}
+          label={kit.status === 'OFFER_SENT' && !showOfferBanner ? 'Awaiting updated offer' : activeOffer?.payment?.status === 'COMPLETED' ? 'Payment Completed' : formatCustomerKitStatus(kit)}
           style={{ fontSize: 14, padding: "8px 16px" }}
         />
       </div>

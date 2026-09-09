@@ -1,4 +1,5 @@
 import { isActionableOffer, canPrepareDigitalKit, hasAccessedDigitalKit } from '@/lib/account/kit-policy';
+import { formatCustomerKitStatus } from '@/lib/account/utils';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
@@ -61,6 +62,7 @@ export default async function AccountDashboardPage() {
     id: kit.id,
     kitNumber: kit.kitNumber,
     status: kit.status,
+    statusLabel: formatCustomerKitStatus(kit),
     type: kit.type,
     createdAt: kit.createdAt.toISOString ? kit.createdAt.toISOString() : String(kit.createdAt),
     itemCount: kit.items?.reduce((total, item) => total + (item.quantity || 1), 0) ?? 0,

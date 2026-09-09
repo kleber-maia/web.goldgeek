@@ -127,3 +127,9 @@ Digital kit access is now recorded on the current inbound shipping label (`packe
 Browser checks used disposable development customers: mobile download → dashboard warning removed; desktop Print → reload retained progress; previous-print acknowledgement → warning removed; stale label → inline recovery → reload current label; keyboard expansion of secondary downloads; layouts at 375px and 1280px. All three completed paths left no preparation warning. Printed paper and the OS download destination were not independently verified. Automated coverage exercises persistence, concurrent repeats, ownership, missing files, replacement labels, and ineligible lifecycle states.
 
 Final follow-up checks: 56 automated tests pass; lint, typecheck, and production build pass. Four review lenses completed: ownership and reuse retained; unnecessary PDF transfer removed; print retry and stale-label recovery corrected. Validation covers the listed flows, not a guarantee that every possible UX issue has been eliminated.
+
+### Customer-facing digital kit status
+
+The generic `PENDING` label previously read Requested for both physical and digital kits. Customer dashboard, My Kits, and kit details now share a context-aware label: Prepare kit for a digital kit awaiting preparation, Ready to ship after current-label document access. Physical kits retain Requested, and carrier/later lifecycle statuses keep their meanings. These are presentation labels; no business status is advanced by printing or downloading.
+
+Status wording verification: 57 tests pass with the build, typecheck, and lint. Browser checks compared a physical request, an untouched digital kit, and a prepared digital kit at 375px and 1280px; list badges remain on one line. No production customer records or lifecycle states needed modification for this display correction.

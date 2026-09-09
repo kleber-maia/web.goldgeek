@@ -16,6 +16,7 @@ interface KitCardProps {
     kitNumber: string;
     type: string;
     status: string;
+    statusLabel: string;
     createdAt: string | Date;
     itemCount: number;
     offerValue?: number;
@@ -68,7 +69,7 @@ export default function KitCard({ kit, returnTo }: KitCardProps) {
             {kitTypeLabel} &bull; {kit.itemCount ?? "?"} {kit.itemCount === 1 ? 'item' : 'items'}
           </div>
         </div>
-        <Badge status={kit.status} label={kit.status === 'OFFER_SENT' && !hasOffer ? 'Awaiting updated offer' : undefined} />
+        <Badge className="shrink-0 whitespace-nowrap" status={kit.status} label={kit.status === 'OFFER_SENT' && !hasOffer ? 'Awaiting updated offer' : kit.statusLabel} />
       </div>
 
       {valueDisplay}

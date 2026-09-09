@@ -37,3 +37,17 @@ test('offer precedence follows sending time rather than draft creation', async (
   const newDraftSentFirst = { id: 'b', createdAt: '2026-02-01', sentAt: '2026-09-07' };
   assert.deepEqual([newDraftSentFirst, oldDraftSentLast].sort(compareOffers).map(offer => offer.id), ['a', 'b']);
 });
+
+test('digital customer status follows preparation while physical and later statuses retain their meanings', async () => {
+  const { formatCustomerKitStatus, formatStatusForUser } = await import('../src/lib/account/utils');
+  const kit = { type: 'DIGITAL', status: 'PENDING', shippingLabels: [{ type: 'INBOUND', status: 'CREATED', packetAccessedAt: null as Date | null }] };
+  assert.equal(formatCustomerKitStatus(kit), 'Prepare kit');
+  const prepared = { ...kit, shippingLabels: [{ ...kit.shippingLabels[0], packetAccessedAt: new Date() }] };
+  assert.equal(formatCustomerKitStatus(prepared), 'Ready to ship');
+  assert.equal(formatCustomerKitStatus({ ...prepared, type: 'PHYSICAL' }), 'Requested');
+  assert.equal(formatCustomerKitStatus({ ...prepared, shippingLabels: [{ ...prepared.shippingLabels[0], status: 'VOIDED' }, ...kit.shippingLabels] }), 'Prepare kit');
+  for (const status of ['EVALUATING', 'OFFER_SENT', 'ACCEPTED', 'PAID', 'DECLINED', 'RETURNED', 'CANCELLED']) {
+    assert.equal(formatCustomerKitStatus({ ...prepared, status }), formatStatusForUser(status));
+  }
+  assert.equal(formatCustomerKitStatus({ ...prepared, status: 'SHIPPED', shippingLabels: [{ ...prepared.shippingLabels[0], status: 'IN_TRANSIT' }] }), 'Shipping');
+});

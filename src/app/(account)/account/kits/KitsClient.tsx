@@ -9,6 +9,7 @@ interface KitData {
   kitNumber: string;
   type: string;
   status: string;
+  statusLabel: string;
   createdAt: string;
   itemCount: number;
   offerValue?: number;

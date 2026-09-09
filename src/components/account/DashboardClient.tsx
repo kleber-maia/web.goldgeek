@@ -4,7 +4,6 @@ import Link from "next/link";
 import { AccountContainer } from "@/components/account/layout";
 import { LogoutButton } from "@/components/account/LogoutButton";
 import { formatCurrency } from "@/lib/db/utils";
-import { formatStatusForUser } from "@/lib/account";
 import { formatStatus, formatDateShort } from "@/lib/format";
 
 interface ActionItem {
@@ -19,6 +18,7 @@ interface KitSummary {
   id: string;
   kitNumber: string;
   status: string;
+  statusLabel: string;
   type: string;
   createdAt: string;
   itemCount: number;
@@ -262,7 +262,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-[#2E1F0C]">#{kit.kitNumber}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor(kit.status)}`}>
-                        {formatStatusForUser(kit.status)}
+                        {kit.statusLabel}
                       </span>
                     </div>
                     <div className="text-xs text-[#9CA3AF] mt-1">

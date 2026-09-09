@@ -264,7 +264,7 @@ export async function getMyKits(input: HistoryQuery = {}) {
       data: serializePrismaData(kits.slice(0, HISTORY_PAGE_SIZE).map(kit => ({ id: kit.id, kitNumber: kit.kitNumber, type: kit.type, status: kit.status, createdAt: kit.createdAt,
         items: kit.items.map(item => ({ id: item.id, quantity: item.quantity })),
         offers: kit.offers.map(offer => ({ status: offer.status, totalValue: offer.totalValue, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt })),
-        shippingLabels: kit.shippingLabels.map(label => ({ type: label.type, status: label.status })),
+        shippingLabels: kit.shippingLabels.map(label => ({ type: label.type, status: label.status, packetAccessedAt: label.packetAccessedAt })),
       }))),
     };
   } catch (error: unknown) {
