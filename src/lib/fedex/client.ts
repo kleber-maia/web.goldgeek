@@ -55,7 +55,7 @@ export class FedExClient {
   // OAuth token
   // -------------------------------------------------------------------------
 
-  static async getToken(): Promise<string> {
+  static async getToken(signal?: AbortSignal): Promise<string> {
     const now = Date.now();
     if (cachedToken && now < tokenExpiresAt - 60_000) {
       return cachedToken;
@@ -72,6 +72,7 @@ export class FedExClient {
         client_id: clientId,
         client_secret: clientSecret,
       }),
+      signal,
     });
 
     if (!res.ok) {
@@ -92,9 +93,10 @@ export class FedExClient {
   private static async request<T>(
     path: string,
     body: unknown,
-    method: 'POST' | 'PUT' = 'POST'
+    method: 'POST' | 'PUT' = 'POST',
+    signal?: AbortSignal
   ): Promise<T> {
-    const token = await this.getToken();
+    const token = await this.getToken(signal);
     const url = `${getBaseUrl()}${path}`;
 
     const res = await fetch(url, {
@@ -105,7 +107,7 @@ export class FedExClient {
         'X-locale': 'en_US',
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
+      signal: signal ?? AbortSignal.timeout(30000),
     });
 
     if (!res.ok) {
@@ -288,6 +290,7 @@ export class FedExClient {
     city: string,
     maxResults = 6
   ): Promise<NearbyFedExLocation[]> {
+    const staffedTypes = ['FEDEX_OFFICE', 'FEDEX_AUTHORIZED_SHIP_CENTER', 'FEDEX_EXPRESS_STATION', 'FEDEX_ONSITE', 'FEDEX_SHIPSITE'];
     const body: FedExLocationSearchRequest = {
       location: {
         address: {
@@ -298,12 +301,13 @@ export class FedExClient {
         },
       },
       resultsRequested: maxResults,
+      locationTypes: staffedTypes,
     };
 
-    const raw = await this.request<{ output?: { locationDetailList?: Array<{ locationType?: string; contactAndAddress?: { address?: { streetLines?: string[]; city?: string; stateOrProvinceCode?: string; postalCode?: string }; addressAncillaryDetail?: { displayName?: string } }; distance?: { value?: number; units?: string } }> } }>('/location/v1/locations', body);
+    const raw = await this.request<{ output?: { locationDetailList?: Array<{ locationType?: string; contactAndAddress?: { address?: { streetLines?: string[]; city?: string; stateOrProvinceCode?: string; postalCode?: string }; addressAncillaryDetail?: { displayName?: string } }; distance?: { value?: number; units?: string } }> } }>('/location/v1/locations', body, 'POST', AbortSignal.timeout(5000));
     const locations = raw?.output?.locationDetailList ?? [];
 
-    return locations.slice(0, maxResults).map((loc) => {
+    return locations.filter(loc => staffedTypes.includes(loc.locationType ?? '')).slice(0, maxResults).map((loc) => {
       const addr = loc.contactAndAddress?.address ?? {};
       const rawName =
         loc.contactAndAddress?.addressAncillaryDetail?.displayName

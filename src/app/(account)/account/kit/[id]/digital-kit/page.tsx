@@ -325,23 +325,17 @@ export default function DigitalKitPage() {
             <table className="dk-locations-table">
               <thead>
                 <tr>
-                  <th>Street</th>
-                  <th>City</th>
-                  <th>State</th>
-                  <th>Zip</th>
-                  <th>Distance</th>
-                  <th>Description</th>
+                  <th scope="col">Store</th>
+                  <th scope="col">Address</th>
+                  <th scope="col" className="whitespace-nowrap">Distance</th>
                 </tr>
               </thead>
               <tbody>
                 {data.fedexLocations.map((loc, i) => (
                   <tr key={i}>
-                    <td>{loc.street}</td>
-                    <td>{loc.city}</td>
-                    <td>{loc.state}</td>
-                    <td>{loc.zip}</td>
-                    <td>{loc.distance}</td>
                     <td>{loc.description}</td>
+                    <td>{loc.street}<br />{loc.city}, {loc.state} {loc.zip}</td>
+                    <td className="whitespace-nowrap">{loc.distance}</td>
                   </tr>
                 ))}
               </tbody>

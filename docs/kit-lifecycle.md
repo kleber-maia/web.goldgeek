@@ -424,3 +424,11 @@ The September 2026 remediation supersedes older scenario assumptions above. See 
 - Insurance defaults to $1,000. The operator retained the existing bonus and turnaround wording. No automatic bonus eligibility system is claimed.
 
 Remaining optional capabilities: refunds/reversals, image uploads, USPS purchasing integration, archival instead of hard deletion, operational retention tooling, and a dedicated cancellation notification. These require explicit product scope; no existing record was deleted during this audit.
+
+### Nearby FedEx locations in digital kits
+
+The printable digital kit displays up to four nearby staffed FedEx stores using its shipping-address snapshot (falling back to the customer's shipping address only when there is no snapshot). The shipping service retrieves locations alongside company settings. Store name, full address, and distance appear in a three-column table that fits mobile screens and remains in the printed/downloaded packet.
+
+The lookup requests staffed location types and excludes self-service drop boxes, parcel lockers, and unknown types. FedEx documents location-type filtering in its [Locations Search API](https://developer.fedex.com/api/en-us/catalog/locations/v1/docs.html); the supported type identifiers are also listed in its [developer guide](https://www.fedex.com/us/developer/webhelp/ws/2022/Docs/FedEx_WebServices_DevelopersGuide_v2022_APAC.pdf). The location lookup has a five-second deadline covering both OAuth and the API request. If it fails, times out, or returns no staffed stores, the packet stays available with the existing staffed-location finder link.
+
+Regression coverage: `tests/fedex-locations.test.ts` checks address forwarding, result mapping/limit, staffed filtering, empty/error fallback, and a stalled OAuth request. Browser checks used a disposable development kit: four staffed stores returned near Orlando; the table fit 375px and 1280px views; the letter with locations measured 720 × 909 CSS pixels, within the letter PDF content area; the print action completed. No real shipping labels were purchased or production records changed during verification.

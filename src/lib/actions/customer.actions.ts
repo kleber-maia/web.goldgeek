@@ -658,8 +658,10 @@ export async function getDigitalKitData(
     const inboundLabel = await ShippingService.printableInbound(kit, fromAddress);
     const trackingNumber = inboundLabel.trackingNumber;
 
-    // Company settings
-    const companyInfo = await SettingsService.getCompanyInfo();
+    const [companyInfo, fedexLocations] = await Promise.all([
+      SettingsService.getCompanyInfo(),
+      ShippingService.nearbyDropOffLocations(fromAddress),
+    ]);
     const company = {
       name: companyInfo.name,
       phone: companyInfo.phone,
@@ -670,9 +672,6 @@ export async function getDigitalKitData(
       state: companyInfo.state,
       zip: companyInfo.zipCode,
     };
-
-    // Location search is optional; the carrier locator link works independently.
-    const fedexLocations: NearbyFedExLocation[] = [];
 
     return {
       success: true,

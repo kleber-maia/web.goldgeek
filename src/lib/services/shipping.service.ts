@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import type { ShippingLabel, ShippingCarrier, ShippingLabelType, ShippingLabelStatus, EventType } from '@prisma/client';
 import { NotificationService } from './notification.service';
 import { addressSchema } from '@/lib/validators/customer';
-import type { FedExLabelResult } from '@/lib/fedex/types';
+import type { FedExLabelResult, NearbyFedExLocation } from '@/lib/fedex/types';
 import { SettingsService } from './settings.service';
 import { FedExClient } from '@/lib/fedex/client';
 import { ShippingTransitionService } from './shipping-transition.service';
@@ -23,6 +23,15 @@ export interface CreateShippingLabelInput {
 }
 
 export class ShippingService {
+  static async nearbyDropOffLocations(address: { zipCode: string; state: string; city: string }): Promise<NearbyFedExLocation[]> {
+    try {
+      return await FedExClient.searchLocations(address.zipCode, address.state, address.city, 4);
+    } catch {
+      // Location suggestions are optional; keep the packet and carrier finder available.
+      return [];
+    }
+  }
+
   static async recordPacketAccess(kitId: string, labelId: string, customerId: string) {
     return prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
