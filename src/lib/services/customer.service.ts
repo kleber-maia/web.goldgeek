@@ -7,7 +7,7 @@ import { customerProfileSchema, addressSchema, type AddressInput, type CustomerP
 const customerKitIncludes = {
   items: { select: { id: true, quantity: true } },
   offers: { orderBy: [{ sentAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }, { id: 'desc' }], where: { status: { not: 'DRAFT' } } },
-  shippingLabels: { select: { type: true, status: true } },
+  shippingLabels: { select: { type: true, status: true, packetAccessedAt: true } },
 } satisfies Prisma.KitInclude;
 
 export class CustomerService {

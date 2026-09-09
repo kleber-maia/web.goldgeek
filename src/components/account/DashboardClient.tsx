@@ -45,6 +45,7 @@ export interface DashboardData {
     totalEarned: number;
   };
   actionRequired: ActionItem[];
+  preparedKits: { id: string; kitNumber: string }[];
   recentKits: KitSummary[];
   recentPayments: PaymentSummary[];
 }
@@ -212,10 +213,10 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-amber-900 m-0">
-                        Kit #{item.kitNumber} needs a Digital Kit
+                        Prepare kit {item.kitNumber}
                       </h3>
                       <p className="text-sm text-amber-700 mt-1 mb-0">
-                        Print your Digital Kit to ship your items to us
+                        Get your prepaid label and packing instructions
                       </p>
                     </div>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-1">
@@ -225,6 +226,16 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                 </Link>
               )
             )}
+          </div>
+        </section>
+      )}
+
+      {data.preparedKits.length > 0 && (
+        <section className="account-section mb-6" aria-label="Next steps">
+          <h2 className="text-base font-semibold mb-2">Next: pack and drop off</h2>
+          <p className="text-sm mb-3">Place your items and customer information card inside a sturdy package. Attach the prepaid label, then take it to a staffed FedEx location and keep your receipt.</p>
+          <div className="flex flex-wrap gap-4">
+            {data.preparedKits.map(kit => <Link key={kit.id} href={`/account/kit/${kit.id}`} className="text-sm underline">Kit {kit.kitNumber}: instructions and tracking</Link>)}
           </div>
         </section>
       )}

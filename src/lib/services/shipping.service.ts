@@ -23,6 +23,21 @@ export interface CreateShippingLabelInput {
 }
 
 export class ShippingService {
+  static async recordPacketAccess(kitId: string, labelId: string, customerId: string) {
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Kit" WHERE id = ${kitId} FOR UPDATE`;
+      const label = await tx.shippingLabel.findFirst({
+        where: { id: labelId, kitId, type: 'INBOUND', status: 'CREATED', labelData: { not: null }, NOT: { labelData: '' }, kit: { customerId, type: 'DIGITAL', status: { in: ['PENDING', 'SHIPPED'] } } },
+        select: { id: true, packetAccessedAt: true },
+      });
+      if (!label) throw new Error('This shipping label is no longer available. Reload your kit to continue.');
+      if (label.packetAccessedAt) return label.packetAccessedAt;
+      const now = new Date();
+      await tx.shippingLabel.update({ where: { id: label.id }, data: { packetAccessedAt: now }, select: { id: true } });
+      return now;
+    });
+  }
+
   static async printableInbound(kit: { id: string; type: string; status: string; shippingLabels: ShippingLabel[]; customer: { firstName: string; lastName: string; phone: string | null } }, address: { street1: string; street2?: string | null; city: string; state: string; zipCode: string }) {
     let label = kit.shippingLabels.filter(label => label.type === 'INBOUND' && label.status !== 'VOIDED').sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
     if (!label && kit.type === 'DIGITAL' && ['PENDING', 'SHIPPED'].includes(kit.status)) {

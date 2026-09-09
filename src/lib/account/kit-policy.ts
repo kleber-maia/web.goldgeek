@@ -10,6 +10,10 @@ export function canPrepareDigitalKit(kit: { type: string; status: string; shippi
     !kit.shippingLabels?.some(label => label.type === 'INBOUND' && ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'].includes(label.status));
 }
 
+export function hasAccessedDigitalKit(kit: { shippingLabels?: { type: string; status: string; packetAccessedAt?: Date | string | null }[] }): boolean {
+  return !!kit.shippingLabels?.some(label => label.type === 'INBOUND' && label.status === 'CREATED' && !!label.packetAccessedAt);
+}
+
 /** The most recently sent offer wins; draft creation does not determine precedence. */
 export function compareOffers(a: { sentAt?: Date | string | null; createdAt: Date | string; id?: string }, b: { sentAt?: Date | string | null; createdAt: Date | string; id?: string }) {
   return (b.sentAt ? new Date(b.sentAt).getTime() : 0) - (a.sentAt ? new Date(a.sentAt).getTime() : 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || (b.id || '').localeCompare(a.id || '');

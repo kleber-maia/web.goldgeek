@@ -1,4 +1,4 @@
-import { isActionableOffer, canPrepareDigitalKit } from '@/lib/account/kit-policy';
+import { isActionableOffer, canPrepareDigitalKit, hasAccessedDigitalKit } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
@@ -38,7 +38,7 @@ export default async function AccountDashboardPage() {
 
   const { kits, payments, actionKits, stats } = await CustomerService.getDashboard(session.id);
   const kitsWithOffer = actionKits.filter(k => k.status === 'OFFER_SENT' && k.offers.some(offer => isActionableOffer(offer)));
-  const kitsNeedingLabel = actionKits.filter(canPrepareDigitalKit);
+  const kitsNeedingLabel = actionKits.filter(kit => canPrepareDigitalKit(kit) && !hasAccessedDigitalKit(kit));
 
   const actionRequired = [
     ...kitsWithOffer.map((kit: CustomerKit) => ({
@@ -84,6 +84,7 @@ export default async function AccountDashboardPage() {
     customerInitial,
     stats,
     actionRequired,
+    preparedKits: actionKits.filter(kit => canPrepareDigitalKit(kit) && hasAccessedDigitalKit(kit)).map(kit => ({ id: kit.id, kitNumber: kit.kitNumber })),
     recentKits,
     recentPayments,
   };

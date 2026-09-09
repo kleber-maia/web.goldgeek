@@ -5,7 +5,7 @@ import Link from "next/link";
 import { appendCarrierLabel } from "@/lib/account/digital-kit-pdf";
 import { useParams } from "next/navigation";
 import { AccountContainer } from "@/components/account";
-import { getDigitalKitData } from "@/lib/actions/customer.actions";
+import { getDigitalKitData, recordDigitalKitAccess } from "@/lib/actions/customer.actions";
 import type { DigitalKitData } from "@/lib/actions/customer.actions";
 
 export default function DigitalKitPage() {
@@ -18,6 +18,9 @@ export default function DigitalKitPage() {
   const [labelImages, setLabelImages] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [progressError, setProgressError] = useState<string | null>(null);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
+  const [documentNotice, setDocumentNotice] = useState<string | null>(null);
   const [packetUrl, setPacketUrl] = useState<string | null>(null);
   const [labelRenderFailed, setLabelRenderFailed] = useState(false);
 
@@ -103,11 +106,34 @@ export default function DigitalKitPage() {
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const saveProgress = async () => {
+    if (!data || data.packetAccessedAt || isSavingProgress) return;
+    setIsSavingProgress(true);
+    setProgressError(null);
+    try {
+      const result = await recordDigitalKitAccess(kitId, data.labelId);
+      if (!result.success || !result.data) throw new Error(result.error);
+      setData(current => current ? { ...current, packetAccessedAt: result.data! } : current);
+    } catch {
+      setProgressError("We couldn’t save your progress. Retry, or reload your kit if its shipping label has changed.");
+    } finally {
+      setIsSavingProgress(false);
+    }
+  };
+
   const handlePrint = () => {
+    setDownloadError(null);
     const originalTitle = document.title;
     document.title = `Appraisal Kit - ${data?.kitNumber ?? "Gold Geek"}`;
-    window.print();
-    document.title = originalTitle;
+    try {
+      window.print();
+      setDocumentNotice("Print dialog opened. If you cancelled, you can print again whenever you’re ready.");
+      void saveProgress();
+    } catch {
+      setDownloadError("Printing could not open. Try again or download the kit to print it from your PDF reader.");
+    } finally {
+      document.title = originalTitle;
+    }
   };
 
   const handleDownloadPdf = async () => {
@@ -135,8 +161,10 @@ export default function DigitalKitPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setDocumentNotice("Your PDF is ready. Print its pages before packing your items.");
+      await saveProgress();
     } catch {
-      setDownloadError('Unable to create the packet. Retry, or download the original shipping label below.');
+      setDownloadError('Unable to create the packet. Retry, or use the label-only download under More download options.');
     } finally {
       setIsDownloading(false);
     }
@@ -193,18 +221,21 @@ export default function DigitalKitPage() {
     <AccountContainer
       headerProps={{ showBackButton: true, backHref: `/account/kit/${kitId}`, title: "Digital Kit" }}
     >
-      {downloadError && <p role="alert" className="account-alert account-alert-error">{downloadError}</p>}
-      {packetUrl && <a className="digital-kit-original-label account-btn account-btn-secondary" href={packetUrl} download={`Appraisal Kit - ${data.kitNumber}.pdf`}>Save prepared Digital Kit PDF</a>}
-      {/* Hidden canvas for PDF rendering */}
-
-      {data.labelData && <a className="digital-kit-original-label account-btn account-btn-secondary" href={`data:application/pdf;base64,${data.labelData}`} download={`Carrier Label - ${data.kitNumber}.pdf`}>Download original shipping label</a>}
+      <section className="digital-kit-toolbar account-section" aria-label="Prepare your digital kit">
+        <h2 className="text-lg font-semibold mb-2">{data.packetAccessedAt ? "Next: pack and drop off" : "Print your shipping documents"}</h2>
+        <p className="text-sm mb-4">{data.packetAccessedAt
+          ? "Put your items and printed customer information card in a sturdy package. Attach the prepaid label, then take it to a staffed FedEx location."
+          : "Print now or save the PDF to print later. Both include your instructions, customer information card, and prepaid shipping label."}</p>
+        {downloadError && <p role="alert" className="account-alert account-alert-error">{downloadError}</p>}
+        {documentNotice && <p role="status" className="text-sm mb-3">{documentNotice}</p>}
+        {progressError && <div role="alert" className="account-alert account-alert-error"><p>{progressError}</p><div className="flex flex-wrap gap-4"><button type="button" disabled={isSavingProgress} onClick={() => void saveProgress()} className="underline">{isSavingProgress ? "Saving…" : "Retry saving progress"}</button><button type="button" onClick={() => window.location.reload()} className="underline">Reload kit</button></div></div>}
       {/* Action buttons — responsive, outside fixed-width document */}
       <div className="digital-kit-actions">
         <button onClick={handlePrint} disabled={labelImages.length === 0 || isDownloading} className="account-btn account-btn-primary">
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
           </svg>
-          Print Digital Kit
+          {data.packetAccessedAt ? "Print again" : "Print kit"}
         </button>
         <button
           onClick={handleDownloadPdf}
@@ -214,9 +245,22 @@ export default function DigitalKitPage() {
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
-          {isDownloading ? "Preparing download..." : "Download Digital Kit"}
+          {isDownloading ? "Preparing download..." : (data.packetAccessedAt ? "Download again" : "Download PDF")}
         </button>
       </div>
+
+        {!data.packetAccessedAt && !progressError && <button type="button" disabled={isSavingProgress || !data.labelData} onClick={() => void saveProgress()} className="text-sm underline mb-4">{isSavingProgress ? "Saving progress…" : "I’ve already printed this kit"}</button>}
+        {data.packetAccessedAt && <div className="flex flex-wrap gap-4 mb-4 text-sm">
+          <Link href={`/account/kit/${kitId}`} className="underline">Continue to packing and tracking</Link>
+          <a href="https://local.fedex.com/en/staffed-drop-off" target="_blank" rel="noopener noreferrer" className="underline">Find a staffed FedEx location</a>
+        </div>}
+        {data.labelData && <details className="text-sm border-t border-[var(--account-border)] pt-3">
+          <summary className="cursor-pointer">More download options</summary>
+          <p className="mt-3 mb-2">The complete kit already includes your shipping label. Use this only if you need a separate copy.</p>
+          <a className="underline" href={`data:application/pdf;base64,${data.labelData}`} download={`Carrier Label - ${data.kitNumber}.pdf`}>Download shipping label only</a>
+          {packetUrl && <p className="mt-2 mb-0"><a className="underline" href={packetUrl} download={`Appraisal Kit - ${data.kitNumber}.pdf`}>Save the prepared PDF again</a></p>}
+        </details>}
+      </section>
 
       {/* Scrollable container — allows horizontal scroll on narrow screens */}
       <div className="digital-kit-scroll">

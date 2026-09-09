@@ -1,4 +1,5 @@
 'use server';
+import { revalidatePath } from 'next/cache';
 import { historyQuery, HISTORY_PAGE_SIZE, type HistoryQuery } from '@/lib/account/history';
 
 import { canPrepareDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
@@ -301,7 +302,7 @@ export async function getKitDetails(kitId: string) {
         createdAt: kit.createdAt, estimatedValue: kit.estimatedValue, shippingAddress: kit.shippingAddress,
         items: kit.items.map(item => ({ id: item.id, type: item.type, description: item.description, quantity: item.quantity, metalType: item.metalType, weight: item.weight, purity: item.purity, finalValue: null })),
         offers: kit.offers.filter(offer => offer.status !== 'DRAFT').map(offer => ({ id: offer.id, status: offer.status, totalValue: offer.totalValue, itemBreakdown: offer.itemBreakdown, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt, payment: offer.payment ? { id: offer.payment.id, method: offer.payment.method, status: offer.payment.status, amount: offer.payment.amount } : null })),
-        shippingLabels: kit.shippingLabels.filter(label => label.status !== 'VOIDED').map(label => ({ id: label.id, type: label.type, carrier: label.carrier, trackingNumber: label.trackingNumber, status: label.status, createdAt: label.createdAt, shippedAt: label.shippedAt, deliveredAt: label.deliveredAt })),
+        shippingLabels: kit.shippingLabels.filter(label => label.status !== 'VOIDED').map(label => ({ id: label.id, type: label.type, carrier: label.carrier, trackingNumber: label.trackingNumber, status: label.status, createdAt: label.createdAt, packetAccessedAt: label.packetAccessedAt, shippedAt: label.shippedAt, deliveredAt: label.deliveredAt })),
         returns: kit.returns.map(item => ({ id: item.id, returnNumber: item.returnNumber, status: item.status, createdAt: item.createdAt, trackingNumber: item.trackingNumber, shippedAt: item.shippedAt, deliveredAt: item.deliveredAt })),
         timeline: kit.timeline.map(customerActivity).filter(Boolean),
       }),
@@ -490,6 +491,8 @@ export async function getShippingLabelData(
 
 export interface DigitalKitData {
   kitId: string;
+  labelId: string;
+  packetAccessedAt: string | null;
   kitNumber: string;
   trackingNumber: string;
   labelData?: string;
@@ -654,6 +657,8 @@ export async function getDigitalKitData(
       success: true,
       data: {
         kitId: kit.id,
+        labelId: inboundLabel.id,
+        packetAccessedAt: inboundLabel.packetAccessedAt?.toISOString() ?? null,
         kitNumber: kit.kitNumber,
         trackingNumber,
         labelData: inboundLabel?.labelData ?? undefined,
@@ -682,6 +687,19 @@ export async function getDigitalKitData(
       success: false,
       error: message,
     };
+  }
+}
+
+export async function recordDigitalKitAccess(kitId: string, labelId: string): Promise<ActionResult<string>> {
+  try {
+    const session = await requireCustomer();
+    const ids = z.object({ kitId: z.string().min(1).max(128), labelId: z.string().min(1).max(128) }).parse({ kitId, labelId });
+    const accessedAt = await ShippingService.recordPacketAccess(ids.kitId, ids.labelId, session.id);
+    revalidatePath('/account');
+    revalidatePath(`/account/kit/${ids.kitId}`);
+    return { success: true, data: accessedAt.toISOString() };
+  } catch {
+    return { success: false, error: 'We could not save your progress. Retry, or reload if your shipping label has changed.' };
   }
 }
 

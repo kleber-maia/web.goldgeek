@@ -377,6 +377,7 @@ model ShippingLabel {
   trackingNumber String
   labelUrl       String? // URL to download PDF
   labelData      String?             @db.Text // Base64 encoded label (backup)
+  packetAccessedAt DateTime? // Print requested, complete packet generated, or prior print acknowledged
   cost           Decimal?            @db.Decimal(10, 2)
   status         ShippingLabelStatus @default(CREATED)
   externalId     String? // Carrier's label ID
