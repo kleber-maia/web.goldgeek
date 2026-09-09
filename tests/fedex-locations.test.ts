@@ -10,7 +10,7 @@ test('digital kit location lookup sends its address and preserves nearby results
   const locations = [{ street: '123 Carrier Street', city: 'Orlando', state: 'FL', zip: '32801', distance: '1 mi', description: 'FedEx Office' }];
   const search = t.mock.method(FedExClient, 'searchLocations', async () => locations);
   assert.deepEqual(await ShippingService.nearbyDropOffLocations({ zipCode: '32801', state: 'FL', city: 'Orlando' }), locations);
-  assert.deepEqual(search.mock.calls[0].arguments, ['32801', 'FL', 'Orlando', 4]);
+  assert.deepEqual(search.mock.calls[0].arguments, ['32801', 'FL', 'Orlando', 3]);
 });
 
 test('carrier failure and empty location results preserve the finder fallback', async t => {
@@ -43,13 +43,13 @@ test('carrier lookup requests staffed stores, excludes unstaffed results, and ma
     ...Array.from({ length: 6 }, (_, i) => ({ locationType: 'FEDEX_OFFICE', contactAndAddress: { address: { streetLines: [`${i} Store Street`], city: 'Orlando', stateOrProvinceCode: 'FL', postalCode: '32801' }, addressAncillaryDetail: { displayName: 'FedEx Office' } }, distance: { value: i + 1, units: 'MI' } })),
   ] } }), { status: 200 }));
   const locations = await ShippingService.nearbyDropOffLocations({ zipCode: '32801', state: 'FL', city: 'Orlando' });
-  assert.equal(locations.length, 4);
+  assert.equal(locations.length, 3);
   assert.deepEqual(locations[0], { street: '0 Store Street', city: 'Orlando', state: 'FL', zip: '32801', distance: '1 mi', description: 'FedEx Office' });
   const init = fetched.mock.calls[0].arguments[1] as RequestInit;
   const body = JSON.parse(init.body as string);
   assert.deepEqual(body.location.address, { postalCode: '32801', stateOrProvinceCode: 'FL', city: 'Orlando', countryCode: 'US' });
   assert.ok(body.locationTypes.includes('FEDEX_OFFICE'));
   assert.ok(!body.locationTypes.includes('FEDEX_SELF_SERVICE_LOCATION'));
-  assert.equal(body.resultsRequested, 4);
+  assert.equal(body.resultsRequested, 3);
   assert.ok(init.signal instanceof AbortSignal);
 });

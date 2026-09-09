@@ -25,7 +25,7 @@ export interface CreateShippingLabelInput {
 export class ShippingService {
   static async nearbyDropOffLocations(address: { zipCode: string; state: string; city: string }): Promise<NearbyFedExLocation[]> {
     try {
-      return await FedExClient.searchLocations(address.zipCode, address.state, address.city, 4);
+      return await FedExClient.searchLocations(address.zipCode, address.state, address.city, 3);
     } catch {
       // Location suggestions are optional; keep the packet and carrier finder available.
       return [];
