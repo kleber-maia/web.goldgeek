@@ -20,6 +20,7 @@ interface Kit {
   kitNumber: string;
   type: string;
   status: string;
+  statusLabel: string;
   trackingNumber: string | null;
   notes: string | null;
   createdAt: Date | string;
@@ -122,7 +123,7 @@ const estimatePricePerGram: Record<string, number> = {
 
 // Status workflow: what comes next for linear progression
 const STATUS_FLOW: Record<string, { next: string; label: string; description: string } | null> = {
-  PENDING: { next: "SHIPPED", label: "Mark Shipped", description: "Kit/label has been mailed to customer" },
+  PENDING: { next: "SHIPPED", label: "Mark Shipped", description: "Confirm carrier pickup or the first in-transit scan, not label creation or printing" },
   SHIPPED: null, // Waiting for package arrival (auto-advances to EVALUATING on delivery)
   EVALUATING: null,
   OFFER_SENT: null,
@@ -294,6 +295,10 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   const hasKitDeliveryLabel = kit.shippingLabels.some((l) => l.type === "KIT_DELIVERY" && l.status !== "VOIDED");
   const hasInboundLabel = kit.shippingLabels.some((l) => l.type === "INBOUND" && l.status !== "VOIDED");
   const hasReturnLabel = kit.shippingLabels.some((l) => l.type === "RETURN" && l.status !== "VOIDED");
+  const hasShipmentLabel = kit.type === "PHYSICAL" ? hasKitDeliveryLabel : hasInboundLabel;
+  const shipmentPrerequisite = kit.type === "PHYSICAL"
+    ? 'First save the empty-kit delivery label from Gold Geek to the customer in the Shipping section below.'
+    : 'First save the inbound label from the customer to Gold Geek using Manual Label in the Shipping section below.';
 
   // Kit type toggle guards
   const canChangeType = kit.status === "PENDING";
@@ -313,7 +318,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
 
   // ─── Status Change ────────────────────────────────────────────────────────
   const executeStatusChange = async () => {
-    if (!nextStatus) return;
+    if (!nextStatus || !hasShipmentLabel) return;
     setIsSubmitting(true);
     try {
       const result = await updateKitStatus(kit.id, nextStatus.next as KitStatus);
@@ -330,10 +335,10 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
   };
 
   const handleStatusChange = () => {
-    if (!nextStatus) return;
+    if (!nextStatus || !hasShipmentLabel) return;
     setConfirmAction({
       title: nextStatus.label,
-      message: `Change kit status from "${formatStatus(kit.status)}" to "${formatStatus(nextStatus.next)}". ${nextStatus.description}.`,
+      message: `Change kit status from "${kit.statusLabel}" to "${formatStatus(nextStatus.next)}". ${nextStatus.description}.`,
       variant: "warning",
       confirmLabel: nextStatus.label,
       onConfirm: executeStatusChange,
@@ -766,7 +771,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
           <div>
             <h1 className="admin-detail-title">{kit.kitNumber}</h1>
             <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`} style={{ marginTop: "4px" }}>
-              {formatStatus(kit.status)}
+              {kit.statusLabel}
             </span>
           </div>
         </div>
@@ -810,7 +815,7 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
           </div>
 
           <div style={{ fontSize: "13px", color: "#6B7280", marginBottom: "12px" }}>
-            Current: <strong style={{ color: "#2E1F0C" }}>{formatStatus(kit.status)}</strong>
+            Current: <strong style={{ color: "var(--admin-text)" }}>{kit.statusLabel}</strong>
             {kit.trackingNumber && <> &bull; Tracking: <code style={{ fontSize: "12px" }}>{kit.trackingNumber}</code></>}
           </div>
 
@@ -858,11 +863,13 @@ export default function RequestDetailClient({ kit }: { kit: Kit }) {
           {/* Next status button */}
           {nextStatus && (
             <div>
+              {!hasShipmentLabel && <p id="shipment-prerequisite" className="text-sm mb-2">{shipmentPrerequisite}</p>}
               <div style={{ fontSize: "13px", color: "#6B7280", marginBottom: "8px" }}>{nextStatus.description}</div>
               <button
                 onClick={handleStatusChange}
                 className="admin-btn admin-btn-primary"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !hasShipmentLabel}
+                aria-describedby={!hasShipmentLabel ? 'shipment-prerequisite' : undefined}
                 style={{ width: "100%" }}
               >
                 <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">

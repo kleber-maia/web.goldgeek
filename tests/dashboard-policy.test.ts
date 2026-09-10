@@ -38,16 +38,38 @@ test('offer precedence follows sending time rather than draft creation', async (
   assert.deepEqual([newDraftSentFirst, oldDraftSentLast].sort(compareOffers).map(offer => offer.id), ['a', 'b']);
 });
 
-test('digital customer status follows preparation while physical and later statuses retain their meanings', async () => {
-  const { formatCustomerKitStatus, formatStatusForUser } = await import('../src/lib/account/utils');
-  const kit = { type: 'DIGITAL', status: 'PENDING', shippingLabels: [{ type: 'INBOUND', status: 'CREATED', packetAccessedAt: null as Date | null }] };
-  assert.equal(formatCustomerKitStatus(kit), 'Prepare kit');
-  const prepared = { ...kit, shippingLabels: [{ ...kit.shippingLabels[0], packetAccessedAt: new Date() }] };
-  assert.equal(formatCustomerKitStatus(prepared), 'Ready to ship');
-  assert.equal(formatCustomerKitStatus({ ...prepared, type: 'PHYSICAL' }), 'Requested');
-  assert.equal(formatCustomerKitStatus({ ...prepared, shippingLabels: [{ ...prepared.shippingLabels[0], status: 'VOIDED' }, ...kit.shippingLabels] }), 'Prepare kit');
-  for (const status of ['EVALUATING', 'OFFER_SENT', 'ACCEPTED', 'PAID', 'DECLINED', 'RETURNED', 'CANCELLED']) {
-    assert.equal(formatCustomerKitStatus({ ...prepared, status }), formatStatusForUser(status));
+test('digital and physical stages follow shipment evidence, not printing', async () => {
+  const { formatCustomerKitStatus } = await import('../src/lib/account/utils');
+  const digital = { type: 'DIGITAL', status: 'PENDING', shippingLabels: [] as { type: string; status: string; hasDocument?: boolean; packetAccessedAt?: Date }[] };
+  assert.equal(formatCustomerKitStatus(digital), 'Waiting to be issued');
+  const label = { type: 'INBOUND', status: 'CREATED', hasDocument: true };
+  assert.equal(formatCustomerKitStatus({ ...digital, shippingLabels: [label] }), 'Waiting for Customer to pack and ship');
+  const opened = { ...digital, shippingLabels: [{ ...label, packetAccessedAt: new Date() }] };
+  assert.equal(formatCustomerKitStatus(opened), 'Waiting for Customer to pack and ship');
+  assert.equal(formatCustomerKitStatus({ ...digital, shippingLabels: [{ ...label, status: 'VOIDED' }] }), 'Waiting to be issued');
+  assert.equal(formatCustomerKitStatus({ ...digital, status: 'SHIPPED', shippingLabels: [{ ...label, status: 'IN_TRANSIT' }] }), 'In transit to Gold Geek');
+  const physical = { ...digital, type: 'PHYSICAL' };
+  const box = { type: 'KIT_DELIVERY', status: 'CREATED' };
+  assert.equal(formatCustomerKitStatus({ ...physical, shippingLabels: [box, label] }), 'Waiting to be shipped');
+  assert.equal(formatCustomerKitStatus({ ...physical, status: 'SHIPPED', shippingLabels: [{ ...box, status: 'IN_TRANSIT' }, label] }), 'In transit to Customer');
+  assert.equal(formatCustomerKitStatus({ ...physical, status: 'SHIPPED', shippingLabels: [{ ...box, status: 'DELIVERED' }, label] }), 'Waiting for Customer to pack and ship');
+  assert.equal(formatCustomerKitStatus({ ...physical, status: 'SHIPPED', shippingLabels: [{ ...box, status: 'DELIVERED' }, { ...label, status: 'IN_TRANSIT' }] }), 'In transit to Gold Geek');
+  const expected = { EVALUATING: 'Waiting for appraisal', OFFER_SENT: 'Offer sent', ACCEPTED: 'Waiting for payment', PAID: 'Paid', DECLINED: 'Waiting for return to customer', RETURNED: 'Returned', CANCELLED: 'Cancelled' };
+  for (const [status, text] of Object.entries(expected)) {
+    for (const type of ['DIGITAL', 'PHYSICAL']) assert.equal(formatCustomerKitStatus({ type, status }), text);
   }
-  assert.equal(formatCustomerKitStatus({ ...prepared, status: 'SHIPPED', shippingLabels: [{ ...prepared.shippingLabels[0], status: 'IN_TRANSIT' }] }), 'Shipping');
+  assert.equal(formatCustomerKitStatus({ ...digital, status: 'DECLINED', returns: [{ status: 'IN_TRANSIT' }] }), 'In transit back to customer');
+  assert.equal(formatCustomerKitStatus({ ...digital, status: 'DECLINED', returns: [{ status: 'FAILED', shippedAt: new Date() }] }), 'In transit back to customer');
+});
+
+test('withdrawal and preparation notices identify each shipment without exposing metadata', () => {
+  const base = { id: 'notice', type: 'STATUS_CHANGED' as const, createdAt: new Date(), title: 'Private', description: 'Private' };
+  const names = { INBOUND: 'Your shipping label to Gold Geek', KIT_DELIVERY: 'Empty-kit delivery label', RETURN: 'Return shipment label to you' };
+  for (const [labelType, name] of Object.entries(names)) {
+    assert.equal(customerActivity({ ...base, metadata: { labelType, milestone: 'LABEL_PREPARED' } })?.title, `${name} prepared`);
+    assert.equal(customerActivity({ ...base, metadata: { labelType, milestone: 'LABEL_VOIDED', secret: 'hidden' } })?.title, `${name} withdrawn${labelType === 'INBOUND' ? ' — do not use this label' : ''}`);
+  }
+  assert.equal(customerActivity({ ...base, metadata: { milestone: 'LABEL_VOIDED' } })?.title, 'Shipping label withdrawn');
+  assert.equal(customerActivity({ ...base, metadata: { newStatus: 'CANCELLED', milestone: 'unknown' } })?.title, 'Kit cancelled');
+  assert.equal(customerActivity({ ...base, type: 'PACKAGE_DELIVERED', metadata: { labelType: 'KIT_DELIVERY' } })?.title, 'Empty kit delivered — pack and ship your items');
 });

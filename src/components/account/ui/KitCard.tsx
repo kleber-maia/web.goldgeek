@@ -62,14 +62,14 @@ export default function KitCard({ kit, returnTo }: KitCardProps) {
       href={`/account/kit/${kit.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
       className={`account-kit-card ${hasOffer ? "highlight" : ""}`}
     >
-      <div className="account-kit-card-header">
+      <div className="account-kit-card-header flex-col gap-2 md:flex-row">
         <div>
           <div className="account-kit-id">Kit #{kit.kitNumber}</div>
           <div className="account-kit-type">
             {kitTypeLabel} &bull; {kit.itemCount ?? "?"} {kit.itemCount === 1 ? 'item' : 'items'}
           </div>
         </div>
-        <Badge className="shrink-0 whitespace-nowrap" status={kit.status} label={kit.status === 'OFFER_SENT' && !hasOffer ? 'Awaiting updated offer' : kit.statusLabel} />
+        <Badge className="max-w-full whitespace-normal md:text-right" status={kit.status} label={kit.statusLabel} />
       </div>
 
       {valueDisplay}

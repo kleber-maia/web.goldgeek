@@ -186,6 +186,20 @@ function fedexTrackingUrl(trackingNumber: string): string {
   return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
 }
 
+export async function sendKitDeliveredToCustomerEmail(email: string, kitNumber: string, kitId: string, baseUrl?: string): Promise<boolean> {
+  const { appUrl, logoUrl, year, companyName, attachments } = await getEmailDefaults(baseUrl);
+  const kitUrl = buildAbsoluteUrl(appUrl, appRoutes.accountKit(kitId));
+  const title = 'Your empty kit has arrived';
+  const instructions = 'Pack your items in the kit and use the included prepaid air label to ship them to Gold Geek. Take the package to a staffed FedEx location and keep your drop-off receipt. Tracking updates after the carrier scans your package.';
+  return sendEmail({
+    to: email,
+    subject: `Kit delivered - ${kitNumber} - ${companyName}`,
+    html: emailShell(title, logoUrl, year, companyName, `<h1>${title}</h1><p>Kit ${kitNumber} is waiting for you to pack and ship.</p><p>${instructions}</p>${ctaButton(kitUrl, 'View my kit')}`),
+    text: `${title}\n\nKit: ${kitNumber}\n\n${instructions}\n\nView your kit: ${kitUrl}`,
+    attachments,
+  });
+}
+
 // --- Email templates ---
 
 /**

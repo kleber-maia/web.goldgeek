@@ -30,7 +30,8 @@ test('packet access persists in dashboard and kit data without advancing shippin
   assert.equal(hasAccessedDigitalKit(next), true);
   assert.equal(canPrepareDigitalKit(next), true, 'Reprinting remains available');
   assert.equal(dashboard.actionKits.filter(candidate => canPrepareDigitalKit(candidate) && !hasAccessedDigitalKit(candidate)).length, 0);
-  assert.equal(await prisma.timelineEvent.count({ where: { kitId: kit.id } }), 0, 'No fabricated shipping events');
+  assert.equal(await prisma.timelineEvent.count({ where: { kitId: kit.id, type: 'STATUS_CHANGED' } }), 1, 'Concurrent access creates one activity milestone');
+  assert.equal(await prisma.timelineEvent.count({ where: { kitId: kit.id, type: { in: ['KIT_SENT', 'PACKAGE_IN_TRANSIT'] } } }), 0, 'Printing is not shipping');
 });
 
 test('packet progress rejects another customer, mismatched kit, missing PDF, and voided label', async () => {

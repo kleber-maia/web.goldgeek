@@ -1,6 +1,6 @@
 import KitDestination from "@/components/account/KitDestination";
 import CancelKit from '@/components/account/CancelKit';
-import { canPrepareDigitalKit, isAwaitingCustomerShipment, hasAccessedDigitalKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
+import { canPrepareDigitalKit, isAwaitingCustomerShipment, hasAccessedDigitalKit, isPublishedOffer, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AccountContainer, Badge, Timeline, OfferBanner, KitTypeToggle } from "@/components/account";
@@ -137,7 +137,7 @@ export default async function KitDetailPage({
   const kit = result.data;
   const company = await SettingsService.getCompanyInfo();
 
-  const offers = ((kit.offers || []) as OfferLike[]).filter(offer => offer.status !== "DRAFT");
+  const offers = ((kit.offers || []) as OfferLike[]).filter(isPublishedOffer);
   const sortedOffers = [...offers].sort(compareOffers);
   const activeOffer =
     sortedOffers.find((offer) => offer.status === "SENT") ||
@@ -151,7 +151,7 @@ export default async function KitDetailPage({
   const showShippingLabel =
     canPrepareDigitalKit(kit);
   const showPhysicalKitMessage =
-    kit.type === "PHYSICAL" && kit.status === "SHIPPED";
+    kit.type === "PHYSICAL" && formatCustomerKitStatus(kit) === "In transit to Customer";
 
   const timelineEvents =
     (kit.timeline as TimelineLike[] | undefined)?.map((event) => ({
@@ -191,7 +191,7 @@ export default async function KitDetailPage({
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <Badge
           status={kit.status.toLowerCase()}
-          label={kit.status === 'OFFER_SENT' && !showOfferBanner ? 'Awaiting updated offer' : activeOffer?.payment?.status === 'COMPLETED' ? 'Payment Completed' : formatCustomerKitStatus(kit)}
+          label={formatCustomerKitStatus(kit)}
           style={{ fontSize: 14, padding: "8px 16px" }}
         />
       </div>
@@ -228,7 +228,7 @@ export default async function KitDetailPage({
       )}
 
       {/* Expired Offer Banner */}
-      {activeOffer?.status === "EXPIRED" && (
+      {kit.status === "OFFER_SENT" && activeOffer && !isActionableOffer(activeOffer) && (
         <div style={{
           background: "#F3F4F6",
           border: "1px solid #D1D5DB",
@@ -336,6 +336,15 @@ export default async function KitDetailPage({
           </div>
           <p className="text-sm mt-3 mb-0">Tracking updates after FedEx scans your package.</p>
           {kit.canCancel && <CancelKit kitId={kit.id} kitNumber={kit.kitNumber} />}
+        </section>
+      )}
+
+      {kit.type === 'PHYSICAL' && formatCustomerKitStatus(kit) === 'Waiting for Customer to pack and ship' && (
+        <section className="account-section">
+          <h2 className="text-base font-semibold mb-2">Your kit has arrived — pack and ship your items</h2>
+          <p className="text-sm mb-4">Place your items and completed customer documents in the kit. Attach the included prepaid air label and take the package to a staffed FedEx location. Keep your drop-off receipt.</p>
+          <a href="https://local.fedex.com/en/staffed-drop-off" target="_blank" rel="noopener noreferrer" className="account-btn account-btn-secondary">Find a drop-off location</a>
+          <p className="text-sm mt-3 mb-0">Tracking updates after FedEx scans your package.</p>
         </section>
       )}
 

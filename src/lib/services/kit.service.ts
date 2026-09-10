@@ -4,6 +4,8 @@ import { generateKitNumber } from '@/lib/db/utils';
 import type { Kit, KitStatus, KitType, Prisma } from '@prisma/client';
 import { NotificationService } from './notification.service';
 import { ActivityService } from './activity.service';
+import { ShippingTransitionService } from './shipping-transition.service';
+import { kitSummaryShipping, withKitIssuance } from './kit-summary';
 
 export interface CreateKitInput {
   customerId: string;
@@ -24,7 +26,7 @@ export class AwaitingShipmentKitError extends Error {
 export class KitService {
   static async getAwaitingShipment(customerId: string, db: Pick<Prisma.TransactionClient, 'kit'> = prisma) {
     return db.kit.findFirst({
-      where: { customerId, status: { in: ['PENDING', 'SHIPPED'] }, shippingLabels: { none: { type: 'INBOUND', status: { in: ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'] } } } },
+      where: { customerId, OR: [{ status: 'PENDING' }, { type: 'PHYSICAL', status: 'SHIPPED' }], shippingLabels: { none: { type: 'INBOUND', status: { in: ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'] } } } },
       select: { id: true, kitNumber: true, type: true },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
@@ -156,7 +158,17 @@ export class KitService {
     const transitions: Partial<Record<KitStatus, KitStatus[]>> = { PENDING: ['SHIPPED', 'EVALUATING', 'CANCELLED'], SHIPPED: ['EVALUATING', 'CANCELLED'] };
     if (!transitions[previous.status]?.includes(status)) throw new Error('Complete the offer, payment, or return workflow to change this status.');
     const now = new Date();
+    if (status === 'SHIPPED' || status === 'EVALUATING') {
+      const type = status === 'SHIPPED' && previous.type === 'PHYSICAL' ? 'KIT_DELIVERY' : 'INBOUND';
+      const label = await tx.shippingLabel.findFirst({ where: { kitId, type, status: { not: 'VOIDED' } }, orderBy: { createdAt: 'desc' } });
+      if (!label) throw new Error(type === 'KIT_DELIVERY'
+        ? 'Save the empty-kit delivery label from Gold Geek to the customer before confirming carrier pickup.'
+        : 'Save the inbound label from the customer to Gold Geek before confirming carrier pickup or delivery.');
+      await ShippingTransitionService.applyInTransaction(tx, label.id, status === 'SHIPPED' ? 'IN_TRANSIT' : 'DELIVERED', userId, now);
+      return tx.kit.findUniqueOrThrow({ where: { id: kitId } });
+    }
     if (status === 'CANCELLED') {
+      if (previous.type === 'DIGITAL' && previous.status === 'SHIPPED') throw new Error('Items are already on their way. Complete the appraisal or return workflow.');
       if (await tx.shippingOperation.count({ where: { kitId, status: { in: ['STARTED', 'UNKNOWN'] } } })) throw new Error('Resolve the pending carrier request before cancelling this kit.');
       const labels = await tx.shippingLabel.findMany({ where: { kitId, status: { not: 'VOIDED' } }, select: { id: true, type: true, status: true, carrier: true } });
       if (labels.some(label => label.type === 'INBOUND' && ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'].includes(label.status))) throw new Error('Items are already on their way. Complete the appraisal or return workflow.');
@@ -167,8 +179,6 @@ export class KitService {
       await tx.offer.updateMany({ where: { kitId, status: { in: ['DRAFT', 'SENT'] } }, data: { status: 'EXPIRED' } });
     }
     const kit = await tx.kit.update({ where: { id: kitId }, data: { status,
-      ...(status === 'SHIPPED' ? { kitSentAt: now } : {}),
-      ...(status === 'EVALUATING' ? { receivedAt: now, evaluationStartAt: now } : {}),
       ...(status === 'CANCELLED' ? { completedAt: now } : {}),
     } });
     await tx.timelineEvent.create({ data: { kitId, userId, type: 'STATUS_CHANGED', title: 'Status updated', metadata: { oldStatus: previous.status, newStatus: status } } });
@@ -232,17 +242,19 @@ export class KitService {
       ];
     }
 
-    return prisma.kit.findMany({
+    const kits = await prisma.kit.findMany({
       where,
       include: {
         customer: true,
         items: true,
         offers: true,
+        ...kitSummaryShipping,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
+    return kits.map(withKitIssuance);
   }
 
   /**

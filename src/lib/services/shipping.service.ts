@@ -43,6 +43,7 @@ export class ShippingService {
       if (label.packetAccessedAt) return label.packetAccessedAt;
       const now = new Date();
       await tx.shippingLabel.update({ where: { id: label.id }, data: { packetAccessedAt: now }, select: { id: true } });
+      await tx.timelineEvent.create({ data: { kitId, type: 'STATUS_CHANGED', title: 'Digital kit opened for printing or download', metadata: { labelId, milestone: 'PACKET_ACCESSED' } } });
       return now;
     });
   }
@@ -78,13 +79,18 @@ export class ShippingService {
         const missingUrl = !existing.labelUrl && data.labelUrl;
         if (missingPdf || missingUrl) {
           if (existing.status !== 'CREATED') throw new Error('A shipped label cannot be changed.');
-          return tx.shippingLabel.update({ where: { id: existing.id }, data: { ...(missingPdf ? { labelData: data.labelData } : {}), ...(missingUrl ? { labelUrl: data.labelUrl } : {}) } });
+          const updated = await tx.shippingLabel.update({ where: { id: existing.id }, data: { ...(missingPdf ? { labelData: data.labelData } : {}), ...(missingUrl ? { labelUrl: data.labelUrl } : {}) } });
+          if (missingPdf && kit.type === 'DIGITAL' && data.type === 'INBOUND') {
+            await tx.timelineEvent.create({ data: { kitId: kit.id, userId, type: 'STATUS_CHANGED', title: 'Digital kit issued', metadata: { labelId: existing.id, milestone: 'DIGITAL_KIT_ISSUED' } } });
+          }
+          return updated;
         }
         return existing;
       }
       const label = await tx.shippingLabel.create({ data: { ...data, status: 'CREATED' } });
       const eventType: EventType = data.type === 'RETURN' ? 'RETURN_LABEL_CREATED' : 'STATUS_CHANGED';
-      await tx.timelineEvent.create({ data: { kitId: data.kitId, userId, type: eventType, title: 'Shipping label prepared', metadata: { labelId: label.id } } });
+      const issued = kit.type === 'DIGITAL' && data.type === 'INBOUND' && !!data.labelData;
+      await tx.timelineEvent.create({ data: { kitId: data.kitId, userId, type: eventType, title: issued ? 'Digital kit issued' : 'Shipping label prepared', metadata: { labelId: label.id, labelType: data.type, milestone: issued ? 'DIGITAL_KIT_ISSUED' : 'LABEL_PREPARED' } } });
       if (data.type === 'RETURN') {
         const record = await tx.return.findFirst({ where: { kitId: data.kitId }, orderBy: { createdAt: 'desc' } });
         if (!record) throw new Error('Create a return request before preparing its label.');
@@ -177,7 +183,7 @@ export class ShippingService {
       if (latest.status !== 'CREATED') throw new Error('A shipped label cannot be voided here. Contact the carrier.');
       const label = await tx.shippingLabel.update({ where: { id: labelId }, data: { status: 'VOIDED', voidedAt: latest.carrier === 'FEDEX' ? null : new Date() } });
       if (latest.carrier === 'FEDEX') await NotificationService.enqueue(tx, 'CARRIER:VOID', labelId, `label:${labelId}:void`);
-      await tx.timelineEvent.create({ data: { kitId: current.kitId, userId, type: 'STATUS_CHANGED', title: latest.carrier === 'FEDEX' ? 'Shipping label cancellation requested' : 'Shipping label voided', metadata: { labelId } } });
+      await tx.timelineEvent.create({ data: { kitId: current.kitId, userId, type: 'STATUS_CHANGED', title: latest.carrier === 'FEDEX' ? 'Shipping label cancellation requested' : 'Shipping label voided', metadata: { labelId, labelType: latest.type, milestone: 'LABEL_VOIDED' } } });
       return label;
     });
   }

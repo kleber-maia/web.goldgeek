@@ -1,5 +1,5 @@
 import { KitStatus, KitStatusKey, KitType, KitTypeKey, STATUSES } from './types';
-import { canPrepareDigitalKit, hasAccessedDigitalKit } from './kit-policy';
+import { kitLifecycleLabel, type LifecycleKit } from './kit-policy';
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -46,13 +46,8 @@ export function formatStatusForUser(status: KitStatus | string): string {
   return STATUSES[key]?.userLabel || status;
 }
 
-export function formatCustomerKitStatus(kit: {
-  type: string;
-  status: string;
-  shippingLabels?: { type: string; status: string; packetAccessedAt?: Date | string | null }[];
-}): string {
-  if (canPrepareDigitalKit(kit)) return hasAccessedDigitalKit(kit) ? 'Ready to ship' : 'Prepare kit';
-  return formatStatusForUser(kit.status);
+export function formatCustomerKitStatus(kit: LifecycleKit): string {
+  return kitLifecycleLabel(kit);
 }
 
 export function getStatusBadgeClass(status: KitStatus | string): string {

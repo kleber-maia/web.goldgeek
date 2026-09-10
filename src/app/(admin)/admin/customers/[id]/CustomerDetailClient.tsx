@@ -33,6 +33,7 @@ interface Customer {
     id: string;
     kitNumber: string;
     status: string;
+    statusLabel: string;
     createdAt: Date | string;
     items: unknown[];
   }>;
@@ -455,7 +456,7 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
                       <div className="admin-card-meta">{formatDate(kit.createdAt)}</div>
                     </div>
                     <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`}>
-                      {formatStatus(kit.status)}
+                      {kit.statusLabel}
                     </span>
                   </div>
                   <div className="admin-card-footer">
@@ -500,7 +501,7 @@ export default function CustomerDetailClient({ customer }: { customer: Customer 
                       </td>
                       <td>
                         <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`}>
-                          {formatStatus(kit.status)}
+                          {kit.statusLabel}
                         </span>
                       </td>
                       <td>{kit.items.length} items</td>

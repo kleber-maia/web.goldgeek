@@ -90,6 +90,12 @@ export class NotificationService {
       const returnNumber = label.kit.returns[0]?.returnNumber || '';
       switch (row.kind) {
         case 'SHIPPING:KIT_DELIVERY:IN_TRANSIT': return email.sendKitShippedToCustomerEmail(recipient, kitNumber, label.trackingNumber, baseUrl);
+        case 'SHIPPING:KIT_DELIVERY:DELIVERED': {
+          if (!['PENDING', 'SHIPPED'].includes(label.kit.status)) return true;
+          const itemsShipped = await prisma.shippingLabel.findFirst({ where: { kitId: label.kitId, type: 'INBOUND', status: { in: ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'] } }, select: { id: true } });
+          if (itemsShipped) return true;
+          return email.sendKitDeliveredToCustomerEmail(recipient, kitNumber, label.kitId, baseUrl);
+        }
         case 'SHIPPING:INBOUND:IN_TRANSIT': return email.sendPackageInTransitEmail(recipient, kitNumber, label.trackingNumber, baseUrl);
         case 'SHIPPING:INBOUND:DELIVERED': return email.sendKitReceivedEmail(recipient, kitNumber, baseUrl);
         case 'SHIPPING:RETURN:IN_TRANSIT': return email.sendReturnShippedEmail(recipient, kitNumber, returnNumber, label.trackingNumber, baseUrl);

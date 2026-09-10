@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { historyQuery, HISTORY_PAGE_SIZE, type HistoryQuery } from '@/lib/account/history';
 
-import { canPrepareDigitalKit, canCancelCustomerKit, isActionableOffer, compareOffers } from '@/lib/account/kit-policy';
+import { canPrepareDigitalKit, canCancelCustomerKit, isActionableOffer, isPublishedOffer, compareOffers } from '@/lib/account/kit-policy';
 import { customerActivity } from '@/lib/account/customer-activity';
 import { z } from 'zod';
 import { requireAuth, requireCustomer } from '@/lib/auth';
@@ -262,9 +262,11 @@ export async function getMyKits(input: HistoryQuery = {}) {
       success: true,
       hasMore: kits.length > HISTORY_PAGE_SIZE,
       data: serializePrismaData(kits.slice(0, HISTORY_PAGE_SIZE).map(kit => ({ id: kit.id, kitNumber: kit.kitNumber, type: kit.type, status: kit.status, createdAt: kit.createdAt,
+        digitalKitIssued: kit.digitalKitIssued,
         items: kit.items.map(item => ({ id: item.id, quantity: item.quantity })),
         offers: kit.offers.map(offer => ({ status: offer.status, totalValue: offer.totalValue, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt })),
-        shippingLabels: kit.shippingLabels.map(label => ({ type: label.type, status: label.status, packetAccessedAt: label.packetAccessedAt })),
+        shippingLabels: kit.shippingLabels.map(label => ({ type: label.type, status: label.status, packetAccessedAt: label.packetAccessedAt, shippedAt: label.shippedAt })),
+        returns: kit.returns.map(record => ({ status: record.status, shippedAt: record.shippedAt })),
       }))),
     };
   } catch (error: unknown) {
@@ -302,8 +304,8 @@ export async function getKitDetails(kitId: string) {
         canCancel: canCancelCustomerKit(kit),
         createdAt: kit.createdAt, estimatedValue: kit.estimatedValue, shippingAddress: kit.shippingAddress,
         items: kit.items.map(item => ({ id: item.id, type: item.type, description: item.description, quantity: item.quantity, metalType: item.metalType, weight: item.weight, purity: item.purity, finalValue: null })),
-        offers: kit.offers.filter(offer => offer.status !== 'DRAFT').map(offer => ({ id: offer.id, status: offer.status, totalValue: offer.totalValue, itemBreakdown: offer.itemBreakdown, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt, payment: offer.payment ? { id: offer.payment.id, method: offer.payment.method, status: offer.payment.status, amount: offer.payment.amount } : null })),
-        shippingLabels: kit.shippingLabels.filter(label => label.status !== 'VOIDED').map(label => ({ id: label.id, type: label.type, carrier: label.carrier, trackingNumber: label.trackingNumber, status: label.status, createdAt: label.createdAt, packetAccessedAt: label.packetAccessedAt, shippedAt: label.shippedAt, deliveredAt: label.deliveredAt })),
+        offers: kit.offers.filter(isPublishedOffer).map(offer => ({ id: offer.id, status: offer.status, totalValue: offer.totalValue, itemBreakdown: offer.itemBreakdown, createdAt: offer.createdAt, sentAt: offer.sentAt, expiresAt: offer.expiresAt, payment: offer.payment ? { id: offer.payment.id, method: offer.payment.method, status: offer.payment.status, amount: offer.payment.amount } : null })),
+        shippingLabels: kit.shippingLabels.filter(label => label.status !== 'VOIDED').map(label => ({ id: label.id, type: label.type, carrier: label.carrier, trackingNumber: label.trackingNumber, status: label.status, createdAt: label.createdAt, packetAccessedAt: label.packetAccessedAt, hasDocument: !!label.labelData, shippedAt: label.shippedAt, deliveredAt: label.deliveredAt })),
         returns: kit.returns.map(item => ({ id: item.id, returnNumber: item.returnNumber, status: item.status, createdAt: item.createdAt, trackingNumber: item.trackingNumber, shippedAt: item.shippedAt, deliveredAt: item.deliveredAt })),
         timeline: kit.timeline.map(customerActivity).filter(Boolean),
       }),
@@ -354,7 +356,7 @@ export async function getKitOfferSummary(
     }
 
     const offers = (kit.offers || []) as OfferLike[];
-    const sortedOffers = [...offers].sort(compareOffers);
+    const sortedOffers = offers.filter(isPublishedOffer).sort(compareOffers);
     const activeOffer = sortedOffers.find(offer => isActionableOffer(offer));
 
     if (!activeOffer || kit.status !== 'OFFER_SENT') {

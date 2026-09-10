@@ -4,6 +4,8 @@ import { prisma } from '../src/lib/db';
 import { ShippingTransitionService } from '../src/lib/services/shipping-transition.service';
 import { ReturnService } from '../src/lib/services/return.service';
 import { NotificationService } from '../src/lib/services/notification.service';
+import { ShippingService } from '../src/lib/services/shipping.service';
+import { customerActivity } from '../src/lib/account/customer-activity';
 import type { KitStatus, ShippingLabelType } from '@prisma/client';
 
 if (new URL(process.env.DATABASE_URL || 'file:///missing').hostname !== '127.0.0.1' || process.env.NODE_ENV !== 'test') throw new Error('Use the isolated test runner');
@@ -110,4 +112,63 @@ test('a failed return can resume transit without disagreeing with its label', as
   assert.equal((await prisma.return.findUniqueOrThrow({ where: { id: record.id } })).status, 'IN_TRANSIT');
   assert.equal((await prisma.shippingLabel.findUniqueOrThrow({ where: { id: label.id } })).status, 'IN_TRANSIT');
   await assert.rejects(ReturnService.updateTracking(record.id, 'CHANGED'), /cannot change/);
+});
+
+test('late pickup scans fill missing dates once without reopening shipments or sending stale mail', async () => {
+  for (const type of ['KIT_DELIVERY', 'INBOUND', 'RETURN'] as const) {
+    const { kit, label } = await fixture(`late-${type}`, type, type === 'RETURN' ? 'DECLINED' : 'PENDING');
+    await prisma.kit.update({ where: { id: kit.id }, data: { type: type === 'KIT_DELIVERY' ? 'PHYSICAL' : 'DIGITAL' } });
+    if (type === 'RETURN') await prisma.return.create({ data: { kitId: kit.id, returnNumber: 'LATE-RETURN' } });
+    const pickup = new Date(label.createdAt.getTime() + 1000);
+    const delivered = new Date(pickup.getTime() + 1000);
+    await ShippingTransitionService.apply(label.id, 'DELIVERED', undefined, delivered, `delivery-${type}`);
+    const before = await prisma.kit.findUniqueOrThrow({ where: { id: kit.id } });
+    assert.equal(before.kitSentAt, null, 'Delivery must not invent a pickup date');
+    const messages = await prisma.notificationOutbox.count({ where: { aggregateId: label.id } });
+    await Promise.all(Array.from({ length: 3 }, () => ShippingTransitionService.apply(label.id, 'IN_TRANSIT', undefined, pickup, `pickup-${type}`)));
+    const updated = await prisma.shippingLabel.findUniqueOrThrow({ where: { id: label.id } });
+    assert.equal(updated.status, 'DELIVERED');
+    assert.equal(updated.shippedAt?.getTime(), pickup.getTime());
+    assert.equal(updated.deliveredAt?.getTime(), delivered.getTime());
+    assert.equal(updated.lastCarrierEventAt?.getTime(), delivered.getTime());
+    const current = await prisma.kit.findUniqueOrThrow({ where: { id: kit.id } });
+    assert.equal(current.status, before.status);
+    if (type !== 'RETURN') assert.equal(current.kitSentAt?.getTime(), pickup.getTime());
+    else assert.equal((await prisma.return.findFirstOrThrow({ where: { kitId: kit.id } })).shippedAt?.getTime(), pickup.getTime());
+    assert.equal(await prisma.notificationOutbox.count({ where: { aggregateId: label.id } }), messages);
+    const history = await prisma.timelineEvent.findMany({ where: { kitId: kit.id, createdAt: pickup } });
+    assert.equal(history.length, 1);
+    assert.ok(customerActivity(history[0]));
+    await ShippingTransitionService.apply(label.id, 'IN_TRANSIT', undefined, new Date(pickup.getTime() + 100), `another-${type}`);
+    assert.equal((await prisma.shippingLabel.findUniqueOrThrow({ where: { id: label.id } })).shippedAt?.getTime(), pickup.getTime());
+  }
+});
+
+test('late-date recovery rejects impossible chronology and scans without a carrier receipt', async () => {
+  const { label } = await fixture('late-invalid', 'KIT_DELIVERY');
+  const delivered = new Date(label.createdAt.getTime() + 2000);
+  await ShippingTransitionService.apply(label.id, 'DELIVERED', undefined, delivered, 'late-invalid-delivery');
+  await ShippingTransitionService.apply(label.id, 'IN_TRANSIT', undefined, new Date('invalid'), 'invalid-date');
+  await ShippingTransitionService.apply(label.id, 'IN_TRANSIT', undefined, new Date(delivered.getTime() + 1), 'after-delivery');
+  await ShippingTransitionService.apply(label.id, 'IN_TRANSIT', undefined, new Date(label.createdAt.getTime() + 1000));
+  assert.equal((await prisma.shippingLabel.findUniqueOrThrow({ where: { id: label.id } })).shippedAt, null);
+});
+
+test('label withdrawal persists its direction and leaves other kit labels usable', async () => {
+  const { kit, label } = await fixture('withdraw-box', 'KIT_DELIVERY');
+  const inbound = await prisma.shippingLabel.create({ data: { kitId: kit.id, type: 'INBOUND', carrier: 'USPS', trackingNumber: 'RETAIN-INBOUND' } });
+  await ShippingService.voidLabel(label.id);
+  const event = await prisma.timelineEvent.findFirstOrThrow({ where: { kitId: kit.id, type: 'STATUS_CHANGED' } });
+  assert.equal(customerActivity(event)?.title, 'Empty-kit delivery label withdrawn');
+  assert.equal((await prisma.shippingLabel.findUniqueOrThrow({ where: { id: inbound.id } })).status, 'CREATED');
+});
+
+test('late pickup history may predate a manually imported label record', async () => {
+  const { kit, label } = await fixture('imported-box', 'KIT_DELIVERY');
+  const pickup = new Date(label.createdAt.getTime() - 86400000);
+  const delivered = new Date(label.createdAt.getTime() + 1000);
+  await ShippingTransitionService.apply(label.id, 'DELIVERED', undefined, delivered, 'imported-delivered');
+  await ShippingTransitionService.apply(label.id, 'IN_TRANSIT', undefined, pickup, 'imported-pickup');
+  assert.equal((await prisma.shippingLabel.findUniqueOrThrow({ where: { id: label.id } })).shippedAt?.getTime(), pickup.getTime());
+  assert.equal((await prisma.kit.findUniqueOrThrow({ where: { id: kit.id } })).kitSentAt?.getTime(), pickup.getTime());
 });

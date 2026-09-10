@@ -17,6 +17,20 @@ export class ShippingTransitionService {
         await tx.carrierReceipt.create({ data: { id: receiptId, trackingNumber: label.trackingNumber } });
       }
       if (label.status === 'VOIDED' || label.kit.status === 'CANCELLED') return label;
+      // A late carrier scan can supply missing history without reopening a delivered shipment.
+      if (receiptId && label.status === 'DELIVERED' && status === 'IN_TRANSIT' && !label.shippedAt &&
+        label.deliveredAt && Number.isFinite(eventAt.getTime()) && eventAt <= label.deliveredAt) {
+        const updated = await tx.shippingLabel.update({ where: { id: labelId }, data: { shippedAt: eventAt } });
+        if (label.type === 'KIT_DELIVERY' || (label.type === 'INBOUND' && label.kit.type === 'DIGITAL')) {
+          await tx.kit.updateMany({ where: { id: label.kitId, kitSentAt: null }, data: { kitSentAt: eventAt } });
+        }
+        if (label.type === 'RETURN') {
+          await tx.return.updateMany({ where: { kitId: label.kitId, trackingNumber: label.trackingNumber, shippedAt: null }, data: { shippedAt: eventAt } });
+        }
+        const type: EventType = label.type === 'KIT_DELIVERY' ? 'KIT_SENT' : label.type === 'RETURN' ? 'RETURN_SHIPPED' : 'PACKAGE_IN_TRANSIT';
+        await tx.timelineEvent.create({ data: { kitId: label.kitId, userId, type, title: 'Shipment date confirmed by delayed carrier scan', metadata: { labelId, labelType: label.type, historical: true }, createdAt: eventAt } });
+        return updated;
+      }
       if (label.status === 'DELIVERED' && status !== 'DELIVERED') return label;
       if (receiptId && label.lastCarrierEventAt && (eventAt < label.lastCarrierEventAt || (eventAt.getTime() === label.lastCarrierEventAt.getTime() && status !== 'DELIVERED'))) return label;
       if (label.status === status) {
@@ -43,6 +57,9 @@ export class ShippingTransitionService {
       } else if (label.type === 'KIT_DELIVERY' && status === 'IN_TRANSIT') {
         await tx.kit.updateMany({ where: { id: label.kitId, status: 'PENDING' }, data: { status: 'SHIPPED', kitSentAt: eventAt } });
         type = 'KIT_SENT'; title = 'Kit shipped to you';
+      } else if (label.type === 'KIT_DELIVERY' && status === 'DELIVERED') {
+        await tx.kit.updateMany({ where: { id: label.kitId, status: 'PENDING' }, data: { status: 'SHIPPED' } });
+        type = 'PACKAGE_DELIVERED'; title = 'Empty kit delivered to customer';
       } else if (label.type === 'RETURN' && ['IN_TRANSIT', 'DELIVERED'].includes(status)) {
         const returnRecord = await tx.return.findFirst({ where: { kitId: label.kitId }, orderBy: { createdAt: 'desc' } });
         if (!returnRecord) throw new Error('Return shipment has no return record');
@@ -50,7 +67,7 @@ export class ShippingTransitionService {
         if (status === 'DELIVERED') await tx.kit.updateMany({ where: { id: label.kitId, status: 'DECLINED' }, data: { status: 'RETURNED', completedAt: eventAt } });
         type = status === 'DELIVERED' ? 'RETURN_DELIVERED' : 'RETURN_SHIPPED'; title = status === 'DELIVERED' ? 'Return delivered' : 'Return shipped';
       }
-      const event = await tx.timelineEvent.create({ data: { kitId: label.kitId, userId, type, title, description: `${label.carrier}: ${label.trackingNumber}`, metadata: { labelId, oldStatus: label.status, newStatus: status }, createdAt: eventAt } });
+      const event = await tx.timelineEvent.create({ data: { kitId: label.kitId, userId, type, title, description: `${label.carrier}: ${label.trackingNumber}`, metadata: { labelId, labelType: label.type, oldStatus: label.status, newStatus: status }, createdAt: eventAt } });
       await NotificationService.enqueue(tx, `SHIPPING:${label.type}:${status}`, labelId, event.id);
       return updated;
   }

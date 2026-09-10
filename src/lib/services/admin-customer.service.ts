@@ -1,5 +1,7 @@
+import { kitLifecycleLabel } from '@/lib/account/kit-policy';
 import { z } from 'zod';
 import { CustomerService } from './customer.service';
+import { kitSummaryShipping, withKitIssuance } from './kit-summary';
 import { customerProfileSchema } from '@/lib/validators/customer';
 import { PaymentDetailsService } from '@/lib/services/payment-details.service';
 
@@ -59,6 +61,7 @@ export async function getCustomerById(customerId: string) {
           include: {
             items: true,
             offers: true,
+            ...kitSummaryShipping,
           },
           orderBy: {
             createdAt: 'desc',
@@ -86,7 +89,7 @@ export async function getCustomerById(customerId: string) {
     const preferences = PaymentDetailsService.preferences(customer.paymentPreferences);
     return {
       success: true,
-      data: serializePrismaData({ ...customer, paymentPreferences: { ...preferences, accountInfo: PaymentDetailsService.mask(preferences.accountInfo) }, payments: customer.payments.map(({ accountInfo: _private, ...payment }) => payment) }),
+      data: serializePrismaData({ ...customer, kits: customer.kits.map(withKitIssuance).map(kit => ({ ...kit, statusLabel: kitLifecycleLabel(kit) })), paymentPreferences: { ...preferences, accountInfo: PaymentDetailsService.mask(preferences.accountInfo) }, payments: customer.payments.map(({ accountInfo: _private, ...payment }) => payment) }),
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get customer';

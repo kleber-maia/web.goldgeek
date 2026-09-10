@@ -88,7 +88,7 @@ export class ReturnService {
       const record = await tx.return.update({ where: { id: returnId }, data: { status, ...(status === 'IN_TRANSIT' ? { shippedAt: now } : {}), ...(status === 'DELIVERED' ? { deliveredAt: now } : {}) } });
       if (status === 'DELIVERED') await tx.kit.update({ where: { id: latest.kitId }, data: { status: 'RETURNED', completedAt: now } });
       const eventTypes: Record<ReturnStatus, EventType> = { PENDING: 'RETURN_REQUESTED', LABEL_CREATED: 'RETURN_LABEL_CREATED', IN_TRANSIT: 'RETURN_SHIPPED', DELIVERED: 'RETURN_DELIVERED', FAILED: 'STATUS_CHANGED' };
-      const event = await tx.timelineEvent.create({ data: { kitId: latest.kitId, userId, type: eventTypes[status], title: `Return ${status.toLowerCase().replaceAll('_', ' ')}`, metadata: { returnId, status } } });
+      const event = await tx.timelineEvent.create({ data: { kitId: latest.kitId, userId, type: eventTypes[status], title: `Return ${status.toLowerCase().replaceAll('_', ' ')}`, metadata: { returnId, status, ...(status === 'FAILED' ? { milestone: 'RETURN_FAILED' } : {}) } } });
       if (status === 'IN_TRANSIT' || status === 'DELIVERED') await NotificationService.enqueue(tx, `RETURN:${status}`, returnId, event.id);
       return record;
     });

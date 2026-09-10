@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/db/utils";
 import { formatStatus, formatDateShort } from "@/lib/format";
 
 interface ActionItem {
-  type: "offer" | "label";
+  type: "offer" | "label" | "pack";
   kitId: string;
   kitNumber: string;
   offerValue?: number;
@@ -216,7 +216,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
                         Prepare kit {item.kitNumber}
                       </h3>
                       <p className="text-sm text-amber-700 mt-1 mb-0">
-                        Get your prepaid label and packing instructions
+                        {item.type === "pack" ? "Pack your items and drop off the package using your prepaid label" : "Get your prepaid label and packing instructions"}
                       </p>
                     </div>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-1">

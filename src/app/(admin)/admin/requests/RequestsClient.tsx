@@ -15,6 +15,7 @@ interface Kit {
   kitNumber: string;
   type: string;
   status: string;
+  statusLabel: string;
   createdAt: Date | string;
   estimatedValue: { toString(): string } | null;
   customer: {
@@ -204,7 +205,7 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                     </div>
                   </div>
                   <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`}>
-                    {formatStatus(kit.status)}
+                    {kit.statusLabel}
                   </span>
                 </div>
                 <div className="admin-card-meta">
@@ -258,7 +259,7 @@ export default function RequestsClient({ kits }: { kits: Kit[] }) {
                     <td>{kit.type.charAt(0).toUpperCase() + kit.type.slice(1)}</td>
                     <td>
                       <span className={`admin-badge ${getStatusBadgeClass(kit.status)}`}>
-                        {formatStatus(kit.status)}
+                        {kit.statusLabel}
                       </span>
                     </td>
                     <td>{formatDate(kit.createdAt)}</td>

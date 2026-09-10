@@ -1,5 +1,6 @@
 'use server';
 
+import { kitLifecycleLabel } from '@/lib/account/kit-policy';
 import { headers } from 'next/headers';
 import { addressSchema } from '@/lib/validators/customer';
 import { itemBreakdownSchema } from '@/lib/validators/offer';
@@ -32,7 +33,7 @@ export async function getAllKits(filters?: {
 
     return {
       success: true,
-      data: serializePrismaData(kits),
+      data: serializePrismaData(kits.map(kit => ({ ...kit, statusLabel: kitLifecycleLabel(kit) }))),
     };
   } catch (error: unknown) {
     console.error('Error getting kits:', error);
@@ -73,7 +74,7 @@ export async function getKitDetails(kitId: string) {
 
     return {
       success: true,
-      data: serializePrismaData({ ...kit,
+      data: serializePrismaData({ ...kit, statusLabel: kitLifecycleLabel(kit),
         customer: { ...kit.customer, paymentPreferences: null },
         shippingAddress: addressSchema.omit({ type: true }).nullable().catch(null).parse(kit.shippingAddress),
         offers: kit.offers.map(offer => ({ ...offer, itemBreakdown: itemBreakdownSchema.array().nullable().catch(null).parse(offer.itemBreakdown), payment: offer.payment ? { ...offer.payment, accountInfo: null } : null })),

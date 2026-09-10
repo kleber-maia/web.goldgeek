@@ -91,3 +91,24 @@ test('outbound box delivery still permits cancellation before customer items shi
   await KitService.cancelForCustomer(kit.id, customer.id);
   assert.equal((await prisma.shippingLabel.findUniqueOrThrow({ where: { id: box.id } })).status, 'DELIVERED');
 });
+
+test('manual shipment confirmation updates the label and blocks digital cancellation', async () => {
+  const { customer, kit, label } = await fixture('manual-confirmation');
+  await KitService.updateStatus(kit.id, 'SHIPPED');
+  const updated = await KitService.getById(kit.id);
+  assert.ok(updated);
+  assert.equal(updated.shippingLabels[0].status, 'IN_TRANSIT');
+  assert.equal(canCancelCustomerKit(updated), false);
+  assert.equal(await KitService.getAwaitingShipment(customer.id), null);
+  await assert.rejects(KitService.cancelForCustomer(kit.id, customer.id));
+  assert.equal(await prisma.notificationOutbox.count({ where: { aggregateId: label.id, kind: 'SHIPPING:INBOUND:IN_TRANSIT' } }), 1);
+});
+
+test('missing shipment labels fail with direction-specific instructions without advancing the kit', async () => {
+  for (const type of ['DIGITAL', 'PHYSICAL'] as const) {
+    const customer = await prisma.customer.create({ data: { email: `missing-${type}@example.invalid`, firstName: 'Missing', lastName: 'Test' } });
+    const kit = await prisma.kit.create({ data: { customerId: customer.id, kitNumber: `MISSING-${type}`, type } });
+    await assert.rejects(KitService.updateStatus(kit.id, 'SHIPPED'), type === 'DIGITAL' ? /inbound label from the customer to Gold Geek/ : /empty-kit delivery label from Gold Geek to the customer/);
+    assert.equal((await KitService.getById(kit.id))?.status, 'PENDING');
+  }
+});

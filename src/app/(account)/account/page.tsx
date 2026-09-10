@@ -1,4 +1,4 @@
-import { isActionableOffer, canPrepareDigitalKit, hasAccessedDigitalKit } from '@/lib/account/kit-policy';
+import { isActionableOffer, canPrepareDigitalKit, hasIssuedDigitalKit } from '@/lib/account/kit-policy';
 import { formatCustomerKitStatus } from '@/lib/account/utils';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
@@ -42,7 +42,7 @@ export default async function AccountDashboardPage() {
     CustomerService.getDashboard(session.id), KitService.getAwaitingShipment(session.id),
   ]);
   const kitsWithOffer = actionKits.filter(k => k.status === 'OFFER_SENT' && k.offers.some(offer => isActionableOffer(offer)));
-  const kitsNeedingLabel = actionKits.filter(kit => canPrepareDigitalKit(kit) && !hasAccessedDigitalKit(kit));
+  const kitsToPrepare = actionKits.filter(kit => canPrepareDigitalKit(kit) || formatCustomerKitStatus(kit) === "Waiting for Customer to pack and ship");
 
   const actionRequired = [
     ...kitsWithOffer.map((kit: CustomerKit) => ({
@@ -54,8 +54,8 @@ export default async function AccountDashboardPage() {
         : undefined,
       itemCount: kit.items?.reduce((total, item) => total + (item.quantity || 1), 0) ?? 0,
     })),
-    ...kitsNeedingLabel.map((kit: CustomerKit) => ({
-      type: "label" as const,
+    ...kitsToPrepare.map((kit: CustomerKit) => ({
+      type: kit.type === "PHYSICAL" || hasIssuedDigitalKit(kit) ? "pack" as const : "label" as const,
       kitId: kit.id,
       kitNumber: kit.kitNumber,
     })),

@@ -1,6 +1,6 @@
 import { historyQuery } from '@/lib/account/history';
 import { formatCustomerKitStatus } from '@/lib/account/utils';
-import { isActionableOffer, canPrepareDigitalKit } from '@/lib/account/kit-policy';
+import { isActionableOffer, canPrepareDigitalKit, compareOffers } from '@/lib/account/kit-policy';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AccessDenied from "@/components/AccessDenied";
@@ -11,6 +11,7 @@ type OfferLike = {
   status: string;
   totalValue: { toString(): string };
   createdAt: string;
+  sentAt?: string | null;
   expiresAt?: string | Date;
 };
 
@@ -46,10 +47,7 @@ export default async function ManageKitsPage({ searchParams }: { searchParams: P
   const allKits = (result.data || []) as KitLike[];
 
   const kitsForClient = allKits.map((kit) => {
-    const sortedOffers = [...(kit.offers || [])].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    const sortedOffers = [...(kit.offers || [])].sort(compareOffers);
     const activeOffer = sortedOffers.find(offer => isActionableOffer(offer));
     const offerForValue = activeOffer || sortedOffers[0];
     const hasOffer = kit.status === "OFFER_SENT" && Boolean(activeOffer);

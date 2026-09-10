@@ -118,16 +118,16 @@ export interface StatusConfig {
 }
 
 export const STATUSES: Record<KitStatusKey, StatusConfig> = {
-  pending: { label: 'Pending', userLabel: 'Requested', badgeClass: 'pending' },
+  pending: { label: 'Pending', userLabel: 'Waiting to be shipped', badgeClass: 'pending' },
   shipped: { label: 'Shipped', userLabel: 'Shipping', badgeClass: 'in-progress' },
   kit_sent: { label: 'Kit Sent', userLabel: 'Kit On The Way', badgeClass: 'purple' },
   in_transit: { label: 'In Transit', userLabel: 'Shipping to Us', badgeClass: 'in-progress' },
   received: { label: 'Received', userLabel: 'Received', badgeClass: 'in-progress' },
-  evaluating: { label: 'Evaluating', userLabel: 'Being Appraised', badgeClass: 'in-progress' },
-  offer_sent: { label: 'Offer Sent', userLabel: 'Offer Ready', badgeClass: 'pending' },
-  accepted: { label: 'Accepted', userLabel: 'Accepted', badgeClass: 'success' },
-  declined: { label: 'Declined', userLabel: 'Declined', badgeClass: 'gray' },
-  paid: { label: 'Paid', userLabel: 'Payment Sent', badgeClass: 'success' },
-  returned: { label: 'Returned', userLabel: 'Items Returned', badgeClass: 'gray' },
+  evaluating: { label: 'Evaluating', userLabel: 'Waiting for appraisal', badgeClass: 'in-progress' },
+  offer_sent: { label: 'Offer Sent', userLabel: 'Offer sent', badgeClass: 'pending' },
+  accepted: { label: 'Accepted', userLabel: 'Waiting for payment', badgeClass: 'success' },
+  declined: { label: 'Declined', userLabel: 'Waiting for return to customer', badgeClass: 'gray' },
+  paid: { label: 'Paid', userLabel: 'Paid', badgeClass: 'success' },
+  returned: { label: 'Returned', userLabel: 'Returned', badgeClass: 'gray' },
   cancelled: { label: 'Cancelled', userLabel: 'Cancelled', badgeClass: 'gray' },
 };

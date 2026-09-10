@@ -3,25 +3,26 @@ import { activeKitStatuses, completedKitStatuses } from '@/lib/account/kit-polic
 import { prisma } from '@/lib/db';
 import type { Customer, Address, KitStatus, Prisma } from '@prisma/client';
 import { customerProfileSchema, addressSchema, type AddressInput, type CustomerProfileInput } from '@/lib/validators/customer';
+import { kitSummaryShipping, withKitIssuance } from './kit-summary';
 
 const customerKitIncludes = {
   items: { select: { id: true, quantity: true } },
-  offers: { orderBy: [{ sentAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }, { id: 'desc' }], where: { status: { not: 'DRAFT' } } },
-  shippingLabels: { select: { type: true, status: true, packetAccessedAt: true } },
+  offers: { orderBy: [{ sentAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }, { id: 'desc' }], where: { status: { not: 'DRAFT' }, sentAt: { not: null } } },
+  ...kitSummaryShipping,
 } satisfies Prisma.KitInclude;
 
 export class CustomerService {
   static async getDashboard(customerId: string) {
-    const availableOffer = { status: 'OFFER_SENT' as const, offers: { some: { status: 'SENT' as const, expiresAt: { gt: new Date() } } } };
+    const availableOffer = { status: 'OFFER_SENT' as const, offers: { some: { status: 'SENT' as const, sentAt: { not: null }, expiresAt: { gt: new Date() } } } };
     const [kits, payments, actionKits, totalKits, activeKits, offersReady, earned] = await Promise.all([
       this.getKits(customerId), this.getPayments(customerId),
-      prisma.kit.findMany({ where: { customerId, OR: [availableOffer, { type: 'DIGITAL', status: { in: ['PENDING', 'SHIPPED'] }, shippingLabels: { none: { type: 'INBOUND', status: { in: ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'] } } } }] }, include: customerKitIncludes, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 20 }),
+      prisma.kit.findMany({ where: { customerId, OR: [availableOffer, { OR: [{ type: 'DIGITAL', status: 'PENDING' }, { type: 'PHYSICAL', status: { in: ['PENDING', 'SHIPPED'] }, shippingLabels: { some: { type: 'KIT_DELIVERY', status: 'DELIVERED' } } }], shippingLabels: { none: { type: 'INBOUND', status: { in: ['IN_TRANSIT', 'DELIVERED', 'EXCEPTION'] } } } }] }, include: customerKitIncludes, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 20 }),
       prisma.kit.count({ where: { customerId } }),
       prisma.kit.count({ where: { customerId, status: { in: [...activeKitStatuses] as KitStatus[] } } }),
       prisma.kit.count({ where: { customerId, ...availableOffer } }),
       prisma.payment.aggregate({ where: { customerId, status: { in: ['SENT', 'COMPLETED'] } }, _sum: { amount: true } }),
     ]);
-    return { kits, payments, actionKits, stats: { totalKits, activeKits, offersReady, totalEarned: Number(earned._sum.amount || 0) } };
+    return { kits, payments, actionKits: actionKits.map(withKitIssuance), stats: { totalKits, activeKits, offersReady, totalEarned: Number(earned._sum.amount || 0) } };
   }
 
   /**
@@ -116,12 +117,13 @@ export class CustomerService {
    */
   static async getKits(customerId: string, input?: HistoryQuery) {
     const query = historyQuery(input);
-    return prisma.kit.findMany({
+    const kits = await prisma.kit.findMany({
       where: { customerId, ...(input ? { kitNumber: { contains: query.q, mode: "insensitive" }, ...(query.status === "all" ? {} : { status: { in: [...(query.status === "active" ? activeKitStatuses : completedKitStatuses)] as KitStatus[] } }) } : {}) },
       ...(input ? { skip: (query.page - 1) * HISTORY_PAGE_SIZE, take: HISTORY_PAGE_SIZE + 1 } : { take: 5, skip: 0 }),
       include: customerKitIncludes,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
+    return kits.map(withKitIssuance);
   }
 
   /**
